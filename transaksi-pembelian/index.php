@@ -2,12 +2,14 @@
 include '../database/koneksi.php';
 
 $query = "SELECT 
+            id_barang,
             nama_barang,
             keterangan,
             harga_beli,
             tgl_terupdate,
             satuan,
-            stok_akhir
+            stok_akhir,
+            nota
           FROM barang";
 $resultDesk = mysqli_query($koneksi, $query);
 $resultMobile = mysqli_query($koneksi, $query);
@@ -38,22 +40,26 @@ $resultMobile = mysqli_query($koneksi, $query);
     <?php $activePage = 'transaksi-pembelian'; include '../components/navbar.php'; ?>
 
     <main class="container">
-        <h1>Transaksi Pembelian</h1>
-        <button class="add-btn" onclick="openModal()">
-            <i class="ph ph-plus-circle"></i>
-            Tambah Transaksi Pembelian
-        </button>
+        <div class="header-section">
+            <h1>Transaksi Pembelian</h1>
+            <button class="add-btn" onclick="openModal()">
+                <i class="ph ph-plus-circle"></i>
+                Tambah Transaksi Pembelian
+            </button>
+        </div>
     <div class="table-wrapper">
         <table class="modern-table">
             <thead>
                 <tr>
                     <th>Nama Barang</th>
-                    <th>Tgl Pembelian</th>
+                    <th>Tanggal Pembelian</th>
                     <th>Harga Beli</th>
                     <th>Volume</th>
                     <th>Satuan</th>
                     <th>Keterangan</th>
                     <th>Jumlah</th>
+                    <th>Bukti Nota</th>
+                    <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -78,6 +84,28 @@ $resultMobile = mysqli_query($koneksi, $query);
                         <span class="badge">
                             Rp <?= number_format($jumlah, 0, ',', '.') ?>
                         </span>
+                    </td>
+                    <td>
+                        <?php if (!empty($row['nota'])): ?>
+                            <a href="../uploads/nota/<?= htmlspecialchars($row['nota']) ?>" target="_blank" class="nota-link">
+                                <i class="ph ph-file-text"></i> Lihat Nota
+                            </a>
+                        <?php else: ?>
+                            -
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
+                                <i class="ph ph-pencil-simple"></i> Edit
+                            </button>
+                            <button class="delete-btn" data-id="<?= $row['id_barang'] ?>">
+                                <i class="ph ph-trash"></i> Hapus
+                            </button>
+                            <button class="add-nota-btn">
+                                <i class="ph ph-camera-plus"></i> Nota
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 <?php endwhile; ?>
@@ -131,6 +159,34 @@ $resultMobile = mysqli_query($koneksi, $query);
                     Rp <?= number_format($jumlah, 0, ',', '.') ?>
                 </strong>
             </div>
+
+            <div class="detail-item">
+                <span>Bukti Nota</span>
+                <strong>
+                    <?php if (!empty($row['nota'])): ?>
+                        <a href="../uploads/nota/<?= htmlspecialchars($row['nota']) ?>" target="_blank" class="nota-link-mobile">
+                            <i class="ph ph-file-text"></i> Lihat Nota
+                        </a>
+                    <?php else: ?>
+                        -
+                    <?php endif; ?>
+                </strong>
+            </div>
+
+            <div class="detail-item actions-mobile" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                <span>Aksi</span>
+                <div class="action-buttons">
+                    <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
+                        <i class="ph ph-pencil-simple"></i> Edit
+                    </button>
+                    <button class="delete-btn" data-id="<?= $row['id_barang'] ?>">
+                        <i class="ph ph-trash"></i> Hapus
+                    </button>
+                    <button class="add-nota-btn">
+                        <i class="ph ph-camera-plus"></i> Nota
+                    </button>
+                </div>
+            </div>
         </details>
         <?php endwhile; ?>
     </div>
@@ -139,10 +195,15 @@ $resultMobile = mysqli_query($koneksi, $query);
     <div class="modal">
         <div class="modal-content">
             <h2>Tambah Transaksi Pembelian</h2>
-            <form action="../database/add-transaksi.php" method="post">
+            <form action="../database/add-transaksi.php" method="post" enctype="multipart/form-data">
+                <div class="grid">
                 <div class="form-group">
                     <label for="nama_barang">Nama Barang</label>
                     <input type="text" id="nama_barang" name="nama_barang" required>
+                </div>
+                <div class="form-group">
+                    <label for="tanggal">Tanggal Pembelian</label>
+                    <input type="date" id="tanggal" name="tanggal" required>
                 </div>
                 <div class="form-group">
                     <label for="harga_beli">Harga Beli</label>
@@ -160,8 +221,19 @@ $resultMobile = mysqli_query($koneksi, $query);
                     <label for="keterangan">Keterangan</label>
                     <input type="text" id="keterangan" name="keterangan" required>
                 </div>
-                <button type="submit">Tambah</button>
-                <button type="button" class="cancel" onclick="closeModal()">Cancel</button>
+                <div class="form-group camera-only">
+                    <label for="nota_kamera">Foto Nota (Kamera)</label>
+                    <input type="file" id="nota_kamera" name="nota_kamera" accept="image/*" capture="environment">
+                </div>
+                <div class="form-group file-input-group">
+                    <label for="nota_file">Foto Nota (File)</label>
+                    <input type="file" id="nota_file" name="nota_file" accept="image/*">
+                </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="cancel" onclick="closeModal()">Cancel</button>
+                    <button type="submit">Tambah</button>
+                </div>
             </form>
         </div>
     </div>

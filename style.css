@@ -88,8 +88,8 @@ body {
 }
 
 .logo-wrapper {
-    width: 75px;
-    height: 75px;
+    width: 65px;
+    height: 65px;
     background: var(--white);
     border-radius: var(--radius-sm);
     display: flex;
@@ -98,6 +98,12 @@ body {
     box-shadow: var(--shadow-sm);
     border: 1px solid rgba(11, 79, 62, 0.1);
     transition: var(--transition);
+}
+
+.logo-wrapper img {
+    width: 65px;
+    height: 65px;
+    object-fit: cover;
 }
 
 .brand:hover .logo-wrapper {

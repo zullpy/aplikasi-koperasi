@@ -9,9 +9,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 </head>
 <header class="header">
         <div class="header-container">
-            <a href="#" class="brand">
+            <a href="../index.php" class="brand">
                 <div class="logo-wrapper">
-                    <img src="<?= $base_url ?>/assets/favicon.ico" alt="Logo" class="logo">
+                    <img src="<?= $base_url ?>/assets/logo.jpeg" alt="Logo" class="logo">
                 </div>
                 <div class="brand-name">
                     <span class="brand-title">Koperasi</span>
