@@ -2,14 +2,14 @@
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <head>
-    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="../components/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <header class="header">
         <div class="header-container">
-            <a href="../index.php" class="brand">
+            <a href="<?= $base_url ?>/index.php" class="brand">
                 <div class="logo-wrapper">
                     <img src="<?= $base_url ?>/assets/logo.jpeg" alt="Logo" class="logo">
                 </div>
@@ -21,9 +21,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
             <nav class="nav-menu" id="nav-menu">
                 <ul class="nav-list">
-                    <li class="nav-item <?= $activePage == 'dashboard' ? 'active' : '' ?>">
-                        <a href="../index.php" class="nav-link">Profil Koperasi</a>
-                    </li>
                     <li class="nav-item <?= $activePage == 'transaksi-pembelian' ? 'active' : '' ?>">
                         <a href="../transaksi-pembelian/index.php" class="nav-link">Transaksi Pembelian</a>
                     </li>
