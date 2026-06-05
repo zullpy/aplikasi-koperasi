@@ -95,14 +95,14 @@ if (isset($_POST['id_barang'])) {
     }
     
     if (mysqli_query($koneksi, $query)) {
-        echo "<script>alert('Data Berhasil Diubah!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+        echo "<script>alert('Data Berhasil Diubah!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
         exit;
     } else {
-        echo "<script>alert('Data Gagal Diubah! " . mysqli_real_escape_string($koneksi, mysqli_error($koneksi)) . "'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+        echo "<script>alert('Data Gagal Diubah! " . mysqli_real_escape_string($koneksi, mysqli_error($koneksi)) . "'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
         exit;
     }
 } else {
-    echo "<script>alert('ID Barang tidak valid!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+    echo "<script>alert('ID Barang tidak valid!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
     exit;
 }
 ?>

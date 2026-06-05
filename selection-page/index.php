@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title></title>
+    <title>Selection page|Bina Usaha Sauyunan</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,7 +22,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    
+    <div class="card ">
+        <div class="top">
+            <img src="../assets/logo.png" alt="logo">
+            <p>
+                Email :
+                <a href="mailto:kop.binausahasauyunan@gmail.com">kop.binausahasauyunan@gmail.com</a>
+            </p>
+        </div>    
+        <div class="bottom">
+            <div class="button-group">
+                <a href="../transaksi-pembelian-food/index.php" class="btn link-slide slide-left">Food Cost</a>
+                <a href="../transaksi-pembelian-add/index.php" class="btn link-slide slide-right">Add Cost</a>
+                <a href="../profile/index.php" class="btn link-slide slide-right">Profile Koperasi</a>
+            </div>
+            <p>@ KOPERASI BINA USAHA SAUYUNAN|KBUS 2026</p>
+        </div>
+    </div>
 </body>
 </html>
 

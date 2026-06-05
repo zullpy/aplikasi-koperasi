@@ -25,9 +25,19 @@
     <div class="login-card" action="">
     <!-- KIRI -->
     <div class="left">
-        <h1>Selamat datang di<br>Halaman Admin!</h1>
-        <p>Anda dapat mengelola data buku, pengguna, dan laporan inventaris di sini.</p>
+        <h1>Selamat datang di<br>
+        <span class="kang">KANG dan SISTA !</span></h1>
+        <h4>Kelola Administrasi Neraca Guna & <br>Sistem Informasi Stok dan Transaksi</h4>
+        <span class="panjang">Administrasi pencatatan dan akuntabilitas setiap transaksi. Mulai dari simpanan pembelian, penjualan, inventori stok barang, dan laporan keuangan </span>
         <img src="../assets/logo.png" alt="logo" class="illustration">
+        <p class="slogan"> 
+            <span class="text-yellow">
+                Bersama Membangun Usaha, 
+            </span>
+            <span class="text-blue">
+                Bersatu Meraih Sejahtera
+            </span>
+        </p>
     </div>
 
     <!-- KANAN -->

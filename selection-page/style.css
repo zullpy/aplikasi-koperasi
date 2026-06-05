@@ -1,0 +1,131 @@
+:root {
+    --primary: #2a4a72;
+    --accent: #36599A;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+    background:#FDBA74;
+    background-position: center;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+body.loading{
+    background: #000;
+}
+
+/* ===== CARD ===== */
+
+.card {
+    width: 100%;
+    max-width: 350px;
+    height: 500px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(28px);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.529),
+        inset 0 0 40px rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+}
+
+
+.bottom {
+    background: rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 250px;
+}
+
+.bottom p{
+    margin-top: 19px;
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.314);
+}
+
+.top img{
+    width: 190px;
+}
+
+.top{
+    flex: 1;   
+    background: rgba(0, 0, 0, 0.25);             
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.top p{
+    color: white;
+    font-size: 12px;
+}
+
+.top a{
+    color: white;
+}
+
+.button-group {
+    width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.btn {
+    padding: 14px;
+    border-radius: 999px;
+    background: #FFF7ED;
+    color: #EA580C;
+    text-decoration: none;
+    text-align: center;
+    font-weight: 600;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    transition: 0.25s;
+}
+
+.btn:hover {
+    transform: translateY(-5px);
+    background: #EA580C;
+    color: white;
+}
+
+
+/* ===== MOBILE ===== */
+
+@media (max-width: 768px) {
+
+    .card {
+        flex-direction: column;
+    }
+
+    .left,
+    .right {
+        padding: 30px;
+    }
+
+    .left h1 {
+        font-size: 24px;
+    }
+
+    .logo-container img {
+        width: 90px;
+    }
+
+}

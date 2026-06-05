@@ -70,18 +70,18 @@ if (isset($_POST['id_barang'])) {
         
         $query = "UPDATE barang SET nota = '$nota' WHERE id_barang = '$id_barang'";
         if (mysqli_query($koneksi, $query)) {
-            echo "<script>alert('Nota Berhasil Diunggah!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+            echo "<script>alert('Nota Berhasil Diunggah!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
             exit;
         } else {
-            echo "<script>alert('Gagal memperbarui database!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+            echo "<script>alert('Gagal memperbarui database!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
             exit;
         }
     } else {
-        echo "<script>alert('Silakan pilih atau ambil foto nota terlebih dahulu!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+        echo "<script>alert('Silakan pilih atau ambil foto nota terlebih dahulu!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
         exit;
     }
 } else {
-    echo "<script>alert('ID Barang tidak ditemukan!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+    echo "<script>alert('ID Barang tidak ditemukan!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
     exit;
 }
 ?>

@@ -84,10 +84,10 @@ VALUES (
 ";
 
 if (mysqli_query($koneksi, $query)) {
-    echo "<script>alert('Data Berhasil Ditambahkan!'); window.location.href = '../transaksi-pembelian/index.php';</script>";
+    echo "<script>alert('Data Berhasil Ditambahkan!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
     exit;
 } else {
     echo "<script>alert('Data Gagal Ditambahkan!');</script>";
-    header("Location: ../transaksi-pembelian/index.php");
+    header("Location: ../transaksi-pembelian-food/index.php");
     exit;
 }

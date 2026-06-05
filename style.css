@@ -24,6 +24,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
@@ -31,7 +32,6 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: "Open Sans", sans-serif;
     background: linear-gradient(to right,
             var(--clr-bg-page-left) 50%,
             var(--clr-bg-page-right) 50%);
@@ -52,20 +52,32 @@ body {
 
 .left {
     width: 50%;
-    padding: 70px 40px 40px;
+    padding: 40px 30px 30px;
     color: var(--clr-text-dark);
     display: flex;
     flex-direction: column;
 }
 
 .left img {
-    width: 315px;
-    margin-bottom: 10px;
+    width: 230px;
 }
 
 .left h1 {
-    font-size: 34px;
-    margin-bottom: 14px;
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.kang{
+    font-size: 28px;
+}
+
+.left h4{
+    font-size: 17px;
+    margin-bottom: 17px;
+}
+
+.panjang{
+    font-size: 15px;
 }
 
 .left p {
@@ -78,10 +90,26 @@ body {
     flex-grow: 1;
 }
 
+.slogan{
+    align-self: center;
+}
+
+.text-yellow {
+    color: #BE8E01;
+    font-weight: 900;
+    font-size: 14px;
+}
+
+.text-blue{
+    color: #36599A;
+    font-weight: 900;
+    font-size: 14px;
+}
+
 .illustration {
     width: 500px;
     align-self: center;
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
 .right {
@@ -115,6 +143,14 @@ input {
     border-bottom: 2px solid var(--clr-input-border);
     color: var(--clr-text-white);
     background: transparent;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-text-fill-color:var(--clr-text-white)!important;
+    transition: background 9999s ease-in-out 0s;
 }
 
 .right label {
