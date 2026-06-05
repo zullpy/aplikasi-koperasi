@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+session_start();
 include 'koneksi.php';
 
 if (isset($_POST['id_barang'])) {
@@ -95,14 +96,32 @@ if (isset($_POST['id_barang'])) {
     }
     
     if (mysqli_query($koneksi, $query)) {
-        echo "<script>alert('Data Berhasil Diubah!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
+        $_SESSION['alert'] = [
+            'icon' => 'success',
+            'title' => 'Berhasil',
+            'text' => 'Data berhasil diubah'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
         exit;
-    } else {
-        echo "<script>alert('Data Gagal Diubah! " . mysqli_real_escape_string($koneksi, mysqli_error($koneksi)) . "'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
+            } else {
+                $_SESSION['alert'] = [
+            'icon' => 'error',
+            'title' => 'Gagal',
+            'text' => 'Data gagal diubah'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
         exit;
-    }
-} else {
-    echo "<script>alert('ID Barang tidak valid!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
-    exit;
-}
+            }
+        } else {
+            $_SESSION['alert'] = [
+            'icon' => 'error',
+            'title' => 'Gagal',
+            'text' => 'ID Barang tidak valid'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
+        exit;
+        }
 ?>

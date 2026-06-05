@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+session_start();
 include 'koneksi.php';
 
 $nama_barang = $_POST['nama_barang'];
@@ -17,6 +18,8 @@ $nota = NULL;
 | Upload dari Kamera
 |--------------------------------------------------------------------------
 */
+$allowed = ['jpg', 'jpeg', 'png', 'pdf'];
+
 if (
     isset($_FILES['nota_kamera']) &&
     $_FILES['nota_kamera']['error'] == 0
@@ -29,6 +32,10 @@ if (
         )
     );
 
+    if (!in_array($ext, $allowed)) {
+        die('Format file tidak didukung!');
+    }
+
     $nota = uniqid() . '.' . $ext;
 
     move_uploaded_file(
@@ -37,11 +44,6 @@ if (
     );
 }
 
-/*
-|--------------------------------------------------------------------------
-| Upload dari File/Galeri
-|--------------------------------------------------------------------------
-*/
 elseif (
     isset($_FILES['nota_file']) &&
     $_FILES['nota_file']['error'] == 0
@@ -53,6 +55,10 @@ elseif (
             PATHINFO_EXTENSION
         )
     );
+
+    if (!in_array($ext, $allowed)) {
+        die('Format file tidak didukung!');
+    }
 
     $nota = uniqid() . '.' . $ext;
 
@@ -84,10 +90,21 @@ VALUES (
 ";
 
 if (mysqli_query($koneksi, $query)) {
-    echo "<script>alert('Data Berhasil Ditambahkan!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
+    $_SESSION['alert'] = [
+    'icon' => 'success',
+    'title' => 'Berhasil',
+    'text' => 'Data berhasil ditambahkan'
+    ];
+
+    header("Location: ../transaksi-pembelian-food/index.php");
     exit;
 } else {
-    echo "<script>alert('Data Gagal Ditambahkan!');</script>";
-    header("Location: ../transaksi-pembelian-food/index.php");
+    $_SESSION['alert'] = [
+            'icon' => 'error',
+            'title' => 'Gagal',
+            'text' => 'Data gagal ditambahkan'
+        ];
+        
+        header("Location: ../transaksi-pembelian-food/index.php");
     exit;
 }

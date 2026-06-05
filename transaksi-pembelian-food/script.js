@@ -220,12 +220,33 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const id = deleteBtn.getAttribute('data-id');
             if (id) {
-                if (confirm('Apakah Anda yakin ingin menghapus data transaksi pembelian ini?')) {
-                    window.location.href = `../database/delete-barang.php?id=${id}`;
-                }
-            } else {
-                alert('ID Transaksi tidak ditemukan!');
+                 Swal.fire({
+            title: 'Hapus Transaksi?',
+            text: 'Data yang dihapus tidak dapat dikembalikan',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Hapus',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#d33',
+            width: window.innerWidth < 768 ? '280px' : '400px'
+        }).then((result) => {
+
+            if (result.isConfirmed) {
+                window.location.href = `../database/delete-barang.php?id=${id}`;
             }
+
+        });
+
+    } else {
+
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: 'ID Transaksi tidak ditemukan!',
+            width: window.innerWidth < 768 ? '280px' : '400px'
+        });
+
+    }
         }
 
         if (addNotaBtn) {
@@ -234,8 +255,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (id) {
                 openNotaModal(id);
             } else {
-                alert('ID Transaksi tidak ditemukan!');
+                Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: 'ID Transaksi tidak ditemukan!',
+            width: window.innerWidth < 768 ? '280px' : '400px'
+        });
             }
         }
     });
+});
+
+const hargaInput = document.getElementById('harga_beli');
+
+hargaInput.addEventListener('input', function() {
+    let angka = this.value.replace(/\D/g, '');
+
+    if (angka === '') {
+        this.value = '';
+        return;
+    }
+
+    this.value = 'Rp. ' + Number(angka).toLocaleString('id-ID');
 });

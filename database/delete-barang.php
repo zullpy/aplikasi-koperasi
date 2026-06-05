@@ -1,4 +1,5 @@
 <?php 
+session_start();
 include 'koneksi.php';
 
 if(isset($_GET['id'])){
@@ -20,7 +21,13 @@ if(isset($_GET['id'])){
     $query = mysqli_query($koneksi, "DELETE FROM barang WHERE id_barang='$id'")
              or die(mysqli_error($koneksi));
              
-    echo "<script>alert('Data Berhasil Dihapus!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
-    exit;
+    $_SESSION['alert'] = [
+    'icon' => 'success',
+    'title' => 'Berhasil',
+    'text' => 'Data berhasil dihapus'
+];
+
+header("Location: ../transaksi-pembelian-food/");
+exit;
 }
 ?>

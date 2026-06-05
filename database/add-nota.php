@@ -1,6 +1,7 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+session_start();
 include 'koneksi.php';
 
 if (isset($_POST['id_barang'])) {
@@ -14,6 +15,7 @@ if (isset($_POST['id_barang'])) {
     | Upload dari Kamera
     |--------------------------------------------------------------------------
     */
+    $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
     if (
         isset($_FILES['nota_kamera']) &&
         $_FILES['nota_kamera']['error'] == 0
@@ -70,18 +72,42 @@ if (isset($_POST['id_barang'])) {
         
         $query = "UPDATE barang SET nota = '$nota' WHERE id_barang = '$id_barang'";
         if (mysqli_query($koneksi, $query)) {
-            echo "<script>alert('Nota Berhasil Diunggah!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
-            exit;
+            $_SESSION['alert'] = [
+            'icon' => 'success',
+            'title' => 'Berhasil',
+            'text' => 'Nota berhasil diunggah'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
+        exit;
         } else {
-            echo "<script>alert('Gagal memperbarui database!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
-            exit;
+            $_SESSION['alert'] = [
+            'icon' => 'error',
+            'title' => 'Gagal',
+            'text' => 'Ekstensi file harus JPG, JPEG, PNG, atau PDF'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
+        exit;
         }
     } else {
-        echo "<script>alert('Silakan pilih atau ambil foto nota terlebih dahulu!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
+        $_SESSION['alert'] = [
+            'icon' => 'error',
+            'title' => 'Gagal',
+            'text' => 'Silahkan pilih atau ambil foto nota terlebih dahulu!'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
         exit;
     }
 } else {
-    echo "<script>alert('ID Barang tidak ditemukan!'); window.location.href = '../transaksi-pembelian-food/index.php';</script>";
-    exit;
+    $_SESSION['alert'] = [
+            'icon' => 'error',
+            'title' => 'Gagal',
+            'text' => 'ID Barang tidak ditemukan'
+        ];
+
+        header("Location: ../transaksi-pembelian-food/index.php");
+        exit;
 }
 ?>

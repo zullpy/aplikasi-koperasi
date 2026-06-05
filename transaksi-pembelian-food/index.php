@@ -1,5 +1,22 @@
 <?php
+session_start();
+
 include '../database/koneksi.php';
+
+    if(isset($_SESSION['alert'])):
+    ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Swal.fire({
+                icon: '<?= $_SESSION['alert']['icon'] ?>',
+                title: '<?= $_SESSION['alert']['title'] ?>',
+                text: '<?= $_SESSION['alert']['text'] ?>'
+            });
+        });
+    </script>
+    <?php
+        unset($_SESSION['alert']);
+        endif;
 
 $query = "SELECT 
             id_barang,
@@ -13,6 +30,7 @@ $query = "SELECT
           FROM barang";
 $resultDesk = mysqli_query($koneksi, $query);
 $resultMobile = mysqli_query($koneksi, $query);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -23,6 +41,7 @@ $resultMobile = mysqli_query($koneksi, $query);
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <link
         rel="stylesheet"
         type="text/css"
@@ -37,6 +56,7 @@ $resultMobile = mysqli_query($koneksi, $query);
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    
     <?php $activePage = 'transaksi-pembelian'; include '../components/navbar.php'; ?>
 
     <main class="container">
@@ -231,11 +251,11 @@ $resultMobile = mysqli_query($koneksi, $query);
                 </div>
                 <div class="form-group camera-only">
                     <label for="nota_kamera">Foto Nota (Kamera)</label>
-                    <input type="file" id="nota_kamera" name="nota_kamera" accept="image/*" capture="environment">
+                    <input type="file" id="nota_kamera" name="nota_kamera" accept="image/*,.png,.jpg,.jpeg,.pdf" capture="environment">
                 </div>
                 <div class="form-group file-input-group">
                     <label for="nota_file" id="nota_file_label">Foto Nota (File)</label>
-                    <input type="file" id="nota_file" name="nota_file" accept="image/*">
+                    <input type="file" id="nota_file" name="nota_file" accept="image/*,.png,.jpg,.jpeg,.pdf">
                 </div>
                 </div>
                 <div class="modal-actions">
@@ -254,11 +274,11 @@ $resultMobile = mysqli_query($koneksi, $query);
                 <div class="grid" style="grid-template-columns: 1fr;">
                     <div class="form-group camera-only">
                         <label for="nota_kamera_only">Foto Nota (Kamera)</label>
-                        <input type="file" id="nota_kamera_only" name="nota_kamera" accept="image/*" capture="environment">
+                        <input type="file" id="nota_kamera_only" name="nota_kamera" accept="image/*,.png,.jpg,.jpeg,.pdf" capture="environment">
                     </div>
                     <div class="form-group file-input-group" style="width: 100%;">
                         <label for="nota_file_only">Foto Nota (File)</label>
-                        <input type="file" id="nota_file_only" name="nota_file" accept="image/*">
+                        <input type="file" id="nota_file_only" name="nota_file" accept="image/*,.png,.jpg,.jpeg,.pdf">
                     </div>
                 </div>
                 <div class="modal-actions">
