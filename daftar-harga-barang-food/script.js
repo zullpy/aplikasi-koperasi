@@ -17,7 +17,7 @@ function openAddModal() {
     }
 
     if (form) {
-        form.setAttribute('action', '../database/add-transaksi.php');
+        form.setAttribute('action', '../database/add-barang-baru.php');
     }
 
     const idInput = document.getElementById('id_barang');

@@ -3,20 +3,20 @@ session_start();
 
 include '../database/koneksi.php';
 
-    if(isset($_SESSION['alert'])):
-    ?>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            Swal.fire({
-                icon: '<?= $_SESSION['alert']['icon'] ?>',
-                title: '<?= $_SESSION['alert']['title'] ?>',
-                text: '<?= $_SESSION['alert']['text'] ?>'
-            });
-        });
-    </script>
-    <?php
-        unset($_SESSION['alert']);
-        endif;
+    if(isset($_SESSION['alert'])): ?>
+<script>
+Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon: '<?php echo $_SESSION['alert']['icon']; ?>',
+    title: '<?php echo $_SESSION['alert']['title']; ?>',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true
+});
+</script>
+<?php unset($_SESSION['alert']); ?>
+<?php endif;
 
 $query = "SELECT 
             id_barang,

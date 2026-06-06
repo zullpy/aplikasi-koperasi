@@ -58,7 +58,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 </li>
 
                 <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
-                <li class="nav-item <?= in_array($activePage, ['daftar-pelanggan', 'daftar-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
+                <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
                         Data Master
@@ -67,7 +67,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <ul class="dropdown-menu" role="menu">
                         <li class="dropdown-group-label">Data Master</li>
                         <li>
-                            <a href="../daftar-pelanggan-food/index.php"
+                            <a href="../data-pelanggan/index.php"
                                class="dropdown-item <?= $activePage == 'daftar-pelanggan' ? 'active' : '' ?>"
                                role="menuitem">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -75,7 +75,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                             </a>
                         </li>
                         <li>
-                            <a href="../daftar-supplier-food/index.php"
+                            <a href="../data-supplier/index.php"
                                class="dropdown-item <?= $activePage == 'daftar-supplier' ? 'active' : '' ?>"
                                role="menuitem">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -97,7 +97,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <li class="nav-item <?= $activePage == 'daftar-harga-barang' ? 'active' : '' ?>">
                     <a href="../daftar-harga-barang-food/index.php" class="nav-link">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                        Daftar Harga
+                        Daftar Harga Barang
                     </a>
                 </li>
 

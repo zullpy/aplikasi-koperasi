@@ -15,8 +15,6 @@ $query = "SELECT
           FROM barang";
 $resultDesk = mysqli_query($koneksi, $query);
 $resultMobile = mysqli_query($koneksi, $query);
-
-
 ?>
 
 <!DOCTYPE html>
@@ -48,9 +46,13 @@ $resultMobile = mysqli_query($koneksi, $query);
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         Swal.fire({
-            icon: '<?= $_SESSION['alert']['icon']; ?>',
-            title: '<?= $_SESSION['alert']['title']; ?>',
-            text: '<?= $_SESSION['alert']['text']; ?>'
+            toast: true,
+            position: 'top-end',
+            icon: '<?php echo $_SESSION['alert']['icon']; ?>',
+            title: '<?php echo $_SESSION['alert']['title']; ?>',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
         });
     });
     </script>
@@ -61,7 +63,7 @@ $resultMobile = mysqli_query($koneksi, $query);
 
     <main class="container">
     <div class="header-section">
-        <h1>Transaksi Pembelian</h1>
+        <h1>Daftar Harga Barang</h1>
         <div class="search-bar">
             <div class="input-group">
                 <input type="text" id="search-bar" placeholder="Cari nama barang...">
@@ -175,7 +177,7 @@ $resultMobile = mysqli_query($koneksi, $query);
     <div class="modal">
         <div class="modal-content">
             <h2 id="modal-title">Tambah Transaksi Pembelian</h2>
-            <form id="modal-form" action="../database/add-barang-baru.php" method="post" enctype="multipart/form-data">
+            <form id="modal-form" action="../database/add-barang-baru.php" method="post" >
                 <input type="hidden" id="id_barang" name="id_barang">
                 <div class="grid">
                 <div class="form-group">
