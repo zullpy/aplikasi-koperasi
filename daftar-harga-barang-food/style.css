@@ -141,6 +141,13 @@ td.nama-barang{
     max-width: 150px;
 }
 
+td.suplier{
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 70px;
+}
+
 .modern-table thead{
     background: var(--primary-gradient);
 }

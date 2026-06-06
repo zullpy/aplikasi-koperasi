@@ -116,13 +116,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (!hasCamera && !hasFile) {
                     e.preventDefault();
-                    alert('Silakan unggah nota belanja Anda! Pilih salah satu dari Kamera atau File.');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Oops...',
+                        text: 'Silakan unggah nota belanja Anda! Pilih salah satu dari Kamera atau File.',
+                        width: window.innerWidth < 768 ? '280px' : '400px'
+                    });
                 }
             } else {
                 const hasFile = fileInput && fileInput.files.length > 0;
                 if (!hasFile) {
                     e.preventDefault();
-                    alert('Silakan pilih berkas foto nota terlebih dahulu!');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Oops...',
+                        text: 'Silakan pilih berkas foto nota terlebih dahulu!',
+                        width: window.innerWidth < 768 ? '280px' : '400px'
+                    });
                 }
             }
         });
@@ -142,13 +152,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (!hasCamera && !hasFile) {
                     e.preventDefault();
-                    alert('Silakan unggah nota belanja Anda! Pilih salah satu dari Kamera atau File.');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Oops...',
+                        text: 'Silakan unggah nota belanja Anda! Pilih salah satu dari Kamera atau File.',
+                        width: window.innerWidth < 768 ? '280px' : '400px'
+                    });
                 }
             } else {
                 const hasFile = fileInput && fileInput.files.length > 0;
                 if (!hasFile) {
                     e.preventDefault();
-                    alert('Silakan pilih berkas foto nota terlebih dahulu!');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Oops...',
+                        text: 'Silakan pilih berkas foto nota terlebih dahulu!',
+                        width: window.innerWidth < 768 ? '280px' : '400px'
+                    });
                 }
             }
         });
@@ -204,15 +224,30 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Open modal
                             openModal();
                         } else {
-                            alert('Gagal mengambil data barang: ' + result.message);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Oops...',
+                                text: 'Gagal mengambil data barang: ' + result.message,
+                                width: window.innerWidth < 768 ? '280px' : '400px'
+                            });
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching data:', error);
-                        alert('Terjadi kesalahan koneksi saat mengambil data barang!');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Oops...',
+                            text: 'Terjadi kesalahan koneksi saat mengambil data barang!',
+                            width: window.innerWidth < 768 ? '280px' : '400px'
+                        });
                     });
             } else {
-                alert('ID Transaksi tidak ditemukan!');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'ID Transaksi tidak ditemukan!',
+                    width: window.innerWidth < 768 ? '280px' : '400px'
+                });
             }
         }
         
@@ -220,33 +255,28 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const id = deleteBtn.getAttribute('data-id');
             if (id) {
-                 Swal.fire({
-            title: 'Hapus Transaksi?',
-            text: 'Data yang dihapus tidak dapat dikembalikan',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Ya, Hapus',
-            cancelButtonText: 'Batal',
-            confirmButtonColor: '#d33',
-            width: window.innerWidth < 768 ? '280px' : '400px'
-        }).then((result) => {
-
-            if (result.isConfirmed) {
-                window.location.href = `../database/delete-barang.php?id=${id}`;
+                Swal.fire({
+                    title: 'Hapus Transaksi?',
+                    text: 'Data yang dihapus tidak dapat dikembalikan',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Hapus',
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#d33',
+                    width: window.innerWidth < 768 ? '280px' : '400px'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = `../database/delete-barang.php?id=${id}`;
+                    }
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'ID Transaksi tidak ditemukan!',
+                    width: window.innerWidth < 768 ? '280px' : '400px'
+                });
             }
-
-        });
-
-    } else {
-
-        Swal.fire({
-            icon: 'error',
-            title: 'Oops...',
-            text: 'ID Transaksi tidak ditemukan!',
-            width: window.innerWidth < 768 ? '280px' : '400px'
-        });
-
-    }
         }
 
         if (addNotaBtn) {
@@ -256,11 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 openNotaModal(id);
             } else {
                 Swal.fire({
-            icon: 'error',
-            title: 'Oops...',
-            text: 'ID Transaksi tidak ditemukan!',
-            width: window.innerWidth < 768 ? '280px' : '400px'
-        });
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: 'ID Transaksi tidak ditemukan!',
+                    width: window.innerWidth < 768 ? '280px' : '400px'
+                });
             }
         }
     });
@@ -276,5 +306,5 @@ hargaInput.addEventListener('input', function() {
         return;
     }
 
-    this.value = 'Rp. ' + Number(angka).toLocaleString('id-ID');
+    this.value = 'Rp ' + Number(angka).toLocaleString('id-ID');
 });
