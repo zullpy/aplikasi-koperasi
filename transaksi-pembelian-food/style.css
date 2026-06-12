@@ -250,7 +250,8 @@ td.nama-barang{
     text-align: left;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 12px 16px;
     border: 1.5px solid #bfdbf7;
@@ -258,9 +259,16 @@ td.nama-barang{
     font-family: var(--font-main);
     font-size: 0.95rem;
     transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
 }
 
-.form-group input:focus {
+.form-group option{
+    font-size: .95rem;
+    font-weight: 600;
+    font-family: var(--font-main);
+}
+
+.form-group input:focus, .form-group select:focus {
     outline: none;
     border-color: var(--primary-light);
     box-shadow: 0 0 0 3px rgba(74, 159, 212, 0.15);
@@ -283,9 +291,8 @@ td.nama-barang{
 }
 
 .file-input-group {
-    grid-column: span 2;
-    justify-self: center;
-    width: 50%;
+    grid-column: span 1;
+    width: 100%;
 }
 
 .modal-actions {
@@ -333,7 +340,41 @@ td.nama-barang{
     color: var(--text-main);
 }
 
-/* Action column styling */
+#info-barang {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.autocomplete-wrapper{
+    position: relative;
+}
+
+#suggestions{
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0,0,0,.15);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 99999;
+}
+
+.suggestion-item{
+    padding: 12px 15px;
+    cursor: pointer;
+}
+
+.suggestion-item:hover{
+    background: #f1f5f9;
+}
+
+/* Action column styling */ 
 .action-buttons {
     display: flex;
     flex-direction: column;
@@ -423,6 +464,8 @@ td.nama-barang{
 .swal2-container {
     z-index: 99999 !important;
 }
+
+
 /* mobile view */
 @media (max-width:768px){
     .table-wrapper{
@@ -477,6 +520,39 @@ td.nama-barang{
 
     .file-input-group {
         grid-column: span 1;
+        width: 100%;
+    }
+
+    .modal {
+        padding: 10px;
+    }
+
+    .modal-content {
+        padding: 20px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-content .grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .file-input-group {
+        grid-column: span 1;
+        width: 100%;
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+    }
+
+    .modal-actions {
+        flex-direction: row;
+    }
+
+    .modal-actions button {
         width: 100%;
     }
 

@@ -5,7 +5,7 @@ include 'koneksi.php';
 if(isset($_GET['id'])){
     $id = $_GET['id'];
     
-    $get_nota = mysqli_query($koneksi, "SELECT nota FROM barang WHERE id_barang='$id'");
+    $get_nota = mysqli_query($koneksi, "SELECT nota FROM transaksi_pembelian WHERE id_pembelian='$id'");
     if($get_nota && mysqli_num_rows($get_nota) > 0) {
         $row = mysqli_fetch_assoc($get_nota);
         $nota = $row['nota'];
@@ -18,7 +18,7 @@ if(isset($_GET['id'])){
         }
     }
     
-    $query = mysqli_query($koneksi, "DELETE FROM barang WHERE id_barang='$id'")
+    $query = mysqli_query($koneksi, "DELETE FROM transaksi_pembelian WHERE id_pembelian='$id'")
              or die(mysqli_error($koneksi));
              
     $_SESSION['alert'] = [

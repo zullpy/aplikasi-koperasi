@@ -2,8 +2,6 @@
 session_start();
 include '../database/koneksi.php';
 
-$tanggal = date('Ymd');
-
 $q = mysqli_query(
     $koneksi,
     "SELECT COUNT(*) AS total
@@ -14,13 +12,64 @@ $q = mysqli_query(
 $data = mysqli_fetch_assoc($q);
 $urutan = $data['total'] + 1;
 
-$no_faktur =
-    "PJ-" .
-    $tanggal .
-    "-" .
-    str_pad($urutan, 3, "0", STR_PAD_LEFT);
+$tanggal = date('dmY');
+$no_faktur = str_pad($urutan, 4, "0", STR_PAD_LEFT) ."-". $tanggal . "-FC";
+
+$query = mysqli_query($koneksi, "
+    SELECT
+        tp.*,
+        p.nama_pelanggan
+    FROM transaksi_penjualan tp
+    JOIN pelanggan p
+        ON tp.id_pelanggan = p.id_pelanggan
+    ORDER BY tp.tanggal DESC
+");
 
 
+// per hari
+$q_hari = mysqli_query(
+    $koneksi,
+    "SELECT COALESCE(SUM(total),0) AS total
+     FROM transaksi_penjualan
+     WHERE DATE(tanggal) = CURDATE()"
+);
+
+$hari_ini = mysqli_fetch_assoc($q_hari)['total'];
+
+
+// per minggu
+$q_minggu = mysqli_query(
+    $koneksi,
+    "SELECT COALESCE(SUM(total),0) AS total
+     FROM transaksi_penjualan
+     WHERE YEARWEEK(tanggal, 1) = YEARWEEK(CURDATE(), 1)"
+);
+
+$minggu_ini = mysqli_fetch_assoc($q_minggu)['total'];
+
+
+// per bulan
+$q_bulan = mysqli_query(
+    $koneksi,
+    "SELECT COALESCE(SUM(total),0) AS total
+     FROM transaksi_penjualan
+     WHERE MONTH(tanggal) = MONTH(CURDATE())
+     AND YEAR(tanggal) = YEAR(CURDATE())"
+);
+
+$bulan_ini = mysqli_fetch_assoc($q_bulan)['total'];
+
+
+// total faktur 
+$q_faktur = mysqli_query(
+    $koneksi,
+    "SELECT COUNT(*) AS total
+     FROM transaksi_penjualan
+     WHERE MONTH(tanggal) = MONTH(CURDATE())
+     AND YEAR(tanggal) = YEAR(CURDATE())"
+);
+
+$total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -76,22 +125,22 @@ $no_faktur =
         <div class="stat-card">
             <i class="ph-fill ph-currency-circle-dollar"></i>
             <span>Hari Ini</span>
-            <h2>Rp 1.200.000</h2>
+            <h2>Rp <?= number_format($hari_ini,0,',','.') ?></h2>
         </div>
         <div class="stat-card">
             <i class="ph-fill ph-chart-line-up"></i>
             <span>Minggu Ini</span>
-            <h2>Rp 8.400.000</h2>
+            <h2>Rp <?= number_format($minggu_ini,0,',','.') ?></h2>
         </div>
         <div class="stat-card">
             <i class="ph-fill ph-calendar"></i>
             <span>Bulan Ini</span>
-            <h2>Rp 35.000.000</h2>
+            <h2>Rp <?= number_format($bulan_ini,0,',','.') ?></h2>
         </div>
         <div class="stat-card">
             <i class="ph-fill ph-receipt"></i>
             <span>Total Faktur</span>
-            <h2>125</h2>
+            <h2><?= $total_faktur ?: 0 ?></h2>
         </div>
     </div>
 
@@ -102,44 +151,42 @@ $no_faktur =
             placeholder="Cari nama konsumen..."
         >
     </div>
+        <?php
+            $tanggal_lama = '';
 
-    <div class="tanggal-section">
-        <div class="tanggal-title">
-            05 Juni 2026
-        </div>
-        <div class="transaksi-card">
-            <div class="left">
-                <h3>PT Maju Jaya</h3>
-                <div class="info">
-                    <span>3 Barang</span>
-                    <span>14:20</span>
+        while ($row = mysqli_fetch_assoc($query)) {        
+            $tanggal_baru = date('Y-m-d', strtotime($row['tanggal']));        
+            if ($tanggal_baru != $tanggal_lama) {
+                if ($tanggal_lama != '') {
+                    echo '</div>';
+                }            
+                echo '
+                <div class="tanggal-section">
+                    <div class="tanggal-title">'
+                    . date('d F Y', strtotime($row['tanggal'])) .
+                    '</div>';
+                $tanggal_lama = $tanggal_baru;
+            }        
+            echo '
+            <div class="transaksi-card">
+                <div class="left">
+                    <h3>'.$row['nama_pelanggan'].'</h3>
+                    <div class="info">
+                        <span>'.$row['no_faktur'].'</span>
+                        <span>'.date('H:i', strtotime($row['tanggal'])).'</span>
+                    </div>
+                </div>        
+                <div class="right">
+                    <h3>Rp '.number_format($row['total'],0,',','.').'</h3>
+                    <button class="detail-btn">Detail</button>
                 </div>
-            </div>
-            <div class="right"
-                <h3>Rp 450.000</h3>
-                <button class="detail-btn">
-                    Detail
-                </button>
-            </div>
-        </div>
-
-        <div class="transaksi-card">
-            <div class="left">
-                <h3>Budi Santoso</h3>
-                <div class="info">
-                    <span>2 Barang</span>
-                    <span>16:40</span>
-                </div>
-            </div>
-            <div class="right">
-                <h3>Rp 125.000</h3>
-                <button class="detail-btn">
-                    Detail
-                </button>
-            </div>
-        </div>
+            </div>';
+        }
+        if ($tanggal_lama != '') {
+            echo '</div>';
+        }
+        ?>
     </div>
-</div>
 
 <div class="modal-overlay" id="modalTransaksi">
     <div class="modal-content">
@@ -156,31 +203,42 @@ $no_faktur =
                     <label>Nomor Faktur</label>
                     <input
                         type="text"
-                        name="kode_faktur"
+                        name="no_faktur"
                         value="<?= $no_faktur ?>"
                         readonly
                     >
                 </div>
                 <div class="form-group">
                     <label>Tanggal</label>
-                    <input type="date" name="tanggal" required>
+                    <input type="date" name="tanggal" value="<?= date('Y-m-d') ?>" required>
                 </div>
                 <div class="form-group full">
-                    <label>Nama Konsumen</label>
-                    <input
-                        type="text"
-                        name="nama_konsumen"
-                        placeholder="Masukkan nama konsumen"
-                        required
-                    >
+                    <label>Pelanggan</label>
+                    <select name="id_pelanggan" id="id_pelanggan" onchange="isiDataPelanggan()" required>
+                        <option value="">-- Pilih Pelanggan --</option>
+
+                        <?php
+                        $query = mysqli_query($koneksi, "SELECT * FROM pelanggan ");
+
+                        while ($pelanggan = mysqli_fetch_assoc($query)) :
+                        ?>
+                            <option 
+                                value="<?= $pelanggan['id_pelanggan'] ?>"
+                                data-telepon="<?= $pelanggan['no_telepon'] ?>"
+                                data-alamat="<?= $pelanggan['alamat'] ?>"
+                            >
+                                <?= $pelanggan['nama_pelanggan'] ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>No Kontak</label>
-                    <input type="number" name="no_kontak" required>
+                    <input type="text" id="no_kontak" readonly>
                 </div>
-                <div class="form-group full">
+                <div class="form-group">
                     <label>Alamat</label>
-                    <textarea name="alamat" rows="3"></textarea>
+                    <input type="text" id="alamat" readonly></input>
                 </div>
             </div>
 

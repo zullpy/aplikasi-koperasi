@@ -1,6 +1,7 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
-
 include '../database/koneksi.php';
 
     if(isset($_SESSION['alert'])): ?>
@@ -18,16 +19,26 @@ Swal.fire({
 <?php unset($_SESSION['alert']); ?>
 <?php endif;
 
-$query = "SELECT 
-            id_barang,
-            nama_barang,
-            keterangan,
-            harga_beli,
-            tgl_terupdate,
-            satuan,
-            stok_akhir,
-            nota
-          FROM barang";
+$query = "SELECT
+    p.id_pembelian,
+    p.nama_barang,
+    p.keterangan,
+    p.harga,
+    p.volume,
+    p.satuan,
+    p.tanggal_pembelian,
+    p.nota,
+
+    s.id_supplier,
+    s.nama_supplier,
+    s.no_telepon,
+    s.alamat
+
+FROM transaksi_pembelian p
+INNER JOIN suplier s
+ON p.id_supplier = s.id_supplier
+ORDER BY p.id_pembelian DESC";
+
 $resultDesk = mysqli_query($koneksi, $query);
 $resultMobile = mysqli_query($koneksi, $query);
 
@@ -79,12 +90,14 @@ $resultMobile = mysqli_query($koneksi, $query);
             <thead>
                 <tr>
                     <th>Nama Barang</th>
-                    <th>Tanggal Pembelian</th>
+                    <th>Keterangan</th>
                     <th>Harga Beli</th>
                     <th>Volume</th>
                     <th>Satuan</th>
-                    <th>Keterangan</th>
                     <th>Jumlah</th>
+                    <th>Tanggal Pembelian</th>
+                    <th>Nama Toko</th>
+                    <th>Alamat Toko</th>
                     <th>Bukti Nota</th>
                     <th>Aksi</th>
                 </tr>
@@ -93,25 +106,27 @@ $resultMobile = mysqli_query($koneksi, $query);
                 <?php while($row = mysqli_fetch_assoc($resultDesk)) : ?>
                 <tr>
                     <td class="nama-barang"><?= !empty($row['nama_barang']) ? htmlspecialchars($row['nama_barang']) : '-' ?></td>
-                    <td><?= htmlspecialchars($row['tgl_terupdate']) ?></td>
-                    <td>
-                        <span class="badge">
-                            <?= $row['harga_beli']; ?>
-                        </span>
-                    </td>
-                    <td><?= !empty($row['stok_akhir']) ? htmlspecialchars($row['stok_akhir']) : '-' ?></td>
-                    <td><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
                     <td><?= !empty($row['keterangan']) ? htmlspecialchars($row['keterangan']) : '-' ?></td>
                     <td>
+                        <span class="badge">
+                            <?= $row['harga']; ?>
+                        </span>
+                    </td>
+                    <td><?= !empty($row['volume']) ? htmlspecialchars($row['volume']) : '-' ?></td>
+                    <td><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
+                    <td>
                         <?php
-                        $harga = (float) preg_replace('/[^0-9]/', '', $row['harga_beli'] ?? "");
-                        $stok  = (float) preg_replace('/[^0-9]/', '', $row['stok_akhir'] ?? "");
-                        $jumlah = $harga * $stok;
+                        $harga = (float) preg_replace('/[^0-9]/', '', $row['harga'] ?? "");
+                        $volume = (float) preg_replace('/[^0-9]/', '', $row['volume'] ?? "");
+                        $jumlah = $harga * $volume;
                         ?>
                         <span class="badge">
                             Rp <?= number_format($jumlah, 0, ',', '.') ?>
                         </span>
                     </td>
+                    <td><?= htmlspecialchars($row['tanggal_pembelian']) ?></td>
+                    <td><?= $row['nama_supplier']; ?></td>
+                    <td><?= $row['alamat']; ?></td>
                     <td>
                         <?php if (!empty($row['nota'])): ?>
                             <a href="../uploads/nota/<?= htmlspecialchars($row['nota']) ?>" target="_blank" class="nota-link">
@@ -123,13 +138,13 @@ $resultMobile = mysqli_query($koneksi, $query);
                     </td>
                     <td>
                         <div class="action-buttons">
-                            <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
+                            <button class="edit-btn" data-id="<?= $row['id_pembelian'] ?>">
                                 <i class="ph ph-pencil-simple"></i> Edit
                             </button>
-                            <button class="delete-btn" data-id="<?= $row['id_barang'] ?>">
+                            <button class="delete-btn" data-id="<?= $row['id_pembelian'] ?>">
                                 <i class="ph ph-trash"></i> Hapus
                             </button>
-                            <button class="add-nota-btn" data-id="<?= $row['id_barang'] ?>">
+                            <button class="add-nota-btn" data-id="<?= $row['id_pembelian'] ?>">
                                 <i class="ph ph-camera-plus"></i> Nota
                             </button>
                         </div>
@@ -225,21 +240,30 @@ $resultMobile = mysqli_query($koneksi, $query);
             <form id="modal-form" action="../database/add-transaksi.php" method="post" enctype="multipart/form-data">
                 <input type="hidden" id="id_barang" name="id_barang">
                 <div class="grid">
-                <div class="form-group">
+                <div class="form-group autocomplete-wrapper">
                     <label for="nama_barang">Nama Barang</label>
-                    <input type="text" id="nama_barang" name="nama_barang" required>
+                    <input
+                        type="text"
+                        id="nama_barang"
+                        name="nama_barang"
+                        autocomplete="off"
+                        required
+                    >
+                    <div id="suggestions" ></div>
+
+                    <small id="info-barang"></small>
                 </div>
                 <div class="form-group">
-                    <label for="tanggal">Tanggal Pembelian</label>
-                    <input type="date" id="tanggal" name="tanggal" required>
+                    <label for="tanggal_pembelian">Tanggal Pembelian</label>
+                    <input type="date" id="tanggal_pembelian" name="tanggal_pembelian" required>
                 </div>
                 <div class="form-group">
-                    <label for="harga_beli">Harga Beli</label>
-                    <input type="text" id="harga_beli" name="harga_beli" required>
+                    <label for="harga">Harga Beli</label>
+                    <input type="text" id="harga" name="harga" required>
                 </div>
                 <div class="form-group">
-                    <label for="stok_akhir">Volume</label>
-                    <input type="text" id="stok_akhir" name="stok_akhir" required>
+                    <label for="volume">Volume</label>
+                    <input type="text" id="volume" name="volume" required>
                 </div>
                 <div class="form-group">
                     <label for="satuan">Satuan</label>
@@ -248,6 +272,20 @@ $resultMobile = mysqli_query($koneksi, $query);
                 <div class="form-group">
                     <label for="keterangan">Keterangan</label>
                     <input type="text" id="keterangan" name="keterangan" required>
+                </div>
+                <div class="form-group">
+                    <label for="id_supplier">Supplier</label>
+                    <select name="id_supplier" id="id_supplier" required>
+                        <option value="">Pilih Supplier</option>
+                        <?php
+                        $q = mysqli_query($koneksi, "SELECT * FROM suplier");
+                        while($s = mysqli_fetch_assoc($q)){
+                        ?>
+                            <option value="<?= $s['id_supplier']; ?>">
+                                <?= $s['nama_supplier']; ?>
+                            </option>
+                        <?php } ?>
+                    </select>
                 </div>
                 <div class="form-group camera-only">
                     <label for="nota_kamera">Foto Nota (Kamera)</label>

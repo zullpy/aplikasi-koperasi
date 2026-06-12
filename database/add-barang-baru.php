@@ -11,7 +11,6 @@ $harga_beli = (int) str_replace(
 
 $harga_jual = $harga_beli + ($harga_beli * 30 / 100);
 $suplier = $_POST['suplier'];
-$alamat = $_POST['alamat'];
 $satuan = $_POST['satuan'];
 
 
@@ -21,19 +20,17 @@ $query = "INSERT INTO barang (
             harga_beli,
             harga_jual,
             suplier,
-            alamat,
             satuan
-          ) VALUES (?, ?, ?, ?, ?, ?)";
+          ) VALUES (?, ?, ?, ?, ?)";
 
 $stmt = mysqli_prepare($koneksi, $query);
 mysqli_stmt_bind_param(
     $stmt,
-    "siisss",
+    "siiss",
     $nama_barang,
     $harga_beli,
     $harga_jual,
     $suplier,
-    $alamat,
     $satuan
 );
 

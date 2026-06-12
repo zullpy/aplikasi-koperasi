@@ -29,7 +29,7 @@
         <span class="kang">KANG dan SISTA !</span></h1>
         <p class="teknologi">Teknologi report account system</p>
         <h4>Kelola Administrasi Neraca Guna & <br>Sistem Informasi Stok dan Transaksi</h4>
-        <span class="panjang">Administrasi pencatatan dan akuntabilitas setiap transaksi. Mulai dari simpanan pembelian, penjualan, inventori stok barang, dan laporan keuangan </span>
+        <span class="panjang">Administrasi pencatatan dan akuntabilitas setiap transaksi. Mulai dari pembelian, penjualan, inventori stok barang, dan laporan keuangan </span>
         <img src="../assets/logo.png" alt="logo" class="illustration">
         <p class="slogan"> 
             <span class="text-yellow">

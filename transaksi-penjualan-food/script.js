@@ -228,3 +228,14 @@ function hitungGrandTotal() {
         total.toLocaleString("id-ID");
 }
 
+function isiDataPelanggan() {
+    const select = document.getElementById('id_pelanggan');
+    const option = select.options[select.selectedIndex];
+
+    document.getElementById('no_kontak').value =
+        option.getAttribute('data-telepon') || '';
+
+    document.getElementById('alamat').value =
+        option.getAttribute('data-alamat') || '';
+}
+

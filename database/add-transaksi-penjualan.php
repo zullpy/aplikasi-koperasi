@@ -1,71 +1,103 @@
-<?php 
+<?php
+
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 session_start();
 include 'koneksi.php';
 
-$no_faktur = $_POST['no_faktur'];
-$nama_konsumen = $_POST['nama_konsumen'];
-$no_kontak = $_POST['no_kontak'];
-$alamat = $_POST['alamat'];
-$tanggal = $_POST['tanggal'];
+date_default_timezone_set('Asia/Jakarta');
+
+$no_faktur   = $_POST['no_faktur'];
+$id_pelanggan = $_POST['id_pelanggan'];
+$tanggal = $_POST['tanggal'] . ' ' . date('H:i:s');
 
 $id_barang = $_POST['id_barang'];
-$qty = $_POST['qty'];
-$satuan = $_POST['satuan'];
-$harga = $_POST['harga'];
-$subtotal = $_POST['subtotal'];
+$qty       = $_POST['qty'];
+$satuan    = $_POST['satuan'];
+$harga     = $_POST['harga'];
+$subtotal  = $_POST['subtotal'];
 
 $total = 0;
 
-foreach($subtotal as $s){
+/*
+|--------------------------------------------------------------------------
+| Hitung Total Transaksi
+|--------------------------------------------------------------------------
+*/
 
-    $angka =
-        preg_replace('/[^0-9]/', '', $s);
+foreach ($subtotal as $s) {
 
-    $total += $angka;
+    $angka = preg_replace('/[^0-9]/', '', $s);
+
+    $total += (int)$angka;
 }
 
-mysqli_query(
+/*
+|--------------------------------------------------------------------------
+| Simpan Transaksi
+|--------------------------------------------------------------------------
+*/
+
+$query_transaksi = mysqli_query(
     $koneksi,
-    "INSERT INTO transaksi_penjualan(
+    "INSERT INTO transaksi_penjualan (
         no_faktur,
-        nama_konsumen,
-        no_kontak,
-        alamat,
         tanggal,
-        total
+        total,
+        id_pelanggan
     )
-    VALUES(
+    VALUES (
         '$no_faktur',
-        '$nama_konsumen',
-        '$no_kontak',
-        '$alamat',
         '$tanggal',
-        '$total'
+        '$total',
+        '$id_pelanggan'
     )"
 );
 
-$id_transaksi =
-    mysqli_insert_id($koneksi);
+if (!$query_transaksi) {
 
-for($i=0; $i<count($id_barang); $i++){
+    die(
+        "Gagal menyimpan transaksi: " .
+        mysqli_error($koneksi)
+    );
+}
 
-    $harga_bersih =
-        preg_replace(
-            '/[^0-9]/',
-            '',
-            $harga[$i]
-        );
+/*
+|--------------------------------------------------------------------------
+| Ambil ID Transaksi Terakhir
+|--------------------------------------------------------------------------
+*/
 
-    $subtotal_bersih =
-        preg_replace(
-            '/[^0-9]/',
-            '',
-            $subtotal[$i]
-        );
+$id_transaksi = mysqli_insert_id($koneksi);
 
-    mysqli_query(
+/*
+|--------------------------------------------------------------------------
+| Simpan Detail Barang
+|--------------------------------------------------------------------------
+*/
+
+for ($i = 0; $i < count($id_barang); $i++) {
+
+    if (empty($id_barang[$i])) {
+        continue;
+    }
+
+    $harga_bersih = preg_replace(
+        '/[^0-9]/',
+        '',
+        $harga[$i]
+    );
+
+    $subtotal_bersih = preg_replace(
+        '/[^0-9]/',
+        '',
+        $subtotal[$i]
+    );
+
+    $query_detail = mysqli_query(
         $koneksi,
-        "INSERT INTO detail_penjualan(
+        "INSERT INTO detail_penjualan (
             id_transaksi,
             id_barang,
             qty,
@@ -73,7 +105,7 @@ for($i=0; $i<count($id_barang); $i++){
             harga_jual,
             subtotal
         )
-        VALUES(
+        VALUES (
             '$id_transaksi',
             '{$id_barang[$i]}',
             '{$qty[$i]}',
@@ -82,14 +114,26 @@ for($i=0; $i<count($id_barang); $i++){
             '$subtotal_bersih'
         )"
     );
+
+    if (!$query_detail) {
+
+        die(
+            "Gagal menyimpan detail transaksi: " .
+            mysqli_error($koneksi)
+        );
+    }
 }
 
-
+/*
+|--------------------------------------------------------------------------
+| Notifikasi
+|--------------------------------------------------------------------------
+*/
 
 $_SESSION['alert'] = [
-    'icon' => 'success',
+    'icon'  => 'success',
     'title' => 'Berhasil',
-    'text' => 'Transaksi berhasil disimpan'
+    'text'  => 'Transaksi berhasil disimpan'
 ];
 
 header("Location: ../transaksi-penjualan-food/index.php");

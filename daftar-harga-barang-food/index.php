@@ -11,10 +11,16 @@ $query = "SELECT
             harga_beli,
             harga_jual,
             suplier,
-            satuan
+            satuan,
+            alamat
           FROM barang";
-$resultDesk = mysqli_query($koneksi, $query);
-$resultMobile = mysqli_query($koneksi, $query);
+$result = mysqli_query($koneksi, $query);
+$barang_list = [];
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $barang_list[] = $row;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -86,12 +92,11 @@ $resultMobile = mysqli_query($koneksi, $query);
                     <th>Harga Jual</th>
                     <th>Satuan</th>
                     <th>Nama Toko</th>
-                    <th>Alamat</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
-                <?php while($row = mysqli_fetch_assoc($resultDesk)) : ?>
+                <?php foreach ($barang_list as $row) : ?>
                 <tr>
                     <td class="nama-barang"><?= !empty($row['nama_barang']) ? htmlspecialchars($row['nama_barang']) : '-' ?></td>
                     <td><?= htmlspecialchars($row['kategori']) ?></td>
@@ -107,7 +112,6 @@ $resultMobile = mysqli_query($koneksi, $query);
                     </td>
                     <td class="suplier"><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
                     <td class="suplier"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></td>
-                    <td class="suplier"><?= !empty($row['alamat']) ? htmlspecialchars($row['alamat']) : '-' ?></td>
                     <td>
                         <div class="action-buttons">
                             <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
@@ -116,61 +120,54 @@ $resultMobile = mysqli_query($koneksi, $query);
                         </div>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>
 
     <div class="mobile-card">
-        <?php while($row = mysqli_fetch_assoc($resultMobile)) : ?>
+        <?php foreach ($barang_list as $row) : ?>
         <details class="barang-card">
             <summary>
-                <?= htmlspecialchars($row['nama_barang']) ?>
-                <i class="ph ph-caret-up"></i>
+                <div class="barang-card-header">
+                    <div class="barang-title-section">
+                        <span class="barang-name"><?= !empty($row['nama_barang']) ? htmlspecialchars($row['nama_barang']) : '-' ?></span>
+                        <div class="barang-badges">
+                            <?php if (!empty($row['kategori'])) : ?>
+                                <span class="badge-category"><?= htmlspecialchars($row['kategori']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($row['satuan'])) : ?>
+                                <span class="badge-unit"><?= htmlspecialchars($row['satuan']) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="barang-price-section">
+                        <span class="barang-price">Rp <?= number_format($row['harga_jual'], 0, ',', '.'); ?></span>
+                        <span class="barang-price-label">Harga Jual</span>
+                    </div>
+                </div>
+                <i class="ph ph-caret-down barang-card-toggle"></i>
             </summary>
 
-            <div class="detail-item">
-                    <span>Kategori</span>
-                <strong><?= htmlspecialchars($row['kategori']) ?></strong>
-            </div>
-            
-            <div class="detail-item">
-                <span>Harga Beli</span>
-                <strong class="badge">
-                    <?= htmlspecialchars($row['harga_beli']) ?>
-                </strong>
-            </div>
+            <div class="barang-card-details">
+                <div class="detail-row">
+                    <span class="detail-row-label">Harga Beli</span>
+                    <span class="detail-row-value price-buy">Rp <?= number_format($row['harga_beli'], 0, ',', '.'); ?></span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-row-label">Nama Toko</span>
+                    <span class="detail-row-value"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></span>
+                </div>
 
-            <div class="detail-item">
-                <span>Harga Jual</span>
-                <strong><?= !empty($row['stok_akhir']) ? htmlspecialchars($row['stok_akhir']) : '-' ?></strong>
-            </div>
-
-            <div class="detail-item">
-                <span>Satuan</span>
-                <strong><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></strong>
-            </div>
-
-            <div class="detail-item">
-                <span>Nama Toko</span>
-                <strong><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></strong>
-            </div>
-
-            <div class="detail-item">
-                <span>Alamat</span>
-                <strong><?= !empty($row['alamat']) ? htmlspecialchars($row['alamat']) : '-' ?></strong>
-            </div>
-
-            <div class="detail-item actions-mobile" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 10px;">
-                <span>Aksi</span>
-                <div class="action-buttons">
+                <div class="mobile-actions">
                     <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
                         <i class="ph ph-pencil-simple"></i> Edit
                     </button>
                 </div>
             </div>
         </details>
-        <?php endwhile; ?>
+        <?php endforeach; ?>
     </div>
     </main>
 
@@ -199,10 +196,6 @@ $resultMobile = mysqli_query($koneksi, $query);
                 <div class="form-group">
                     <label for="suplier">Nama Toko</label>
                     <input type="text" id="suplier" name="suplier" required>
-                </div>
-                <div class="form-group">
-                    <label for="alamat">Alamat Toko</label>
-                    <input type="text" id="alamat" name="alamat" required>
                 </div>
                 </div>
                 <div class="modal-actions">

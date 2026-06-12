@@ -32,7 +32,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <!-- GROUP: Transaksi (dropdown desktop, flat mobile) -->
                 <li class="nav-item <?= in_array($activePage, ['transaksi-pembelian', 'transaksi-penjualan']) ? 'active' : '' ?>" id="dd-transaksi">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-transaksi">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true"> <circle cx="9" cy="20" r="1"/> <circle cx="18" cy="20" r="1"/> <path d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h9.7a1 1 0 0 0 1-.8L21 7H7"/></svg>
                         Transaksi
                         <span class="dd-arrow">▾</span>
                     </a>

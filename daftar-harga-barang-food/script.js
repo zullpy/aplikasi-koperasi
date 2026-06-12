@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             document.getElementById('suplier').value = data.suplier || '';
                             document.getElementById('satuan').value = data.satuan || '';
-                            // document.getElementById('alamat').value = data.keterangan || '';
+                            document.getElementById('alamat').value = data.alamat || '';
 
                             // Update modal headers/actions
                             const modalTitle = document.getElementById('modal-title');

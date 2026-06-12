@@ -192,11 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             const data = result.data;
                             
                             // Fill fields in the modal
-                            document.getElementById('id_barang').value = data.id_barang;
+                            document.getElementById('id_barang').value = data.id_pembelian;
+                            document.getElementById('id_supplier').value = data.id_supplier || '';
                             document.getElementById('nama_barang').value = data.nama_barang || '';
-                            document.getElementById('tanggal').value = data.tgl_terupdate || '';
-                            document.getElementById('harga_beli').value = data.harga_beli || '';
-                            document.getElementById('stok_akhir').value = data.stok_akhir || '';
+                            document.getElementById('tanggal_pembelian').value = data.tanggal_pembelian || '';
+                            document.getElementById('harga').value = data.harga || '';
+                            document.getElementById('volume').value = data.volume || '';
                             document.getElementById('satuan').value = data.satuan || '';
                             document.getElementById('keterangan').value = data.keterangan || '';
                             
@@ -296,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-const hargaInput = document.getElementById('harga_beli');
+const hargaInput = document.getElementById('harga');
 
 hargaInput.addEventListener('input', function() {
     let angka = this.value.replace(/\D/g, '');
@@ -308,3 +309,70 @@ hargaInput.addEventListener('input', function() {
 
     this.value = 'Rp ' + Number(angka).toLocaleString('id-ID');
 });
+
+const input = document.getElementById('nama_barang');
+const suggestions = document.getElementById('suggestions');
+const infoBarang = document.getElementById('info-barang');
+
+input.addEventListener('input', () => {
+
+    const keyword = input.value.trim();
+
+    if(keyword === ''){
+        suggestions.innerHTML = '';
+        infoBarang.innerHTML = '';
+        return;
+    }
+
+    // autocomplete
+    if(keyword.length >= 2){
+        fetch(`../database/cari-barang-pembelian.php?q=${encodeURIComponent(keyword)}`)
+        .then(res => res.text())
+        .then(data => {
+            suggestions.innerHTML = data;
+        });
+    }
+
+    // cek barang
+    fetch(`../database/cek-barang.php?nama_barang=${encodeURIComponent(keyword)}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === 'ada'){
+            infoBarang.innerHTML =
+                `✅ Barang sudah terdaftar |
+                Harga: Rp ${Number(data.harga).toLocaleString('id-ID')} |
+                Stok: ${data.stok}`;
+            infoBarang.style.color = 'green';
+        }else{
+            infoBarang.innerHTML =
+                '⚠️ Barang belum terdaftar';
+            infoBarang.style.color = 'orange';
+        }
+    });
+});
+
+
+function pilihBarang(nama){
+
+    input.value = nama;
+
+    suggestions.innerHTML = '';
+
+    fetch(`../database/cek-barang.php?nama_barang=${encodeURIComponent(nama)}`)
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.status === 'ada'){
+
+            infoBarang.innerHTML =
+            `✅ Barang sudah terdaftar |
+             Harga: Rp ${Number(data.harga).toLocaleString('id-ID')} |
+             Stok: ${data.stok}`;
+
+            infoBarang.style.color = 'green';
+        }
+
+    });
+
+}

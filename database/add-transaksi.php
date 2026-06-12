@@ -5,11 +5,12 @@ session_start();
 include 'koneksi.php';
 
 $nama_barang = $_POST['nama_barang'];
-$tanggal = $_POST['tanggal'];
-$harga_beli = $_POST['harga_beli'];
-$stok_akhir = $_POST['stok_akhir'];
-$satuan = $_POST['satuan'];
 $keterangan = $_POST['keterangan'];
+$harga = preg_replace('/[^0-9]/', '', $_POST['harga']);
+$volume = $_POST['volume'];
+$satuan = $_POST['satuan'];
+$tanggal_pembelian = $_POST['tanggal_pembelian'];
+$id_supplier = $_POST['id_supplier'];
 
 $nota = NULL;
 
@@ -69,20 +70,22 @@ elseif (
 }
 
 $query = "
-INSERT INTO barang (
+INSERT INTO transaksi_pembelian (
+    id_supplier,
     nama_barang,
-    tgl_terupdate,
-    harga_beli,
-    stok_akhir,
+    tanggal_pembelian,
+    harga,
+    volume,
     satuan,
     keterangan,
     nota
 )
 VALUES (
+    '$id_supplier',
     '$nama_barang',
-    '$tanggal',
-    '$harga_beli',
-    '$stok_akhir',
+    '$tanggal_pembelian',
+    '$harga',
+    '$volume',
     '$satuan',
     '$keterangan',
     '$nota'

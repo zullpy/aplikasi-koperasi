@@ -4,19 +4,19 @@ header('Content-Type: application/json');
 
 if (isset($_GET['id'])) {
     $id = mysqli_real_escape_string($koneksi, $_GET['id']);
-    $query = mysqli_query($koneksi, "SELECT * FROM barang WHERE id_barang = '$id'");
+    $query = mysqli_query($koneksi, "SELECT * FROM transaksi_pembelian WHERE id_pembelian = '$id'");
     
     if ($query && mysqli_num_rows($query) > 0) {
         $data = mysqli_fetch_assoc($query);
         
         // Format the date to YYYY-MM-DD for date input in frontend
-        if (!empty($data['tgl_terupdate'])) {
-            $date_str = $data['tgl_terupdate'];
+        if (!empty($data['tanggal_pembelian'])) {
+            $date_str = $data['tanggal_pembelian'];
             
             // Try standard PHP parsing (supports English months e.g. "28 May 2026")
             $timestamp = strtotime($date_str);
             if ($timestamp !== false) {
-                $data['tgl_terupdate'] = date('Y-m-d', $timestamp);
+                $data['tanggal_pembelian'] = date('Y-m-d', $timestamp);
             } else {
                 // Handle Indonesian month names translation
                 $indonesian_months = [
@@ -28,7 +28,7 @@ if (isset($_GET['id'])) {
                 $date_translated = strtr($date_str, $indonesian_months);
                 $timestamp = strtotime($date_translated);
                 if ($timestamp !== false) {
-                    $data['tgl_terupdate'] = date('Y-m-d', $timestamp);
+                    $data['tanggal_pembelian'] = date('Y-m-d', $timestamp);
                 }
             }
         }
