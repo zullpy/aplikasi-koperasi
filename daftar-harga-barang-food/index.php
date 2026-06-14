@@ -5,22 +5,42 @@ session_start();
 include '../database/koneksi.php';
 
 $query = "SELECT 
-            id_barang,
-            nama_barang,
-            kategori,
-            harga_beli,
-            harga_jual,
-            suplier,
-            satuan,
-            alamat
-          FROM barang";
+            b.id_barang,
+            b.nama_barang,
+            b.kategori,
+            b.harga_beli,
+            b.harga_jual,
+            b.suplier,
+            b.satuan,
+            b.alamat,
+            b.tanggal_terupdate_baru,
+
+            COALESCE(MIN(r.harga_beli), b.harga_beli) AS harga_min,
+            COALESCE(MAX(r.harga_beli), b.harga_beli) AS harga_max
+
+          FROM barang b
+          LEFT JOIN riwayat_harga r
+            ON b.id_barang = r.id_barang
+
+          GROUP BY
+            b.id_barang,
+            b.nama_barang,
+            b.kategori,
+            b.harga_beli,
+            b.harga_jual,
+            b.suplier,
+            b.satuan,
+            b.alamat,
+            b.tanggal_terupdate_baru";
 $result = mysqli_query($koneksi, $query);
+
 $barang_list = [];
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
         $barang_list[] = $row;
     }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -89,9 +109,10 @@ if ($result) {
                     <th>Nama Barang</th>
                     <th>Kategori</th>
                     <th>Harga Beli</th>
+                    <th>Tanggal Terupdate</th>
                     <th>Harga Jual</th>
                     <th>Satuan</th>
-                    <th>Nama Toko</th>
+                    <th>Nama Toko</th> 
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -101,8 +122,18 @@ if ($result) {
                     <td class="nama-barang"><?= !empty($row['nama_barang']) ? htmlspecialchars($row['nama_barang']) : '-' ?></td>
                     <td><?= htmlspecialchars($row['kategori']) ?></td>
                     <td>
-                        <span class="badge">
-                            Rp <?= number_format($row['harga_beli'], 0, ',', '.'); ?>
+                        <div class="badge" >Rp <?= number_format($row['harga_beli'],0,',','.'); ?></div>
+                        <?php if($row['harga_min'] != $row['harga_max']) : ?>
+                            <small style="display:block;color:#666;">
+                                Rp <?= number_format($row['harga_min'],0,',','.') ?>
+                                -
+                                Rp <?= number_format($row['harga_max'],0,',','.') ?>
+                            </small>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <span>
+                            <?= date('d-m-Y', strtotime($row['tanggal_terupdate_baru'])); ?>
                         </span>
                     </td>
                     <td>
@@ -153,6 +184,11 @@ if ($result) {
                 <div class="detail-row">
                     <span class="detail-row-label">Harga Beli</span>
                     <span class="detail-row-value price-buy">Rp <?= number_format($row['harga_beli'], 0, ',', '.'); ?></span>
+                </div>  
+
+                <div class="detail-row">
+                    <span class="detail-row-label">Harga Max & Min</span>
+                    <span class="detail-row-value">Rp <?= number_format($row['harga_max'], 0, ',', '.'); ?> - Rp <?= number_format($row['harga_min'], 0, ',', '.'); ?></span>
                 </div>
                 
                 <div class="detail-row">

@@ -12,6 +12,15 @@ $satuan = $_POST['satuan'];
 $tanggal_pembelian = $_POST['tanggal_pembelian'];
 $id_supplier = $_POST['id_supplier'];
 
+$cari = mysqli_query($koneksi,"
+SELECT id_barang
+FROM barang
+WHERE nama_barang = '$nama_barang'
+");
+
+$barang = mysqli_fetch_assoc($cari);
+$id_barang = $barang['id_barang'];
+
 $nota = NULL;
 
 /*
@@ -89,25 +98,71 @@ VALUES (
     '$satuan',
     '$keterangan',
     '$nota'
-)
-";
+)";
+
+$result = mysqli_query($koneksi,"
+SELECT stok_akhir
+FROM barang
+WHERE id_barang = '$id_barang'
+");
+
+$data = mysqli_fetch_assoc($result);
+
+$stok_lama = $data['stok_akhir'];
+$stok_baru = $stok_lama + $volume;
 
 if (mysqli_query($koneksi, $query)) {
+    $id_pembelian = mysqli_insert_id($koneksi);
+
+        // simpan riwayat harga
+    mysqli_query($koneksi,"
+    INSERT INTO riwayat_harga (
+        id_barang,
+        harga_beli,
+        tanggal
+    )
+    VALUES (
+        '$id_barang',
+        '$harga',
+        '$tanggal_pembelian'
+    )
+    ");
+
+    mysqli_query($koneksi,"
+    UPDATE barang
+    SET stok_akhir = '$stok_baru',  harga_beli = '$harga', tanggal_terupdate_baru = '$tanggal_pembelian'
+    WHERE id_barang = '$id_barang'
+    ");
+
+    mysqli_query($koneksi,"
+    INSERT INTO mutasi_stok(
+        id_pembelian,
+        id_barang,
+        tanggal,
+        jenis,
+        qty,
+        stok_sebelum,
+        stok_sesudah,
+        keterangan
+    )
+    VALUES(
+        '$id_pembelian',
+        '$id_barang',
+        NOW(),
+        'masuk',
+        '$volume',
+        '$stok_lama',
+        '$stok_baru',
+        'Pembelian'
+    )
+    ");
+
     $_SESSION['alert'] = [
-    'icon' => 'success',
-    'title' => 'Berhasil',
-    'text' => 'Data berhasil ditambahkan'
+        'icon' => 'success',
+        'title' => 'Berhasil',
+        'text' => 'Data berhasil ditambahkan'
     ];
 
     header("Location: ../transaksi-pembelian-food/index.php");
-    exit;
-} else {
-    $_SESSION['alert'] = [
-            'icon' => 'error',
-            'title' => 'Gagal',
-            'text' => 'Data gagal ditambahkan'
-        ];
-        
-        header("Location: ../transaksi-pembelian-food/index.php");
     exit;
 }

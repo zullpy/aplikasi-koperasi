@@ -7,9 +7,23 @@ include 'koneksi.php';
 $nama_barang = $_GET['nama_barang'];
 
 $query = mysqli_query($koneksi,"
-    SELECT nama_barang, harga_beli, stok_akhir
-    FROM barang
-    WHERE nama_barang = '$nama_barang'
+    SELECT
+        b.nama_barang,
+        b.harga_beli,
+        b.stok_akhir,
+        b.satuan,
+        COALESCE(MIN(r.harga_beli), b.harga_beli) AS harga_min,
+        COALESCE(MAX(r.harga_beli), b.harga_beli) AS harga_max
+    FROM barang b
+    LEFT JOIN riwayat_harga r
+        ON b.id_barang = r.id_barang
+    WHERE b.nama_barang = '$nama_barang'
+    GROUP BY
+        b.id_barang,
+        b.nama_barang,
+        b.harga_beli,   
+        b.stok_akhir,
+        b.satuan
 ");
 
 if(mysqli_num_rows($query) > 0){
@@ -19,7 +33,10 @@ if(mysqli_num_rows($query) > 0){
     echo json_encode([
         'status' => 'ada',
         'harga' => $data['harga_beli'],
-        'stok' => $data['stok_akhir']
+        'harga_min' => $data['harga_min'],
+        'harga_max' => $data['harga_max'],
+        'stok' => $data['stok_akhir'],
+        'satuan' => $data['satuan']
     ]);
 
 }else{
@@ -29,3 +46,4 @@ if(mysqli_num_rows($query) > 0){
     ]);
 
 }
+

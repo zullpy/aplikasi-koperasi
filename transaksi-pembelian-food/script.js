@@ -1,4 +1,4 @@
-function openModal(){
+function openModal() {
     const modal = document.querySelector('.modal');
     modal.style.display = 'block';
 }
@@ -9,36 +9,36 @@ function openAddModal() {
     if (form) {
         form.reset();
     }
-    
+
     // Reset modal header, action, and submit button
     const modalTitle = document.getElementById('modal-title');
     if (modalTitle) {
         modalTitle.textContent = 'Tambah Transaksi Pembelian';
     }
-    
+
     if (form) {
         form.setAttribute('action', '../database/add-transaksi.php');
     }
-    
+
     const idInput = document.getElementById('id_barang');
     if (idInput) {
         idInput.value = '';
     }
-    
+
     const submitBtn = document.getElementById('submit-btn');
     if (submitBtn) {
         submitBtn.textContent = 'Tambah';
     }
-    
+
     const label = document.getElementById('nota_file_label');
     if (label) {
         label.innerHTML = 'Foto Nota (File)';
     }
-    
+
     openModal();
 }
 
-function closeModal(){
+function closeModal() {
     const modal = document.querySelector('.modal');
     modal.style.display = 'none';
 }
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             const keyword = searchInput.value.toLowerCase().trim();
-            
+
             // Filter desktop table rows
             const tableRows = document.querySelectorAll('.modern-table tbody tr');
             tableRows.forEach(row => {
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     row.style.display = text.includes(keyword) ? '' : 'none';
                 }
             });
-            
+
             // Filter mobile cards
             const mobileCards = document.querySelectorAll('.mobile-card .barang-card');
             mobileCards.forEach(card => {
@@ -99,21 +99,21 @@ document.addEventListener('DOMContentLoaded', () => {
         form.addEventListener('submit', (e) => {
             const idInput = document.getElementById('id_barang');
             const isEditMode = idInput && idInput.value !== '';
-            
+
             // If in edit mode, nota file is not mandatory
             if (isEditMode) {
                 return;
             }
-            
+
             const cameraInput = document.getElementById('nota_kamera');
             const fileInput = document.getElementById('nota_file');
-            
+
             const isMobile = window.innerWidth <= 768;
-            
+
             if (isMobile) {
                 const hasCamera = cameraInput && cameraInput.files.length > 0;
                 const hasFile = fileInput && fileInput.files.length > 0;
-                
+
                 if (!hasCamera && !hasFile) {
                     e.preventDefault();
                     Swal.fire({
@@ -143,13 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
         notaForm.addEventListener('submit', (e) => {
             const cameraInput = document.getElementById('nota_kamera_only');
             const fileInput = document.getElementById('nota_file_only');
-            
+
             const isMobile = window.innerWidth <= 768;
-            
+
             if (isMobile) {
                 const hasCamera = cameraInput && cameraInput.files.length > 0;
                 const hasFile = fileInput && fileInput.files.length > 0;
-                
+
                 if (!hasCamera && !hasFile) {
                     e.preventDefault();
                     Swal.fire({
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const editBtn = e.target.closest('.edit-btn');
         const deleteBtn = e.target.closest('.delete-btn');
         const addNotaBtn = e.target.closest('.add-nota-btn');
-        
+
         if (editBtn) {
             e.preventDefault();
             const id = editBtn.getAttribute('data-id');
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .then(result => {
                         if (result.status === 'success') {
                             const data = result.data;
-                            
+
                             // Fill fields in the modal
                             document.getElementById('id_barang').value = data.id_pembelian;
                             document.getElementById('id_supplier').value = data.id_supplier || '';
@@ -200,28 +200,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             document.getElementById('volume').value = data.volume || '';
                             document.getElementById('satuan').value = data.satuan || '';
                             document.getElementById('keterangan').value = data.keterangan || '';
-                            
+
                             // Update modal headers/actions
                             const modalTitle = document.getElementById('modal-title');
                             if (modalTitle) {
                                 modalTitle.textContent = 'Edit Transaksi Pembelian';
                             }
-                            
+
                             const modalForm = document.getElementById('modal-form');
                             if (modalForm) {
                                 modalForm.setAttribute('action', '../database/update-barang.php');
                             }
-                            
+
                             const submitBtn = document.getElementById('submit-btn');
                             if (submitBtn) {
                                 submitBtn.textContent = 'Simpan Perubahan';
                             }
-                            
+
                             const label = document.getElementById('nota_file_label');
                             if (label) {
                                 label.innerHTML = 'Foto Nota (File) <small style="color: var(--text-muted); font-weight: normal;">(Biarkan kosong jika tidak ingin mengubah nota)</small>';
                             }
-                            
+
                             // Open modal
                             openModal();
                         } else {
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
-        
+
         if (deleteBtn) {
             e.preventDefault();
             const id = deleteBtn.getAttribute('data-id');
@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const hargaInput = document.getElementById('harga');
 
-hargaInput.addEventListener('input', function() {
+hargaInput.addEventListener('input', function () {
     let angka = this.value.replace(/\D/g, '');
 
     if (angka === '') {
@@ -318,61 +318,97 @@ input.addEventListener('input', () => {
 
     const keyword = input.value.trim();
 
-    if(keyword === ''){
+    if (keyword === '') {
         suggestions.innerHTML = '';
         infoBarang.innerHTML = '';
         return;
     }
 
     // autocomplete
-    if(keyword.length >= 2){
+    if (keyword.length >= 2) {
         fetch(`../database/cari-barang-pembelian.php?q=${encodeURIComponent(keyword)}`)
-        .then(res => res.text())
-        .then(data => {
-            suggestions.innerHTML = data;
-        });
+            .then(res => res.text())
+            .then(data => {
+                suggestions.innerHTML = data;
+            });
     }
 
     // cek barang
     fetch(`../database/cek-barang.php?nama_barang=${encodeURIComponent(keyword)}`)
-    .then(res => res.json())
-    .then(data => {
+        .then(res => res.json())
+        .then(data => {
 
-        if(data.status === 'ada'){
-            infoBarang.innerHTML =
-                `✅ Barang sudah terdaftar |
-                Harga: Rp ${Number(data.harga).toLocaleString('id-ID')} |
-                Stok: ${data.stok}`;
-            infoBarang.style.color = 'green';
-        }else{
-            infoBarang.innerHTML =
-                '⚠️ Barang belum terdaftar';
-            infoBarang.style.color = 'orange';
-        }
-    });
+            if (data.status === 'ada') {
+                showToast(
+                    `✅ Barang sudah terdaftar<br>
+                Harga: Rp ${Number(data.harga).toLocaleString('id-ID')}<br>
+                Min: Rp ${Number(data.harga_min).toLocaleString('id-ID')}<br>
+                Max: Rp ${Number(data.harga_max).toLocaleString('id-ID')}<br>
+                Stok: ${data.stok} ${data.satuan}`,
+                    'success'
+                );
+            } else {
+                showToast(
+                    '⚠️ Barang belum terdaftar <br> silahkan daftarkan terlebih dahulu! <br> di <a href="../daftar-harga-barang-food/index.php" style="color: var(--text-primary)">Daftar Harga</a>',
+                    'warning'
+                );
+            }
+        });
 });
 
 
-function pilihBarang(nama){
+
+function pilihBarang(nama) {
 
     input.value = nama;
 
     suggestions.innerHTML = '';
 
     fetch(`../database/cek-barang.php?nama_barang=${encodeURIComponent(nama)}`)
-    .then(res => res.json())
-    .then(data => {
+        .then(res => res.json())
+        .then(data => {
 
-        if(data.status === 'ada'){
+            if (data.status === 'ada') {
+                let infoHarga = `
+                    Harga: Rp ${Number(data.harga).toLocaleString('id-ID')}<br>
+                `;
+                if (data.harga_min != data.harga_max) {
+                    infoHarga += `
+                    Min: Rp ${Number(data.harga_min).toLocaleString('id-ID')}<br>
+                    Max: Rp ${Number(data.harga_max).toLocaleString('id-ID')}<br>
+                `;
+                }
 
-            infoBarang.innerHTML =
-            `✅ Barang sudah terdaftar |
-             Harga: Rp ${Number(data.harga).toLocaleString('id-ID')} |
-             Stok: ${data.stok}`;
+                showToast(
+                    `✅ Barang sudah terdaftar<br>
+                    ${infoHarga}
+                    Stok: ${data.stok} ${data.satuan}`,
+                    'success'
+                );
 
-            infoBarang.style.color = 'green';
-        }
+                infoBarang.style.color = 'green';
+            }
 
-    });
+        });
 
+}
+
+const toast = document.getElementById('toast');
+
+function showToast(message, type = 'success') {
+
+    toast.className = '';
+    toast.classList.add(type);
+
+    toast.innerHTML = message;
+
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+
+    clearTimeout(window.toastTimer);
+
+    window.toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, Infinity);
 }

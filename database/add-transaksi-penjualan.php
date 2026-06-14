@@ -18,6 +18,35 @@ $satuan    = $_POST['satuan'];
 $harga     = $_POST['harga'];
 $subtotal  = $_POST['subtotal'];
 
+for ($i = 0; $i < count($id_barang); $i++) {
+
+    if (empty($id_barang[$i])) {
+        continue;
+    }
+
+    $cek_barang = mysqli_query($koneksi,"
+    SELECT nama_barang, stok_akhir
+    FROM barang
+    WHERE id_barang = '{$id_barang[$i]}'
+    ");
+
+    $barang = mysqli_fetch_assoc($cek_barang);
+
+    if ($barang['stok_akhir'] < $qty[$i]) {
+
+        $_SESSION['alert'] = [
+            'icon'  => 'error',
+            'title' => 'Gagal',
+            'text'  => 'Stok ' . $barang['nama_barang'] .
+                       ' tidak mencukupi. Sisa stok: ' .
+                       $barang['stok_akhir']
+        ];
+
+        header("Location: ../transaksi-penjualan-food/index.php");
+        exit;
+    }
+}
+
 $total = 0;
 
 /*
@@ -122,7 +151,43 @@ for ($i = 0; $i < count($id_barang); $i++) {
             mysqli_error($koneksi)
         );
     }
+
+$stok_lama = $data_barang['stok_akhir'];
+
+if ($stok_lama < $qty[$i]) {
+    continue; // atau exit
 }
+
+$stok_baru = $stok_lama - $qty[$i];
+
+mysqli_query($koneksi,"
+UPDATE barang
+SET stok_akhir = '$stok_baru'
+WHERE id_barang = '{$id_barang[$i]}'
+");
+
+mysqli_query($koneksi,"
+INSERT INTO mutasi_stok(
+    id_barang,
+    tanggal,
+    jenis,
+    qty,
+    stok_sebelum,
+    stok_sesudah,
+    keterangan
+)
+VALUES(
+    '{$id_barang[$i]}',
+    NOW(),
+    'keluar',
+    '{$qty[$i]}',
+    '$stok_lama',
+    '$stok_baru',
+    'Penjualan $no_faktur'
+)
+");
+}
+
 
 /*
 |--------------------------------------------------------------------------

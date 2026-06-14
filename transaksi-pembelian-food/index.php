@@ -19,6 +19,8 @@ Swal.fire({
 <?php unset($_SESSION['alert']); ?>
 <?php endif;
 
+
+
 $query = "SELECT
     p.id_pembelian,
     p.nama_barang,
@@ -92,12 +94,10 @@ $resultMobile = mysqli_query($koneksi, $query);
                     <th>Nama Barang</th>
                     <th>Keterangan</th>
                     <th>Harga Beli</th>
-                    <th>Volume</th>
-                    <th>Satuan</th>
+                    <th>Qty</th>
                     <th>Jumlah</th>
                     <th>Tanggal Pembelian</th>
-                    <th>Nama Toko</th>
-                    <th>Alamat Toko</th>
+                    <th>Suplier</th>
                     <th>Bukti Nota</th>
                     <th>Aksi</th>
                 </tr>
@@ -109,11 +109,13 @@ $resultMobile = mysqli_query($koneksi, $query);
                     <td><?= !empty($row['keterangan']) ? htmlspecialchars($row['keterangan']) : '-' ?></td>
                     <td>
                         <span class="badge">
-                            <?= $row['harga']; ?>
+                            Rp <?= number_format($row['harga'], 0, ',', '.'); ?>
                         </span>
                     </td>
-                    <td><?= !empty($row['volume']) ? htmlspecialchars($row['volume']) : '-' ?></td>
-                    <td><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
+                    <td>
+                        <?= htmlspecialchars($row['volume']) ?>
+                        <?= htmlspecialchars($row['satuan']) ?> 
+                    </td>
                     <td>
                         <?php
                         $harga = (float) preg_replace('/[^0-9]/', '', $row['harga'] ?? "");
@@ -125,8 +127,19 @@ $resultMobile = mysqli_query($koneksi, $query);
                         </span>
                     </td>
                     <td><?= htmlspecialchars($row['tanggal_pembelian']) ?></td>
-                    <td><?= $row['nama_supplier']; ?></td>
-                    <td><?= $row['alamat']; ?></td>
+                    <td>
+                        <div class="supplier-info">
+                            <strong><?= htmlspecialchars($row['nama_supplier']) ?></strong><br>
+                            <small>
+                                <i class="ph ph-phone"></i>
+                                <?= htmlspecialchars($row['no_telepon']) ?>
+                            </small><br>
+                            <small>
+                                <i class="ph ph-map-pin"></i>
+                                <?= htmlspecialchars($row['alamat']) ?>
+                            </small>
+                        </div>
+                    </td>
                     <td>
                         <?php if (!empty($row['nota'])): ?>
                             <a href="../uploads/nota/<?= htmlspecialchars($row['nota']) ?>" target="_blank" class="nota-link">
@@ -153,6 +166,7 @@ $resultMobile = mysqli_query($koneksi, $query);
                 <?php endwhile; ?>
             </tbody>
         </table>
+        
     </div>
 
     <div class="mobile-card">
@@ -302,6 +316,7 @@ $resultMobile = mysqli_query($koneksi, $query);
                 </div>
             </form>
         </div>
+        <div id="toast"></div>
     </div>
 
     <div class="modal" id="notaModal">

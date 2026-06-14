@@ -20,7 +20,10 @@ if(isset($_GET['id'])){
     
     $query = mysqli_query($koneksi, "DELETE FROM transaksi_pembelian WHERE id_pembelian='$id'")
              or die(mysqli_error($koneksi));
-             
+    
+    $query = mysqli_query($koneksi, "DELETE FROM mutasi_stok WHERE id_pembelian='$id'")
+             or die(mysqli_error($koneksi));
+
     $_SESSION['alert'] = [
     'icon' => 'success',
     'title' => 'Berhasil',
