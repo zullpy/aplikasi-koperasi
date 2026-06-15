@@ -139,7 +139,7 @@ document.addEventListener("input", async function (e) {
             <div
                 class="suggestion-item"
                 data-id="${barang.id_barang}"
-                data-harga="${barang.harga_beli}"
+                data-harga="${barang.harga_jual}"
                 data-nama="${barang.nama_barang}"
                 data-satuan="${barang.satuan}"
             >
@@ -239,3 +239,31 @@ function isiDataPelanggan() {
         option.getAttribute('data-alamat') || '';
 }
 
+async function openDetail(id) {
+    const res = await fetch('../database/get-detail-transaksi.php?id_transaksi=' + id);
+    const data = await res.json();
+
+    // isi konten modal detail
+    document.getElementById('detailNama').textContent = data.nama_pelanggan;
+    document.getElementById('detailFaktur').textContent = data.no_faktur;
+    document.getElementById('detailTanggal').textContent = data.tanggal;
+    document.getElementById('detailTotal').textContent = 'Rp ' + Number(data.total).toLocaleString('id-ID');
+
+    let itemsHtml = '';
+    data.items.forEach(item => {
+        itemsHtml += `
+            <tr>
+                <td>${item.nama_barang}</td>
+                <td>${item.qty} ${item.satuan}</td>
+                <td>Rp ${Number(item.harga_jual).toLocaleString('id-ID')}</td>
+                <td>Rp ${Number(item.subtotal).toLocaleString('id-ID')}</td>
+            </tr>`;
+    });
+    document.getElementById('detailItems').innerHTML = itemsHtml;
+
+    document.getElementById('modalDetail').classList.add('active');
+}
+
+function closeDetail() {
+    document.getElementById('modalDetail').classList.remove('active');
+}

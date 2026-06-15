@@ -10,7 +10,7 @@ if (isset($_POST['id_barang'])) {
     $nama_barang = mysqli_real_escape_string($koneksi, $_POST['nama_barang']);
     $kategori    = mysqli_real_escape_string($koneksi, $_POST['kategori']);
     $suplier     = mysqli_real_escape_string($koneksi, $_POST['suplier']);
-    $alamat      = mysqli_real_escape_string($koneksi, $_POST['alamat']);
+    $tanggal     = mysqli_real_escape_string($koneksi, $_POST['tanggal_terupdate_baru']);
     $satuan      = mysqli_real_escape_string($koneksi, $_POST['satuan']);
 
     // Hilangkan Rp, titik, spasi, dll
@@ -23,8 +23,8 @@ if (isset($_POST['id_barang'])) {
                 harga_beli = '$harga_beli',
                 harga_jual = '$harga_jual',
                 suplier = '$suplier',
-                alamat = '$alamat',
-                satuan = '$satuan'
+                satuan = '$satuan',
+                tanggal_terupdate_baru = '$tanggal'
               WHERE id_barang = '$id_barang'";
 
     if (mysqli_query($koneksi, $query)) {

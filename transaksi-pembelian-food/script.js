@@ -35,6 +35,13 @@ function openAddModal() {
         label.innerHTML = 'Foto Nota (File)';
     }
 
+    const cameraGroup = document.querySelector('.camera-only');
+    const fileGroup = document.querySelector('.file-input-group');
+
+    cameraGroup.style.display = 'block';
+    fileGroup.style.display = 'block';
+
+
     openModal();
 }
 
@@ -97,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('modal-form');
     if (form) {
         form.addEventListener('submit', (e) => {
-            const idInput = document.getElementById('id_barang');
+            const idInput = document.getElementById('id_pembelian');
             const isEditMode = idInput && idInput.value !== '';
 
             // If in edit mode, nota file is not mandatory
@@ -110,31 +117,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const isMobile = window.innerWidth <= 768;
 
-            if (isMobile) {
-                const hasCamera = cameraInput && cameraInput.files.length > 0;
-                const hasFile = fileInput && fileInput.files.length > 0;
+            // if (isMobile) {
+            //     const hasCamera = cameraInput && cameraInput.files.length > 0;
+            //     const hasFile = fileInput && fileInput.files.length > 0;
 
-                if (!hasCamera && !hasFile) {
-                    e.preventDefault();
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Oops...',
-                        text: 'Silakan unggah nota belanja Anda! Pilih salah satu dari Kamera atau File.',
-                        width: window.innerWidth < 768 ? '280px' : '400px'
-                    });
-                }
-            } else {
-                const hasFile = fileInput && fileInput.files.length > 0;
-                if (!hasFile) {
-                    e.preventDefault();
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Oops...',
-                        text: 'Silakan pilih berkas foto nota terlebih dahulu!',
-                        width: window.innerWidth < 768 ? '280px' : '400px'
-                    });
-                }
-            }
+            //     if (!hasCamera && !hasFile) {
+            //         e.preventDefault();
+            //         Swal.fire({
+            //             icon: 'warning',
+            //             title: 'Oops...',
+            //             text: 'Silakan unggah nota belanja Anda! Pilih salah satu dari Kamera atau File.',
+            //             width: window.innerWidth < 768 ? '280px' : '400px'
+            //         });
+            //     }
+            // } else {
+            //     const hasFile = fileInput && fileInput.files.length > 0;
+            //     if (!hasFile) {
+            //         e.preventDefault();
+            //         Swal.fire({
+            //             icon: 'warning',
+            //             title: 'Oops...',
+            //             text: 'Silakan pilih berkas foto nota terlebih dahulu!',
+            //             width: window.innerWidth < 768 ? '280px' : '400px'
+            //         });
+            //     }
+            // }
         });
     }
 
@@ -183,6 +190,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editBtn) {
             e.preventDefault();
             const id = editBtn.getAttribute('data-id');
+            const cameraGroup = document.querySelector('.camera-only');
+            const fileGroup = document.querySelector('.file-input-group');
+
+            cameraGroup.style.display = 'none';
+            fileGroup.style.display = 'none';
             if (id) {
                 // Fetch barang details via AJAX
                 fetch(`../database/get-barang.php?id=${id}`)
@@ -192,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             const data = result.data;
 
                             // Fill fields in the modal
-                            document.getElementById('id_barang').value = data.id_pembelian;
+                            document.getElementById('id_pembelian').value = data.id_pembelian;
                             document.getElementById('id_supplier').value = data.id_supplier || '';
                             document.getElementById('nama_barang').value = data.nama_barang || '';
                             document.getElementById('tanggal_pembelian').value = data.tanggal_pembelian || '';
@@ -221,6 +233,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (label) {
                                 label.innerHTML = 'Foto Nota (File) <small style="color: var(--text-muted); font-weight: normal;">(Biarkan kosong jika tidak ingin mengubah nota)</small>';
                             }
+
+                            const cameraGroup = document.querySelector('.camera-only');
+                            const fileGroup = document.querySelector('.file-input-group');
+
+                            cameraGroup.style.display = 'none';
+                            fileGroup.style.display = 'none';
 
                             // Open modal
                             openModal();

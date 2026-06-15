@@ -178,7 +178,7 @@ $total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
                 </div>        
                 <div class="right">
                     <h3>Rp '.number_format($row['total'],0,',','.').'</h3>
-                    <button class="detail-btn">Detail</button>
+                    <button class="detail-btn" onclick="openDetail('.$row['id_transaksi'].')">Detail</button>
                 </div>
             </div>';
         }
@@ -334,6 +334,33 @@ $total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalDetail">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Detail Transaksi</h2>
+            <button class="close-btn" onclick="closeDetail()">
+                <i class="ph ph-x"></i>
+            </button>
+        </div>
+        <div style="padding: 25px;">
+            <p><strong>Pelanggan:</strong> <span id="detailNama"></span></p>
+            <p><strong>No Faktur:</strong> <span id="detailFaktur"></span></p>
+            <p><strong>Tanggal:</strong> <span id="detailTanggal"></span></p>
+            <table width="100%" cellpadding="8" style="margin-top:15px; border-collapse:collapse;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th>Barang</th><th>Qty</th><th>Harga</th><th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="detailItems"></tbody>
+            </table>
+            <p style="margin-top:15px; text-align:right; font-size:1.1rem;">
+                <strong>Total: <span id="detailTotal"></span></strong>
+            </p>
+        </div>
     </div>
 </div>
 </body>

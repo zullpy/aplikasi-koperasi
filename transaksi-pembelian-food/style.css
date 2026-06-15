@@ -517,6 +517,16 @@ td.nama-barang{
     background: #dc2626;
 }
 
+.nota-empty{
+    background: #10b981;
+    color: white;
+}
+
+.nota-exists{
+    background: #f59e0b;
+    color: white;
+}
+
 /* mobile view */
 @media (max-width:768px){
     .table-wrapper{

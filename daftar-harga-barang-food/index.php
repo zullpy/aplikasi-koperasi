@@ -192,6 +192,11 @@ if ($result) {
                 </div>
                 
                 <div class="detail-row">
+                    <span class="detail-row-label">Tanggal Terupdate</span>
+                    <span class="detail-row-value"><?= date('d-m-Y', strtotime($row['tanggal_terupdate_baru'])); ?></span>
+                </div>
+                
+                <div class="detail-row">
                     <span class="detail-row-label">Nama Toko</span>
                     <span class="detail-row-value"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></span>
                 </div>
@@ -224,6 +229,10 @@ if ($result) {
                 <div class="form-group">
                     <label for="harga_beli">Harga Beli</label>
                     <input type="text" id="harga_beli" name="harga_beli" required>
+                </div>
+                <div class="form-group">
+                    <label for="tanggal_terupdate_baru">Tanggal Terupdate</label>
+                    <input type="date" id="tanggal_terupdate_baru" name="tanggal_terupdate_baru" required>
                 </div>
                 <div class="form-group">
                     <label for="satuan">Satuan</label>

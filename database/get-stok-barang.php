@@ -20,7 +20,7 @@ $sql = "
         b.nama_barang,
         b.satuan,
         b.keterangan,
-        COALESCE(SUM(CASE WHEN m.jenis = 'masuk'  THEN m.qty ELSE 0 END), 0) AS total_masuk,
+        COALESCE(SUM(CASE WHEN m.jenis IN ('masuk', 'perubahan') THEN m.qty ELSE 0 END), 0) AS total_masuk,
         COALESCE(SUM(CASE WHEN m.jenis = 'keluar' THEN m.qty ELSE 0 END), 0) AS total_keluar,
         b.stok_akhir AS stok_saldo
     FROM barang b
@@ -48,8 +48,8 @@ while ($row = mysqli_fetch_assoc($result)) {
      *   stok_awal = saldo - masuk + keluar
      * Jika tidak ada mutasi sama sekali, stok_awal = saldo.
      */
-    $stok_awal   = $saldo - $masuk + $keluar;
-    $stok_akhir  = $stok_awal + $masuk - $keluar;   // == saldo
+    $stok_awal = $saldo - $masuk + $keluar ;
+    $stok_akhir = $stok_awal + $masuk - $keluar; // == saldo
 
     $rows[] = [
         'id_barang'  => (int)    $row['id_barang'],

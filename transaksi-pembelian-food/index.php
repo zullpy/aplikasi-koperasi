@@ -4,23 +4,6 @@ ini_set('display_errors', 1);
 session_start();
 include '../database/koneksi.php';
 
-    if(isset($_SESSION['alert'])): ?>
-<script>
-Swal.fire({
-    toast: true,
-    position: 'top-end',
-    icon: '<?php echo $_SESSION['alert']['icon']; ?>',
-    title: '<?php echo $_SESSION['alert']['title']; ?>',
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true
-});
-</script>
-<?php unset($_SESSION['alert']); ?>
-<?php endif;
-
-
-
 $query = "SELECT
     p.id_pembelian,
     p.nama_barang,
@@ -69,8 +52,22 @@ $resultMobile = mysqli_query($koneksi, $query);
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    
-    <?php $activePage = 'transaksi-pembelian'; include '../components/navbar.php'; ?>
+        <?php if(isset($_SESSION['alert'])): ?>
+        <script>
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: '<?php echo $_SESSION['alert']['icon']; ?>',
+            title: '<?php echo $_SESSION['alert']['title']; ?>',
+            text: '<?php echo $_SESSION['alert']['text'] ?>',
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true
+        });
+        </script>
+        <?php unset($_SESSION['alert']); ?>
+        <?php endif;?>
+        <?php $activePage = 'transaksi-pembelian'; include '../components/navbar.php'; ?>
 
     <main class="container">
     <div class="header-section">
@@ -157,9 +154,17 @@ $resultMobile = mysqli_query($koneksi, $query);
                             <button class="delete-btn" data-id="<?= $row['id_pembelian'] ?>">
                                 <i class="ph ph-trash"></i> Hapus
                             </button>
+                            <?php if (!empty($row['nota'])) : ?>
                             <button class="add-nota-btn" data-id="<?= $row['id_pembelian'] ?>">
-                                <i class="ph ph-camera-plus"></i> Nota
+                                <i class="ph ph-arrows-clockwise"></i>
+                                Ganti Nota
                             </button>
+                            <?php else : ?>
+                            <button class="add-nota-btn" data-id="<?= $row['id_pembelian'] ?>">
+                                <i class="ph ph-camera-plus"></i>
+                                Tambah Nota
+                            </button>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>
@@ -252,7 +257,7 @@ $resultMobile = mysqli_query($koneksi, $query);
         <div class="modal-content">
             <h2 id="modal-title">Tambah Transaksi Pembelian</h2>
             <form id="modal-form" action="../database/add-transaksi.php" method="post" enctype="multipart/form-data">
-                <input type="hidden" id="id_barang" name="id_barang">
+                <input type="hidden" id="id_pembelian" name="id_pembelian">
                 <div class="grid">
                 <div class="form-group autocomplete-wrapper">
                     <label for="nama_barang">Nama Barang</label>
@@ -304,10 +309,16 @@ $resultMobile = mysqli_query($koneksi, $query);
                 <div class="form-group camera-only">
                     <label for="nota_kamera">Foto Nota (Kamera)</label>
                     <input type="file" id="nota_kamera" name="nota_kamera" accept="image/*,.png,.jpg,.jpeg,.pdf" capture="environment">
+                    <small style="color:#777;">
+                        Jika nota belum ada, boleh dikosongkan.
+                    </small>
                 </div>
                 <div class="form-group file-input-group">
                     <label for="nota_file" id="nota_file_label">Foto Nota (File)</label>
                     <input type="file" id="nota_file" name="nota_file" accept="image/*,.png,.jpg,.jpeg,.pdf">
+                    <small style="color:#777;">
+                        Jika nota belum ada, boleh dikosongkan.
+                    </small>
                 </div>
                 </div>
                 <div class="modal-actions">

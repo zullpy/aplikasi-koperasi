@@ -19,6 +19,18 @@ WHERE nama_barang = '$nama_barang'
 ");
 
 $barang = mysqli_fetch_assoc($cari);
+
+if (!$barang) {
+    $_SESSION['alert'] = [
+        'icon' => 'warning',
+        'title' => 'Barang Belum Terdaftar',
+        'text' => 'Silakan daftarkan barang terlebih dahulu pada menu Data Barang.'
+    ];
+
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+
 $id_barang = $barang['id_barang'];
 
 $nota = NULL;

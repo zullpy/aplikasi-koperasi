@@ -5,161 +5,127 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
-if (isset($_POST['id_barang'])) {
+if (isset($_POST['id_pembelian'])) {
 
-    $id_barang = mysqli_real_escape_string($koneksi, $_POST['id_barang']);
+    $id_pembelian = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['id_pembelian']
+);
 
-    $id_supplier = mysqli_real_escape_string(
-        $koneksi,
-        $_POST['id_supplier']
-    );
+$id_supplier = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['id_supplier']
+);
 
-    $nama_barang = mysqli_real_escape_string(
-        $koneksi,
-        $_POST['nama_barang']
-    );
+$nama_barang = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['nama_barang']
+);
 
-    $tanggal = mysqli_real_escape_string(
-        $koneksi,
-        $_POST['tanggal']
-    );
+$tanggal = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['tanggal_pembelian']
+);
 
-    $harga_beli = preg_replace(
-        '/[^0-9]/',
-        '',
-        $_POST['harga_beli']
-    );
+$harga = preg_replace(
+    '/[^0-9]/',
+    '',
+    $_POST['harga']
+);
 
-    $volume = mysqli_real_escape_string(
-        $koneksi,
-        $_POST['stok_akhir']
-    );
+$volume = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['volume']
+);
 
-    $satuan = mysqli_real_escape_string(
-        $koneksi,
-        $_POST['satuan']
-    );
+$satuan = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['satuan']
+);
 
-    $keterangan = mysqli_real_escape_string(
-        $koneksi,
-        $_POST['keterangan']
-    );
+$keterangan = mysqli_real_escape_string(
+    $koneksi,
+    $_POST['keterangan']
+);
 
-    $nota = null;
-    $has_new_nota = false;
+// ambil data transaksi lama
+$qLama = mysqli_query($koneksi,"
+SELECT volume
+FROM transaksi_pembelian
+WHERE id_pembelian = '$id_pembelian'
+");
 
-    /*
-    |--------------------------------------------------------------------------
-    | Upload dari Kamera
-    |--------------------------------------------------------------------------
-    */
-    if (
-        isset($_FILES['nota_kamera']) &&
-        $_FILES['nota_kamera']['error'] == 0
-    ) {
+$dataLama = mysqli_fetch_assoc($qLama);
+$volume_lama = $dataLama['volume'];
 
-        $ext = strtolower(
-            pathinfo(
-                $_FILES['nota_kamera']['name'],
-                PATHINFO_EXTENSION
-            )
-        );
+// hitung selisih volume
+$selisih = $volume - $volume_lama;
 
-        $nota = uniqid() . '.' . $ext;
+// cari barang
+$qBarang = mysqli_query($koneksi,"
+SELECT id_barang, stok_akhir
+FROM barang
+WHERE nama_barang = '$nama_barang'
+");
 
-        move_uploaded_file(
-            $_FILES['nota_kamera']['tmp_name'],
-            '../uploads/nota/' . $nota
-        );
+$barang = mysqli_fetch_assoc($qBarang);
 
-        $has_new_nota = true;
-    }
+$id_barang = $barang['id_barang'];
+$stok_lama = $barang['stok_akhir'];
+$stok_baru = $stok_lama + $selisih;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Upload dari File
-    |--------------------------------------------------------------------------
-    */
-    elseif (
-        isset($_FILES['nota_file']) &&
-        $_FILES['nota_file']['error'] == 0
-    ) {
-
-        $ext = strtolower(
-            pathinfo(
-                $_FILES['nota_file']['name'],
-                PATHINFO_EXTENSION
-            )
-        );
-
-        $nota = uniqid() . '.' . $ext;
-
-        move_uploaded_file(
-            $_FILES['nota_file']['tmp_name'],
-            '../uploads/nota/' . $nota
-        );
-
-        $has_new_nota = true;
-    }
-
-    if ($has_new_nota) {
-
-        // Ambil nota lama
-        $get_old_nota = mysqli_query(
-            $koneksi,
-            "SELECT nota
-             FROM transaksi_pembelian
-             WHERE id_pembelian = '$id_barang'"
-        );
-
-        if (
-            $get_old_nota &&
-            mysqli_num_rows($get_old_nota) > 0
-        ) {
-
-            $row = mysqli_fetch_assoc($get_old_nota);
-
-            if (!empty($row['nota'])) {
-
-                $file_path =
-                    "../uploads/nota/" .
-                    $row['nota'];
-
-                if (file_exists($file_path)) {
-                    unlink($file_path);
-                }
-            }
-        }
-
-        $query = "
+$query = "
         UPDATE transaksi_pembelian SET
             id_supplier = '$id_supplier',
             nama_barang = '$nama_barang',
             keterangan = '$keterangan',
-            harga = '$harga_beli',
-            volume = '$volume',
-            satuan = '$satuan',
-            tanggal_pembelian = '$tanggal',
-            nota = '$nota'
-        WHERE id_pembelian = '$id_barang'
-        ";
-
-    } else {
-
-        $query = "
-        UPDATE transaksi_pembelian SET
-            id_supplier = '$id_supplier',
-            nama_barang = '$nama_barang',
-            keterangan = '$keterangan',
-            harga = '$harga_beli',
+            harga = '$harga',
             volume = '$volume',
             satuan = '$satuan',
             tanggal_pembelian = '$tanggal'
-        WHERE id_pembelian = '$id_barang'
+        WHERE id_pembelian = '$id_pembelian'
         ";
-    }
 
+    
     if (mysqli_query($koneksi, $query)) {
+
+            // update stok barang
+    mysqli_query($koneksi,"
+    UPDATE barang
+    SET
+        stok_akhir = '$stok_baru',
+        harga_beli = '$harga',
+        tanggal_terupdate_baru = '$tanggal'
+    WHERE id_barang = '$id_barang'
+    ");
+
+    // jika ada perubahan qty
+    if($selisih != 0){
+
+        mysqli_query($koneksi,"
+        INSERT INTO mutasi_stok(
+            id_pembelian,
+            id_barang,
+            tanggal,
+            jenis,
+            qty,
+            stok_sebelum,
+            stok_sesudah,
+            keterangan
+        )
+        VALUES(
+            '$id_pembelian',
+            '$id_barang',
+            NOW(),
+            'perubahan',
+            '$selisih',
+            '$stok_lama',
+            '$stok_baru',
+            'Edit transaksi pembelian'
+        )
+        ");
+
+    }
 
         $_SESSION['alert'] = [
             'icon' => 'success',

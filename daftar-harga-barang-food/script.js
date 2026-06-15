@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = editBtn.getAttribute('data-id');
             if (id) {
                 // Fetch barang details via AJAX
-                fetch(`../database/get-barang.php?id=${id}`)
+                fetch(`../database/get-barang-baru.php?id=${id}`)
                     .then(response => response.json())
                     .then(result => {
                         if (result.status === 'success') {
@@ -92,9 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else {
                                 document.getElementById('harga_beli').value = '';
                             }
+                            if (data.tanggal_terupdate_baru) {
+                                document.getElementById('tanggal_terupdate_baru').value =
+                                    data.tanggal_terupdate_baru;
+                            } else {
+                                document.getElementById('tanggal_terupdate_baru').value = '';
+                            }
                             document.getElementById('suplier').value = data.suplier || '';
                             document.getElementById('satuan').value = data.satuan || '';
-                            document.getElementById('alamat').value = data.alamat || '';
 
                             // Update modal headers/actions
                             const modalTitle = document.getElementById('modal-title');

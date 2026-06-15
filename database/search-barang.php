@@ -7,7 +7,7 @@ $keyword = $_GET['keyword'] ?? '';
 
 $query = mysqli_query(
     $koneksi,
-    "SELECT id_barang,nama_barang,harga_beli,satuan
+    "SELECT id_barang,nama_barang,harga_jual,satuan
      FROM barang
      WHERE nama_barang LIKE '%$keyword%'
      LIMIT 10"
