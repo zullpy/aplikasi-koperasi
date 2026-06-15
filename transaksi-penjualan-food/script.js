@@ -171,7 +171,7 @@ document.addEventListener("click", function (e) {
         item.dataset.satuan;
 
     row.querySelector(".harga").value =
-        item.dataset.harga;
+        item.dataset.harga  ;
     hitungSubtotal(
         row.querySelector(".qty")
     );

@@ -12,6 +12,7 @@ $query = mysqli_query($koneksi,"
         b.harga_beli,
         b.stok_akhir,
         b.satuan,
+        b.tanggal_terupdate_baru,
         COALESCE(MIN(r.harga_beli), b.harga_beli) AS harga_min,
         COALESCE(MAX(r.harga_beli), b.harga_beli) AS harga_max
     FROM barang b
@@ -21,9 +22,10 @@ $query = mysqli_query($koneksi,"
     GROUP BY
         b.id_barang,
         b.nama_barang,
-        b.harga_beli,   
+        b.harga_beli,
         b.stok_akhir,
-        b.satuan
+        b.satuan,
+        b.tanggal_terupdate_baru
 ");
 
 if(mysqli_num_rows($query) > 0){
@@ -36,7 +38,8 @@ if(mysqli_num_rows($query) > 0){
         'harga_min' => $data['harga_min'],
         'harga_max' => $data['harga_max'],
         'stok' => $data['stok_akhir'],
-        'satuan' => $data['satuan']
+        'satuan' => $data['satuan'],
+        'tanggal_terupdate_baru' => $data['tanggal_terupdate_baru']
     ]);
 
 }else{

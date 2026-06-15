@@ -357,9 +357,12 @@ input.addEventListener('input', () => {
         .then(data => {
 
             if (data.status === 'ada') {
+                const tgl = data.tanggal_terupdate_baru
+                    ? ` <small style="opacity:0.7">(${data.tanggal_terupdate_baru})</small>`
+                    : '';
                 showToast(
                     `✅ Barang sudah terdaftar<br>
-                Harga: Rp ${Number(data.harga).toLocaleString('id-ID')}<br>
+                Harga: Rp ${Number(data.harga).toLocaleString('id-ID')}${tgl}<br>
                 Min: Rp ${Number(data.harga_min).toLocaleString('id-ID')}<br>
                 Max: Rp ${Number(data.harga_max).toLocaleString('id-ID')}<br>
                 Stok: ${data.stok} ${data.satuan}`,
@@ -387,8 +390,11 @@ function pilihBarang(nama) {
         .then(data => {
 
             if (data.status === 'ada') {
+                const tgl = data.tanggal_terupdate_baru
+                    ? ` <small style="opacity:0.7">(${data.tanggal_terupdate_baru})</small>`
+                    : '';
                 let infoHarga = `
-                    Harga: Rp ${Number(data.harga).toLocaleString('id-ID')}<br>
+                    Harga: Rp ${Number(data.harga).toLocaleString('id-ID')}${tgl}<br>
                 `;
                 if (data.harga_min != data.harga_max) {
                     infoHarga += `
