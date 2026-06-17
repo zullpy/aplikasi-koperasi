@@ -5,6 +5,20 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
+$max_size = 2 * 1024 * 1024; // 2 MB
+
+if ($uploadFile['size'] > $max_size) {
+
+    $_SESSION['alert'] = [
+        'icon' => 'error',
+        'title' => 'Gagal',
+        'text' => 'Ukuran nota maksimal 2 MB'
+    ];
+
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+
 if (isset($_POST['id_barang'])) {
 
     $id_barang = mysqli_real_escape_string(

@@ -152,6 +152,14 @@ for ($i = 0; $i < count($id_barang); $i++) {
         );
     }
 
+    $cek_barang = mysqli_query($koneksi,"
+SELECT stok_akhir
+FROM barang
+WHERE id_barang = '{$id_barang[$i]}'
+");
+
+$data_barang = mysqli_fetch_assoc($cek_barang);
+
 $stok_lama = $data_barang['stok_akhir'];
 
 if ($stok_lama < $qty[$i]) {

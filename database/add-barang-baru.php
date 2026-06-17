@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
@@ -8,7 +10,8 @@ $harga_beli = (int) str_replace(
     '',
     $_POST['harga_beli']
 );
-
+$kategori = $_POST['kategori'];
+$tanggal_terupdate_baru = $_POST['tanggal_terupdate_baru'];
 $harga_jual = $harga_beli + ($harga_beli * 30 / 100);
 $suplier = $_POST['suplier'];
 $satuan = $_POST['satuan'];
@@ -20,18 +23,22 @@ $query = "INSERT INTO barang (
             harga_beli,
             harga_jual,
             suplier,
-            satuan
-          ) VALUES (?, ?, ?, ?, ?)";
+            satuan,
+            kategori, 
+            tanggal_terupdate_baru 
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
 $stmt = mysqli_prepare($koneksi, $query);
 mysqli_stmt_bind_param(
     $stmt,
-    "siiss",
+    "siissss",
     $nama_barang,
     $harga_beli,
     $harga_jual,
     $suplier,
-    $satuan
+    $satuan,
+    $kategori,
+    $tanggal_terupdate_baru
 );
 
 

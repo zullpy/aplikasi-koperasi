@@ -179,6 +179,11 @@ $total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
                 <div class="right">
                     <h3>Rp '.number_format($row['total'],0,',','.').'</h3>
                     <button class="detail-btn" onclick="openDetail('.$row['id_transaksi'].')">Detail</button>
+                    <button
+                        class="detail-btn"
+                        onclick="window.open(\'cetak-faktur.php?id='.$row['id_transaksi'].'\',\'_blank\')">
+                        Cetak Faktur
+                    </button>
                 </div>
             </div>';
         }
