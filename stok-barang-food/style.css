@@ -104,9 +104,10 @@
     background: #e8f0fc;
 }
 
+/* Summary cards (hanya 3: masuk, keluar, akhir) */
 .sb-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 14px;
     margin-bottom: 24px;
 }
@@ -158,20 +159,6 @@
     left: 0;
     height: 3px;
     border-radius: 0 0 14px 14px;
-}
-
-.ic-awal .sb-card-icon {
-    background: #e8f0fc;
-    color: #2563a8;
-}
-
-.ic-awal .sb-card-val {
-    color: #2563a8;
-}
-
-.ic-awal .sb-card-bar {
-    background: #2563a8;
-    width: 100%;
 }
 
 .ic-masuk .sb-card-icon {
@@ -264,14 +251,13 @@ thead th:nth-child(1) {
 
 thead th:nth-child(3),
 thead th:nth-child(4),
-thead th:nth-child(5),
-thead th:nth-child(6) {
+thead th:nth-child(5) {
     text-align: center;
-    width: 88px;
+    width: 100px;
 }
 
-thead th:nth-child(7) {
-    width: 90px;
+thead th:nth-child(6) {
+    width: 100px;
     text-align: center;
 }
 
@@ -305,13 +291,6 @@ tbody td.center {
     font-weight: 500;
 }
 
-.sb-kode {
-    font-size: 12px;
-    color: #4a9fd4;
-    font-weight: 600;
-    font-family: monospace;
-}
-
 .sb-nama {
     font-weight: 600;
     font-size: 13px;
@@ -322,11 +301,6 @@ tbody td.center {
     color: #64748b;
     font-weight: 500;
     margin-top: 1px;
-}
-
-.num-awal {
-    color: #2563a8;
-    font-weight: 600;
 }
 
 .num-masuk {
@@ -408,7 +382,7 @@ tbody td.center {
     background: #f0f6fc;
 }
 
-/* ── Tag jenis mutasi ── */
+/* Tag jenis mutasi */
 .sb-mutasi-tag {
     margin-top: 4px;
     display: flex;
