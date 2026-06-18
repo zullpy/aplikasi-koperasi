@@ -5,28 +5,38 @@ session_start();
 include 'koneksi.php';
 
 $nama_barang = $_POST['nama_barang'];
-$harga_beli = (int) str_replace(
-    ['Rp.', 'Rp', '.', ',',' '],
-    '',
-    $_POST['harga_beli']
-);
-$kategori = $_POST['kategori'];
+$kategori    = $_POST['kategori'];
+$suplier     = $_POST['suplier'];
+$satuan      = $_POST['satuan'];
 $tanggal_terupdate_baru = $_POST['tanggal_terupdate_baru'];
-$harga_jual = $harga_beli + ($harga_beli * 30 / 100);
-$suplier = $_POST['suplier'];
-$satuan = $_POST['satuan'];
 
+// Bersihkan angka
+$harga_beli = (int) preg_replace('/[^0-9]/', '', $_POST['harga_beli']);
+$keuntungan = (int) preg_replace('/[^0-9]/', '', $_POST['keuntungan']);
 
+// Hitung harga jual di server (lebih aman)
+$harga_jual = $harga_beli + $keuntungan;
+
+// Validasi
+if ($harga_beli <= 0) {
+    $_SESSION['alert'] = [
+        'icon' => 'error',
+        'title' => 'Gagal',
+        'text' => 'Harga beli harus lebih dari 0!'
+    ];
+    header("Location: ../daftar-harga-barang-food/index.php");
+    exit;
+}
 
 $query = "INSERT INTO barang (
-            nama_barang,
-            harga_beli,
-            harga_jual,
-            suplier,
-            satuan,
-            kategori, 
-            tanggal_terupdate_baru 
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)";
+    nama_barang,
+    harga_beli,
+    harga_jual,
+    suplier,
+    satuan,
+    kategori,
+    tanggal_terupdate_baru
+) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
 $stmt = mysqli_prepare($koneksi, $query);
 mysqli_stmt_bind_param(
@@ -41,23 +51,18 @@ mysqli_stmt_bind_param(
     $tanggal_terupdate_baru
 );
 
-
 if (mysqli_stmt_execute($stmt)) {
-
     $_SESSION['alert'] = [
         'icon' => 'success',
         'title' => 'Berhasil',
         'text' => 'Data barang berhasil ditambahkan'
     ];
-
 } else {
-
     $_SESSION['alert'] = [
-    'icon' => 'error',
-    'title' => 'Gagal',
-    'text' => mysqli_error($koneksi)
-];
-
+        'icon' => 'error',
+        'title' => 'Gagal',
+        'text' => mysqli_error($koneksi)
+    ];
 }
 
 header("Location: ../daftar-harga-barang-food/index.php");

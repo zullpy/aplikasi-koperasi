@@ -4,31 +4,25 @@ function openModal() {
 }
 
 function openAddModal() {
-    // Reset form fields
     const form = document.getElementById('modal-form');
-    if (form) {
-        form.reset();
-    }
+    if (form) form.reset();
 
-    // Reset modal header, action, and submit button
     const modalTitle = document.getElementById('modal-title');
-    if (modalTitle) {
-        modalTitle.textContent = 'Tambah Barang';
-    }
+    if (modalTitle) modalTitle.textContent = 'Tambah Barang';
 
-    if (form) {
-        form.setAttribute('action', '../database/add-barang-baru.php');
-    }
+    if (form) form.setAttribute('action', '../database/add-barang-baru.php');
 
     const idInput = document.getElementById('id_barang');
-    if (idInput) {
-        idInput.value = '';
-    }
+    if (idInput) idInput.value = '';
 
     const submitBtn = document.getElementById('submit-btn');
     if (submitBtn) {
-        submitBtn.textContent = 'Tambah';
+        submitBtn.innerHTML = '<i class="ph ph-check-circle"></i><span>Simpan</span>';
     }
+
+    // Reset harga jual
+    const hargaJual = document.getElementById('harga_jual');
+    if (hargaJual) hargaJual.value = '';
 
     openModal();
 }
@@ -38,125 +32,145 @@ function closeModal() {
     modal.style.display = 'none';
 }
 
+// Helper: format angka ke "1.000" (tanpa "Rp")
+function formatNumber(num) {
+    if (num === '' || num === null || isNaN(num)) return '';
+    return Number(num).toLocaleString('id-ID');
+}
+
+// Helper: bersihkan input jadi angka murni
+function cleanNumber(str) {
+    if (!str) return 0;
+    return parseInt(str.replace(/\D/g, ''), 10) || 0;
+}
+
+// Hitung harga jual realtime
+function hitungHargaJual() {
+    const hargaBeli = cleanNumber(document.getElementById('harga_beli').value);
+    const keuntungan = cleanNumber(document.getElementById('keuntungan').value);
+    const hargaJualInput = document.getElementById('harga_jual');
+    const priceInfo = document.getElementById('price-info');
+
+    const hargaJual = hargaBeli + keuntungan;
+    hargaJualInput.value = hargaJual > 0 ? formatNumber(hargaJual) : '';
+
+    // Update info box
+    if (hargaBeli > 0 && keuntungan > 0) {
+        const persen = ((keuntungan / hargaBeli) * 100).toFixed(1);
+        priceInfo.innerHTML = `
+            <i class="ph ph-check-circle" style="color:#10b981;"></i>
+            <span>Margin <strong>${persen}%</strong> dari harga beli • Untung <strong>Rp ${formatNumber(keuntungan)}</strong> per item</span>
+        `;
+        priceInfo.classList.add('active');
+    } else if (hargaBeli > 0 && keuntungan === 0) {
+        priceInfo.innerHTML = `
+            <i class="ph ph-warning" style="color:#f59e0b;"></i>
+            <span>Keuntungan belum diisi — harga jual sama dengan harga beli</span>
+        `;
+        priceInfo.classList.remove('active');
+    } else {
+        priceInfo.innerHTML = `
+            <i class="ph ph-info"></i>
+            <span>Isi harga beli & keuntungan, harga jual akan terhitung otomatis</span>
+        `;
+        priceInfo.classList.remove('active');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Search bar logic
+    // ===== Search bar =====
     const searchInput = document.getElementById('search-bar');
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             const keyword = searchInput.value.toLowerCase().trim();
-
-            // Filter desktop table rows
-            const tableRows = document.querySelectorAll('.modern-table tbody tr');
-            tableRows.forEach(row => {
+            document.querySelectorAll('.modern-table tbody tr').forEach(row => {
                 const namaBarang = row.querySelector('td:first-child');
                 if (namaBarang) {
-                    const text = namaBarang.textContent.toLowerCase();
-                    row.style.display = text.includes(keyword) ? '' : 'none';
+                    row.style.display = namaBarang.textContent.toLowerCase().includes(keyword) ? '' : 'none';
                 }
             });
-
-            // Filter mobile cards
-            const mobileCards = document.querySelectorAll('.mobile-card .barang-card');
-            mobileCards.forEach(card => {
+            document.querySelectorAll('.mobile-card .barang-card').forEach(card => {
                 const summary = card.querySelector('summary');
                 if (summary) {
-                    const text = summary.textContent.toLowerCase();
-                    card.style.display = text.includes(keyword) ? '' : 'none';
+                    card.style.display = summary.textContent.toLowerCase().includes(keyword) ? '' : 'none';
                 }
             });
         });
     }
 
-    // Handle click events (for edit, delete, and add-nota buttons)
+    // ===== Edit button =====
     document.addEventListener('click', (e) => {
         const editBtn = e.target.closest('.edit-btn');
-
         if (editBtn) {
             e.preventDefault();
             const id = editBtn.getAttribute('data-id');
             if (id) {
-                // Fetch barang details via AJAX
                 fetch(`../database/get-barang-baru.php?id=${id}`)
                     .then(response => response.json())
                     .then(result => {
                         if (result.status === 'success') {
                             const data = result.data;
-
-                            // Fill fields in the modal
                             document.getElementById('id_barang').value = data.id_barang;
                             document.getElementById('nama_barang').value = data.nama_barang || '';
                             document.getElementById('kategori').value = data.kategori || '';
+                            document.getElementById('satuan').value = data.satuan || '';
+                            document.getElementById('suplier').value = data.suplier || '';
+                            document.getElementById('tanggal_terupdate_baru').value = data.tanggal_terupdate_baru || '';
+
                             if (data.harga_beli) {
-                                document.getElementById('harga_beli').value =
-                                    'Rp ' + Number(data.harga_beli).toLocaleString('id-ID');
+                                document.getElementById('harga_beli').value = formatNumber(data.harga_beli);
                             } else {
                                 document.getElementById('harga_beli').value = '';
                             }
-                            if (data.tanggal_terupdate_baru) {
-                                document.getElementById('tanggal_terupdate_baru').value =
-                                    data.tanggal_terupdate_baru;
+
+                            // Keuntungan = harga_jual - harga_beli
+                            const keuntungan = (parseInt(data.harga_jual) || 0) - (parseInt(data.harga_beli) || 0);
+                            if (keuntungan > 0) {
+                                document.getElementById('keuntungan').value = formatNumber(keuntungan);
                             } else {
-                                document.getElementById('tanggal_terupdate_baru').value = '';
-                            }
-                            document.getElementById('suplier').value = data.suplier || '';
-                            document.getElementById('satuan').value = data.satuan || '';
-
-                            // Update modal headers/actions
-                            const modalTitle = document.getElementById('modal-title');
-                            if (modalTitle) {
-                                modalTitle.textContent = 'Edit Barang';
+                                document.getElementById('keuntungan').value = '';
                             }
 
-                            const modalForm = document.getElementById('modal-form');
-                            if (modalForm) {
-                                modalForm.setAttribute('action', '../database/update-barang-baru.php');
+                            if (data.harga_jual) {
+                                document.getElementById('harga_jual').value = formatNumber(data.harga_jual);
+                            } else {
+                                document.getElementById('harga_jual').value = '';
                             }
 
-                            const submitBtn = document.getElementById('submit-btn');
-                            if (submitBtn) {
-                                submitBtn.textContent = 'Simpan Perubahan';
-                            }
+                            document.getElementById('modal-title').textContent = 'Edit Barang';
+                            document.getElementById('modal-form').setAttribute('action', '../database/update-barang-baru.php');
+                            document.getElementById('submit-btn').innerHTML = '<i class="ph ph-check-circle"></i><span>Simpan Perubahan</span>';
 
                             openModal();
                         } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Oops...',
-                                text: 'Gagal mengambil data barang: ' + result.message,
-                                width: window.innerWidth < 768 ? '280px' : '400px'
-                            });
+                            Swal.fire({ icon: 'error', title: 'Oops...', text: 'Gagal mengambil data: ' + result.message });
                         }
                     })
                     .catch(error => {
-                        console.error('Error fetching data:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Terjadi kesalahan koneksi saat mengambil data barang!',
-                            width: window.innerWidth < 768 ? '280px' : '400px'
-                        });
+                        console.error(error);
+                        Swal.fire({ icon: 'error', title: 'Oops...', text: 'Terjadi kesalahan koneksi!' });
                     });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'ID Transaksi tidak ditemukan!',
-                    width: window.innerWidth < 768 ? '280px' : '400px'
-                });
             }
         }
     });
-});
 
-const hargaInput = document.getElementById('harga_beli');
-
-hargaInput.addEventListener('input', function () {
-    let angka = this.value.replace(/\D/g, '');
-
-    if (angka === '') {
-        this.value = '';
-        return;
+    // ===== Format Harga Beli =====
+    const hargaBeliInput = document.getElementById('harga_beli');
+    if (hargaBeliInput) {
+        hargaBeliInput.addEventListener('input', function () {
+            const angka = cleanNumber(this.value);
+            this.value = angka > 0 ? formatNumber(angka) : '';
+            hitungHargaJual();
+        });
     }
 
-    this.value = 'Rp ' + Number(angka).toLocaleString('id-ID');
+    // ===== Format Keuntungan =====
+    const keuntunganInput = document.getElementById('keuntungan');
+    if (keuntunganInput) {
+        keuntunganInput.addEventListener('input', function () {
+            const angka = cleanNumber(this.value);
+            this.value = angka > 0 ? formatNumber(angka) : '';
+            hitungHargaJual();
+        });
+    }
 });

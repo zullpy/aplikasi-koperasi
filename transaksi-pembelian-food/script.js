@@ -1,15 +1,13 @@
 /* ============================================================
-   TAMBAH MODAL — multi-item form
-   ============================================================ */
+TAMBAH MODAL — multi-item form
+============================================================ */
 let itemIndex = 0;
-
 function openAddModal() {
     const form = document.getElementById('tambah-form');
     if (form) form.reset();
     const container = document.getElementById('item-rows-container');
     if (container) container.innerHTML = '';
     itemIndex = 0;
-
     updateItemCount();
     updateGrandTotal();
 
@@ -40,7 +38,7 @@ function addItemRow() {
     const totalRow = document.getElementById('total-row');
     if (emptyState) emptyState.style.display = 'none';
     if (totalRow) totalRow.style.display = 'flex';
-
+    
     const row = document.createElement('div');
     row.className = 'item-input-row';
     row.dataset.idx = idx;
@@ -57,6 +55,14 @@ function addItemRow() {
         <div class="item-input-field field-harga">
             <label class="item-field-label">Harga Beli</label>
             <input type="text" name="harga[]" class="item-harga-input" placeholder="Rp 0" required data-idx="${idx}">
+        </div>
+        <div class="item-input-field field-keuntungan">
+            <label class="item-field-label">Keuntungan</label>
+            <input type="text" name="keuntungan[]" class="item-keuntungan-input" placeholder="Rp 0" required data-idx="${idx}">
+        </div>
+        <div class="item-input-field field-harga-jual">
+            <label class="item-field-label">Harga Jual</label>
+            <input type="text" name="harga_jual[]" class="item-harga-jual-input" placeholder="Rp 0" readonly data-idx="${idx}">
         </div>
         <div class="item-input-field field-volume">
             <label class="item-field-label">Volume</label>
@@ -85,12 +91,22 @@ function addItemRow() {
     updateItemCount();
 
     const hargaInput = row.querySelector('.item-harga-input');
+    const keuntunganInput = row.querySelector('.item-keuntungan-input');
     const volumeInput = row.querySelector('.item-volume-input');
 
+    // Format harga beli dan hitung harga jual
     hargaInput.addEventListener('input', function () {
         let raw = this.value.replace(/\D/g, '');
         this.value = raw === '' ? '' : 'Rp ' + Number(raw).toLocaleString('id-ID');
+        hitungHargaJual(idx);
         recalcSubtotal(idx);
+    });
+
+    // Format keuntungan dan hitung harga jual
+    keuntunganInput.addEventListener('input', function () {
+        let raw = this.value.replace(/\D/g, '');
+        this.value = raw === '' ? '' : 'Rp ' + Number(raw).toLocaleString('id-ID');
+        hitungHargaJual(idx);
     });
 
     volumeInput.addEventListener('input', function () {
@@ -139,15 +155,35 @@ function addItemRow() {
     namaInput.focus();
 }
 
+function hitungHargaJual(idx) {
+    const row = document.querySelector(`.item-input-row[data-idx="${idx}"]`);
+    if (!row) return;
+    
+    const hargaRaw = (row.querySelector('.item-harga-input').value || '').replace(/\D/g, '');
+    const keuntunganRaw = (row.querySelector('.item-keuntungan-input').value || '').replace(/\D/g, '');
+    
+    const harga = parseInt(hargaRaw) || 0;
+    const keuntungan = parseInt(keuntunganRaw) || 0;
+    const hargaJual = harga + keuntungan;
+    
+    const hargaJualInput = row.querySelector('.item-harga-jual-input');
+    if (hargaJualInput) {
+        hargaJualInput.value = hargaJual > 0 ? 'Rp ' + hargaJual.toLocaleString('id-ID') : '';
+    }
+}
+
 function buildToastAda(data) {
     const rp = n => 'Rp ' + Number(n).toLocaleString('id-ID');
     let html = `✅ <strong>Barang terdaftar</strong><br>`;
     html += `Harga beli: <strong>${rp(data.harga)}</strong>`;
+    if (data.harga_jual) {
+        html += `<br>Harga jual: <strong>${rp(data.harga_jual)}</strong>`;
+    }
     if (data.tanggal_terupdate_baru) {
-        html += ` <span style="opacity:.8;font-size:.85em">(${data.tanggal_terupdate_baru})</span>`;
+        html += `<span style="opacity:.8;font-size:.85em">(${data.tanggal_terupdate_baru})</span>`;
     }
     if (data.harga_min && data.harga_max && data.harga_min != data.harga_max) {
-        html += `<br>Min: ${rp(data.harga_min)} &nbsp;|&nbsp; Max: ${rp(data.harga_max)}`;
+        html += `<br>Min: ${rp(data.harga_min)}&nbsp;|&nbsp; Max: ${rp(data.harga_max)}`;
     }
     html += `<br>Stok: <strong>${data.stok} ${data.satuan}</strong>`;
     return html;
@@ -158,7 +194,6 @@ function pilihBarangInline(nama, idx) {
     if (!row) return;
     const namaInput = row.querySelector('.item-nama-input');
     if (namaInput) namaInput.value = nama;
-
     const sugBox = document.getElementById(`sug-${idx}`);
     if (sugBox) sugBox.innerHTML = '';
 
@@ -169,8 +204,20 @@ function pilihBarangInline(nama, idx) {
                 const hargaInput = row.querySelector('.item-harga-input');
                 if (hargaInput && data.harga) {
                     hargaInput.value = 'Rp ' + Number(data.harga).toLocaleString('id-ID');
-                    recalcSubtotal(idx);
                 }
+                
+                // Hitung keuntungan dari selisih harga jual - harga beli
+                const keuntunganInput = row.querySelector('.item-keuntungan-input');
+                if (keuntunganInput && data.harga_jual && data.harga) {
+                    const keuntungan = parseInt(data.harga_jual) - parseInt(data.harga);
+                    if (keuntungan > 0) {
+                        keuntunganInput.value = 'Rp ' + keuntungan.toLocaleString('id-ID');
+                    }
+                }
+                
+                hitungHargaJual(idx);
+                recalcSubtotal(idx);
+                
                 const satuanInput = row.querySelector('.item-satuan-input');
                 if (satuanInput && data.satuan) {
                     satuanInput.value = data.satuan;
@@ -191,7 +238,6 @@ function removeItemRow(btn) {
     const container = document.getElementById('item-rows-container');
     const emptyState = document.getElementById('item-empty-state');
     const totalRow = document.getElementById('total-row');
-
     if (container && container.children.length === 0) {
         if (emptyState) emptyState.style.display = 'flex';
         if (totalRow) totalRow.style.display = 'none';
@@ -207,7 +253,6 @@ function recalcSubtotal(idx) {
     const volume = parseFloat(row.querySelector('.item-volume-input').value) || 0;
     const harga = parseFloat(hargaRaw) || 0;
     const subtotal = harga * volume;
-
     const el = document.getElementById(`subtotal-${idx}`);
     if (el) el.textContent = 'Rp ' + subtotal.toLocaleString('id-ID');
     updateGrandTotal();
@@ -236,8 +281,8 @@ function updateItemCount() {
 }
 
 /* ============================================================
-   METODE PEMBAYARAN — toggle biaya admin
-   ============================================================ */
+METODE PEMBAYARAN — toggle biaya admin
+============================================================ */
 function toggleBiayaAdmin(prefix) {
     const selected = document.querySelector(`input[name="metode_pembayaran"]:checked`);
     const adminGroup = document.getElementById(`${prefix}_biaya_admin_group`);
@@ -264,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#tambahModal input[name="metode_pembayaran"]').forEach(radio => {
         radio.addEventListener('change', () => toggleBiayaAdmin('add'));
     });
-
+    
     const addBiayaInput = document.getElementById('add_biaya_admin');
     if (addBiayaInput) {
         addBiayaInput.addEventListener('input', function () {
@@ -318,7 +363,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: 'Tambahkan minimal 1 barang sebelum menyimpan transaksi.',
                     width: window.innerWidth < 768 ? '280px' : '400px'
                 });
+                return;
             }
+
+            // Konfirmasi bahwa harga & tanggal akan update ke tabel barang
+            Swal.fire({
+                icon: 'info',
+                title: 'Simpan Transaksi?',
+                html: `
+                    <div style="text-align:left; font-size:0.9rem; line-height:1.6;">
+                        <p>Data berikut akan <b>otomatis terupdate</b> di tabel barang:</p>
+                        <ul style="margin:8px 0; padding-left:20px; color:#475569;">
+                            <li>✅ <b>Stok barang</b> bertambah</li>
+                            <li>✅ <b>Harga beli terakhir</b> diupdate</li>
+                            <li>✅ <b>Harga jual</b> diupdate</li>
+                            <li>✅ <b>Tanggal terupdate</b> diupdate</li>
+                        </ul>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Simpan',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#2563a8',
+                width: window.innerWidth < 768 ? '300px' : '420px'
+            }).then((result) => {
+                if (!result.isConfirmed) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                }
+            });
         });
     }
 
@@ -387,7 +460,29 @@ document.addEventListener('DOMContentLoaded', () => {
         hargaInput.addEventListener('input', function () {
             let angka = this.value.replace(/\D/g, '');
             this.value = angka === '' ? '' : 'Rp ' + Number(angka).toLocaleString('id-ID');
+            hitungHargaJualEdit();
         });
+    }
+    
+    const keuntunganInputEdit = document.getElementById('keuntungan');
+    if (keuntunganInputEdit) {
+        keuntunganInputEdit.addEventListener('input', function () {
+            let angka = this.value.replace(/\D/g, '');
+            this.value = angka === '' ? '' : 'Rp ' + Number(angka).toLocaleString('id-ID');
+            hitungHargaJualEdit();
+        });
+    }
+
+    function hitungHargaJualEdit() {
+        const hargaRaw = (document.getElementById('harga').value || '').replace(/\D/g, '');
+        const keuntunganRaw = (document.getElementById('keuntungan').value || '').replace(/\D/g, '');
+        const harga = parseInt(hargaRaw) || 0;
+        const keuntungan = parseInt(keuntunganRaw) || 0;
+        const hargaJual = harga + keuntungan;
+        const hargaJualInput = document.getElementById('harga_jual');
+        if (hargaJualInput) {
+            hargaJualInput.value = hargaJual > 0 ? 'Rp ' + hargaJual.toLocaleString('id-ID') : '';
+        }
     }
 
     const input = document.getElementById('nama_barang');
@@ -418,7 +513,7 @@ function bindDropzone(inputId) {
     const filenameEl = dropzone.querySelector('.upload-filename');
     const textEl = dropzone.querySelector('.upload-text');
     const originalText = textEl ? textEl.textContent : '';
-
+    
     function updateDisplay() {
         const file = inputEl.files && inputEl.files[0];
         if (file) {
@@ -463,8 +558,8 @@ function pilihBarang(nama) {
 }
 
 /* ============================================================
-   GLOBAL CLICK DELEGATION
-   ============================================================ */
+GLOBAL CLICK DELEGATION
+============================================================ */
 document.addEventListener('click', (e) => {
     const editBtn = e.target.closest('.edit-btn');
     const deleteBtn = e.target.closest('.delete-btn');
@@ -472,7 +567,7 @@ document.addEventListener('click', (e) => {
     const gantiNotaBtn = e.target.closest('.ganti-nota-btn');
     const detailBtn = e.target.closest('.detail-btn');
     const lihatNotaBtn = e.target.closest('.lihat-nota-btn');
-
+    
     if (editBtn) {
         e.preventDefault();
         loadEditData(editBtn.getAttribute('data-id'));
@@ -499,7 +594,6 @@ document.addEventListener('click', (e) => {
         }
     }
 
-    // Tombol TAMBAH NOTA (belum ada nota)
     if (addNotaBtn) {
         e.preventDefault();
         const id = addNotaBtn.getAttribute('data-id');
@@ -507,7 +601,6 @@ document.addEventListener('click', (e) => {
         if (id) openNotaModal(id, supplier, false);
     }
 
-    // Tombol GANTI NOTA (sudah ada nota)
     if (gantiNotaBtn) {
         e.preventDefault();
         const id = gantiNotaBtn.getAttribute('data-id');
@@ -537,8 +630,8 @@ if (detailEditBtn) {
 }
 
 /* ============================================================
-   EDIT MODAL
-   ============================================================ */
+EDIT MODAL
+============================================================ */
 function openModal() {
     const modal = document.getElementById('transaksiModal');
     if (modal) modal.style.display = 'block';
@@ -554,17 +647,31 @@ function loadEditData(id) {
         Swal.fire({ icon: 'error', title: 'Oops...', text: 'ID Transaksi tidak ditemukan!', width: window.innerWidth < 768 ? '280px' : '400px' });
         return;
     }
+    
     fetch(`../database/get-barang.php?id=${id}`)
         .then(response => response.json())
         .then(result => {
             if (result.status === 'success') {
                 const data = result.data;
-
                 document.getElementById('id_pembelian').value = data.id_pembelian;
                 document.getElementById('id_supplier').value = data.id_supplier || '';
                 document.getElementById('nama_barang').value = data.nama_barang || '';
                 document.getElementById('tanggal_pembelian').value = data.tanggal_pembelian || '';
-                document.getElementById('harga').value = data.harga || '';
+                
+                if (data.harga) {
+                    document.getElementById('harga').value = 'Rp ' + Number(data.harga).toLocaleString('id-ID');
+                }
+                
+                // Hitung keuntungan dari harga jual - harga beli
+                const keuntungan = (parseInt(data.harga_jual) || 0) - (parseInt(data.harga) || 0);
+                if (keuntungan > 0 && document.getElementById('keuntungan')) {
+                    document.getElementById('keuntungan').value = 'Rp ' + keuntungan.toLocaleString('id-ID');
+                }
+                
+                if (data.harga_jual) {
+                    document.getElementById('harga_jual').value = 'Rp ' + Number(data.harga_jual).toLocaleString('id-ID');
+                }
+                
                 document.getElementById('volume').value = data.volume || '';
                 document.getElementById('satuan').value = data.satuan || '';
                 document.getElementById('keterangan').value = data.keterangan || '';
@@ -605,18 +712,16 @@ function loadEditData(id) {
 }
 
 /* ============================================================
-   NOTA MODAL — per supplier
-   ============================================================ */
+NOTA MODAL — per supplier
+============================================================ */
 function openNotaModal(id, supplierName = '', isGanti = false) {
     const form = document.getElementById('nota-form');
     if (form) form.reset();
     const idInput = document.getElementById('nota_id_barang');
     if (idInput) idInput.value = id;
-
     resetDropzone('nota_kamera_only');
     resetDropzone('nota_file_only');
 
-    // Update judul & subtitle modal
     const titleEl = document.getElementById('nota-modal-title');
     const subtitleEl = document.getElementById('nota-supplier-name');
     if (titleEl) {
@@ -638,8 +743,8 @@ function closeNotaModal() {
 }
 
 /* ============================================================
-   DETAIL MODAL
-   ============================================================ */
+DETAIL MODAL
+============================================================ */
 function closeDetailModal() {
     const modal = document.getElementById('detailModal');
     if (modal) modal.style.display = 'none';
@@ -655,7 +760,7 @@ function openDetailModal(btn) {
     setText('detail-volume', `${d.volume || '-'} ${d.satuan || ''}`.trim());
     setText('detail-jumlah', 'Rp ' + Number(d.jumlah || 0).toLocaleString('id-ID'));
     setText('detail-supplier', d.supplier || '-');
-
+    
     const metode = d.metode || '';
     const metodeEl = document.getElementById('detail-metode');
     if (metodeEl) {
@@ -692,8 +797,8 @@ function openDetailModal(btn) {
 }
 
 /* ============================================================
-   NOTA PREVIEW MODAL
-   ============================================================ */
+NOTA PREVIEW MODAL
+============================================================ */
 function closeNotaPreview() {
     const modal = document.getElementById('notaPreviewModal');
     if (modal) modal.style.display = 'none';
@@ -717,8 +822,8 @@ function openNotaPreview(url) {
 }
 
 /* ============================================================
-   ITEM TOAST
-   ============================================================ */
+ITEM TOAST
+============================================================ */
 let itemToastEl = null;
 let itemToastTimer = null;
 
@@ -748,8 +853,8 @@ function hideItemToast() {
 }
 
 /* ============================================================
-   TOAST (edit modal)
-   ============================================================ */
+TOAST (edit modal)
+============================================================ */
 const toast = document.getElementById('toast');
 function showToast(message, type = 'success') {
     if (!toast) return;
