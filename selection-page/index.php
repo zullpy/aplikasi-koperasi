@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,16 +12,15 @@
     <link
         rel="stylesheet"
         type="text/css"
-        href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css"
-    />
+        href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
     <link
         rel="stylesheet"
         type="text/css"
-        href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
-    />
+        href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="card ">
         <div class="top">
@@ -29,17 +29,18 @@
                 Email :
                 <a href="mailto:kop.binausahasauyunan@gmail.com">kop.binausahasauyunan@gmail.com</a>
             </p>
-        </div>    
+        </div>
         <div class="bottom">
             <div class="button-group">
                 <a href="../transaksi-pembelian-food/index.php" class="btn link-slide slide-left">Food Cost</a>
-                <a href="../transaksi-pembelian-add/index.php" class="btn link-slide slide-right">Add Cost</a>
+                <a href="../addcost/transaksi-pembelian-add/index.php" class="btn link-slide slide-right">Add Cost</a>
                 <a href="../profile/index.php" class="btn link-slide slide-right">Profile Koperasi</a>
             </div>
             <p>@ KOPERASI BINA USAHA SAUYUNAN|KBUS 2026</p>
         </div>
     </div>
 </body>
+
 </html>
 
 
@@ -47,18 +48,18 @@
 <?php
 session_start();
 
-if(isset($_SESSION['success'])) {
+if (isset($_SESSION['success'])) {
 ?>
-<script>
-Swal.fire({
-    icon: 'success',
-    title: 'Anda berhasil login',
-    text: '<?= $_SESSION['success']; ?>',
-    timer: 1500,
-    showConfirmButton: false
-});
-</script>
+    <script>
+        Swal.fire({
+            icon: 'success',
+            title: 'Anda berhasil login',
+            text: '<?= $_SESSION['success']; ?>',
+            timer: 1500,
+            showConfirmButton: false
+        });
+    </script>
 <?php
-unset($_SESSION['success']);
+    unset($_SESSION['success']);
 }
 ?>

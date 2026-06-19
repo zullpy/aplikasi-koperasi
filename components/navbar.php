@@ -1,5 +1,6 @@
 <?php
 $currentPage = basename($_SERVER['PHP_SELF']);
+$base_url = '';
 ?>
 <head>
     <link rel="stylesheet" href="../components/style.css">

@@ -48,37 +48,61 @@ $allowed      = ['jpg', 'jpeg', 'png', 'pdf'];
 $nota         = null;
 $has_new_nota = false;
 
-if (isset($_FILES['nota_kamera']) && $_FILES['nota_kamera']['error'] == 0) {
-    $uploadFile = $_FILES['nota_kamera'];
-    if ($uploadFile['size'] > $max_size) {
-        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ukuran nota maksimal 2 MB'];
+if (!function_exists('reArrayFiles')) {
+    function reArrayFiles($file_post) {
+        $file_ary = [];
+        if (!isset($file_post['name'])) return $file_ary;
+        if (is_array($file_post['name'])) {
+            $file_count = count($file_post['name']);
+            $file_keys = array_keys($file_post);
+            for ($i = 0; $i < $file_count; $i++) {
+                if ($file_post['error'][$i] == 0 && $file_post['size'][$i] > 0) {
+                    $item = [];
+                    foreach ($file_keys as $key) {
+                        $item[$key] = $file_post[$key][$i];
+                    }
+                    $file_ary[] = $item;
+                }
+            }
+        } else {
+            if ($file_post['error'] == 0 && $file_post['size'] > 0) {
+                $file_ary[] = $file_post;
+            }
+        }
+        return $file_ary;
+    }
+}
+
+$all_files = array_merge(
+    reArrayFiles($_FILES['nota_kamera'] ?? []),
+    reArrayFiles($_FILES['nota_file'] ?? [])
+);
+
+foreach ($all_files as $file) {
+    if ($file['size'] > $max_size) {
+        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ukuran nota maksimal 2 MB per file'];
         header("Location: ../transaksi-pembelian-food/index.php");
         exit;
     }
-    $ext = strtolower(pathinfo($uploadFile['name'], PATHINFO_EXTENSION));
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowed)) {
-        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ekstensi harus JPG/JPEG/PNG/PDF'];
+        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Format file harus JPG, JPEG, PNG, atau PDF'];
         header("Location: ../transaksi-pembelian-food/index.php");
         exit;
     }
-    $nota = uniqid() . '.' . $ext;
-    move_uploaded_file($uploadFile['tmp_name'], '../uploads/nota/' . $nota);
-    $has_new_nota = true;
-} elseif (isset($_FILES['nota_file']) && $_FILES['nota_file']['error'] == 0) {
-    $uploadFile = $_FILES['nota_file'];
-    if ($uploadFile['size'] > $max_size) {
-        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ukuran nota maksimal 2 MB'];
-        header("Location: ../transaksi-pembelian-food/index.php");
-        exit;
+}
+
+$uploaded_files = [];
+foreach ($all_files as $file) {
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $nota_name = uniqid() . '.' . $ext;
+    if (move_uploaded_file($file['tmp_name'], '../uploads/nota/' . $nota_name)) {
+        $uploaded_files[] = $nota_name;
     }
-    $ext = strtolower(pathinfo($uploadFile['name'], PATHINFO_EXTENSION));
-    if (!in_array($ext, $allowed)) {
-        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ekstensi harus JPG/JPEG/PNG/PDF'];
-        header("Location: ../transaksi-pembelian-food/index.php");
-        exit;
-    }
-    $nota = uniqid() . '.' . $ext;
-    move_uploaded_file($uploadFile['tmp_name'], '../uploads/nota/' . $nota);
+}
+
+if (!empty($uploaded_files)) {
+    $nota = implode(',', $uploaded_files);
     $has_new_nota = true;
 }
 
@@ -97,9 +121,15 @@ if ($has_new_nota) {
     if ($get_old_nota && mysqli_num_rows($get_old_nota) > 0) {
         $row = mysqli_fetch_assoc($get_old_nota);
         if (!empty($row['nota'])) {
-            $file_path = "../uploads/nota/" . $row['nota'];
-            if (file_exists($file_path)) {
-                unlink($file_path);
+            $old_notas = explode(',', $row['nota']);
+            foreach ($old_notas as $old_nota) {
+                $old_nota = trim($old_nota);
+                if (!empty($old_nota)) {
+                    $file_path = "../uploads/nota/" . $old_nota;
+                    if (file_exists($file_path)) {
+                        unlink($file_path);
+                    }
+                }
             }
         }
     }

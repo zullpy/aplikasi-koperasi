@@ -34,30 +34,61 @@ $kode_transaksi = 'TRX' . date('YmdHis');
 */
 $allowed  = ['jpg', 'jpeg', 'png', 'pdf'];
 $max_size = 2 * 1024 * 1024; // 2 MB
-$uploadFile = null;
 
-if (isset($_FILES['nota_kamera']) && $_FILES['nota_kamera']['error'] == 0) {
-    $uploadFile = $_FILES['nota_kamera'];
-} elseif (isset($_FILES['nota_file']) && $_FILES['nota_file']['error'] == 0) {
-    $uploadFile = $_FILES['nota_file'];
+function reArrayFiles($file_post) {
+    $file_ary = [];
+    if (!isset($file_post['name'])) return $file_ary;
+    if (is_array($file_post['name'])) {
+        $file_count = count($file_post['name']);
+        $file_keys = array_keys($file_post);
+        for ($i = 0; $i < $file_count; $i++) {
+            if ($file_post['error'][$i] == 0 && $file_post['size'][$i] > 0) {
+                $item = [];
+                foreach ($file_keys as $key) {
+                    $item[$key] = $file_post[$key][$i];
+                }
+                $file_ary[] = $item;
+            }
+        }
+    } else {
+        if ($file_post['error'] == 0 && $file_post['size'] > 0) {
+            $file_ary[] = $file_post;
+        }
+    }
+    return $file_ary;
 }
 
-if ($uploadFile && $uploadFile['size'] > $max_size) {
-    $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ukuran nota maksimal 2 MB'];
-    header("Location: ../transaksi-pembelian-food/index.php");
-    exit;
-}
+$all_files = array_merge(
+    reArrayFiles($_FILES['nota_kamera'] ?? []),
+    reArrayFiles($_FILES['nota_file'] ?? [])
+);
 
-$nota = null;
-if ($uploadFile) {
-    $ext = strtolower(pathinfo($uploadFile['name'], PATHINFO_EXTENSION));
+foreach ($all_files as $file) {
+    if ($file['size'] > $max_size) {
+        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Ukuran nota maksimal 2 MB per file'];
+        header("Location: ../transaksi-pembelian-food/index.php");
+        exit;
+    }
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowed)) {
         $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Format file harus JPG, JPEG, PNG, atau PDF'];
         header("Location: ../transaksi-pembelian-food/index.php");
         exit;
     }
-    $nota = uniqid() . '.' . $ext;
-    move_uploaded_file($uploadFile['tmp_name'], '../uploads/nota/' . $nota);
+}
+
+$uploaded_files = [];
+foreach ($all_files as $file) {
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $nota_name = uniqid() . '.' . $ext;
+    if (move_uploaded_file($file['tmp_name'], '../uploads/nota/' . $nota_name)) {
+        $uploaded_files[] = $nota_name;
+    }
+}
+
+$nota = null;
+if (!empty($uploaded_files)) {
+    $nota = implode(',', $uploaded_files);
 }
 
 /*
