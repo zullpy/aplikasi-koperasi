@@ -32,8 +32,7 @@
         </div>
         <div class="bottom">
             <div class="button-group">
-                <a href="../transaksi-pembelian-food/index.php" class="btn link-slide slide-left">Food Cost</a>
-                <a href="../addcost/transaksi-pembelian-add/index.php" class="btn link-slide slide-right">Add Cost</a>
+                <a href="../transaksi-pembelian-food/index.php" class="btn link-slide slide-left">KANG dan SISTA</a>
                 <a href="../profile/index.php" class="btn link-slide slide-right">Profile Koperasi</a>
             </div>
             <p>@ KOPERASI BINA USAHA SAUYUNAN|KBUS 2026</p>

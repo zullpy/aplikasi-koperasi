@@ -209,7 +209,6 @@ body {
 
 .col-qty    { width: 40px; }
 .col-satuan { width: 55px; }
-.col-nama   { /* auto */ }
 .col-harga  { width: 80px; }
 .col-sub    { width: 85px; }
 

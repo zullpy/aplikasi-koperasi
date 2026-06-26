@@ -21,6 +21,9 @@
     font-weight: 700;
     color: #1e293b;
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .sb-header-left p {
@@ -36,7 +39,6 @@
     font-weight: 600;
     padding: 5px 12px;
     border-radius: 20px;
-    letter-spacing: 0.02em;
 }
 
 .sb-filter-bar {
@@ -57,7 +59,6 @@
     background: #fff;
     color: #1e293b;
     outline: none;
-    transition: border 0.15s;
 }
 
 .sb-filter-bar input:focus,
@@ -71,7 +72,7 @@
 }
 
 .sb-filter-bar select {
-    min-width: 140px;
+    min-width: 160px;
 }
 
 .sb-btn {
@@ -82,16 +83,6 @@
     border-radius: 8px;
     border: none;
     cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-}
-
-.sb-btn-primary {
-    background: #2563a8;
-    color: #fff;
-}
-
-.sb-btn-primary:hover {
-    background: #1d4e8a;
 }
 
 .sb-btn-outline {
@@ -104,7 +95,7 @@
     background: #e8f0fc;
 }
 
-/* Summary cards (hanya 3: masuk, keluar, akhir) */
+/* Summary Cards */
 .sb-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -115,7 +106,7 @@
 .sb-card {
     background: #fff;
     border-radius: 14px;
-    padding: 18px 18px 14px;
+    padding: 18px;
     border: 1px solid #ddeaf8;
     position: relative;
     overflow: hidden;
@@ -142,9 +133,9 @@
 }
 
 .sb-card-val {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
-    line-height: 1;
+    line-height: 1.1;
 }
 
 .sb-card-sub {
@@ -161,48 +152,49 @@
     border-radius: 0 0 14px 14px;
 }
 
-.ic-masuk .sb-card-icon {
+.ic-pusat .sb-card-icon {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.ic-pusat .sb-card-val {
+    color: #1d4ed8;
+}
+
+.ic-pusat .sb-card-bar {
+    background: #1d4ed8;
+    width: 100%;
+}
+
+.ic-cabang .sb-card-icon {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.ic-cabang .sb-card-val {
+    color: #b45309;
+}
+
+.ic-cabang .sb-card-bar {
+    background: #b45309;
+    width: 100%;
+}
+
+.ic-total .sb-card-icon {
     background: #dcfce7;
-    color: #16a34a;
+    color: #15803d;
 }
 
-.ic-masuk .sb-card-val {
-    color: #16a34a;
+.ic-total .sb-card-val {
+    color: #15803d;
 }
 
-.ic-masuk .sb-card-bar {
-    background: #16a34a;
+.ic-total .sb-card-bar {
+    background: #15803d;
     width: 100%;
 }
 
-.ic-keluar .sb-card-icon {
-    background: #fef9c3;
-    color: #ca8a04;
-}
-
-.ic-keluar .sb-card-val {
-    color: #ca8a04;
-}
-
-.ic-keluar .sb-card-bar {
-    background: #ca8a04;
-    width: 100%;
-}
-
-.ic-akhir .sb-card-icon {
-    background: #ede9fe;
-    color: #7c3aed;
-}
-
-.ic-akhir .sb-card-val {
-    color: #7c3aed;
-}
-
-.ic-akhir .sb-card-bar {
-    background: #7c3aed;
-    width: 100%;
-}
-
+/* Table */
 .sb-table-wrap {
     background: #fff;
     border-radius: 14px;
@@ -218,16 +210,29 @@
     border-bottom: 1px solid #f0f6fc;
 }
 
-.sb-table-head span {
+.sb-table-head span:first-child {
     font-size: 14px;
     font-weight: 700;
     color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sb-table-info {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.sb-table-scroll {
+    overflow-x: auto;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
+    min-width: 1000px;
 }
 
 thead tr {
@@ -240,31 +245,40 @@ thead th {
     color: #64748b;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding: 11px 16px;
+    padding: 11px 12px;
     text-align: left;
     border-bottom: 1px solid #e8f0fc;
+    white-space: nowrap;
 }
 
-thead th:nth-child(1) {
-    width: 36px;
-}
-
-thead th:nth-child(3),
-thead th:nth-child(4),
-thead th:nth-child(5) {
+thead th.center,
+tbody td.center {
     text-align: center;
-    width: 100px;
 }
 
-thead th:nth-child(6) {
-    width: 100px;
-    text-align: center;
+.th-pusat {
+    color: #1d4ed8 !important;
+    background: #eff6ff;
+}
+
+.th-sodong {
+    color: #b45309 !important;
+    background: #fffbeb;
+}
+
+.th-sariwangi {
+    color: #7c3aed !important;
+    background: #f5f3ff;
+}
+
+.th-manonjaya {
+    color: #be185d !important;
+    background: #fdf2f8;
 }
 
 tbody tr {
     border-bottom: 1px solid #f0f6fc;
     transition: background 0.1s;
-    cursor: pointer;
 }
 
 tbody tr:last-child {
@@ -278,11 +292,8 @@ tbody tr:hover {
 tbody td {
     font-size: 13px;
     color: #1e293b;
-    padding: 12px 16px;
-}
-
-tbody td.center {
-    text-align: center;
+    padding: 12px;
+    vertical-align: middle;
 }
 
 .sb-no {
@@ -297,33 +308,66 @@ tbody td.center {
 }
 
 .sb-satuan {
-    font-size: 12px;
+    font-size: 11px;
     color: #64748b;
     font-weight: 500;
-    margin-top: 1px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.num-masuk {
-    color: #16a34a;
-    font-weight: 600;
+.num-stok {
+    font-weight: 700;
+    font-size: 13px;
 }
 
-.num-keluar {
-    color: #ca8a04;
-    font-weight: 600;
+.num-zero {
+    color: #cbd5e1;
+    font-weight: 500;
 }
 
-.num-akhir {
+.c-pusat {
+    color: #1d4ed8;
+}
+
+.c-sodong {
+    color: #b45309;
+}
+
+.c-sariwangi {
     color: #7c3aed;
+}
+
+.c-manonjaya {
+    color: #be185d;
+}
+
+.num-harga {
+    color: #475569;
+    font-weight: 600;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+}
+
+.num-total-qty {
+    color: #1e293b;
     font-weight: 700;
     font-size: 14px;
 }
 
+.num-total-nilai {
+    color: #15803d;
+    font-weight: 700;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+}
+
 .sb-status {
     display: inline-block;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
-    padding: 3px 10px;
+    padding: 2px 8px;
     border-radius: 20px;
     letter-spacing: 0.03em;
 }
@@ -382,41 +426,12 @@ tbody td.center {
     background: #f0f6fc;
 }
 
-/* Tag jenis mutasi */
-.sb-mutasi-tag {
-    margin-top: 4px;
-    display: flex;
-    gap: 4px;
-    flex-wrap: wrap;
-}
-
-.sb-jenis {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 20px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.jenis-masuk {
-    background: #dcfce7;
-    color: #15803d;
-}
-
-.jenis-keluar {
-    background: #fef9c3;
-    color: #a16207;
-}
-
-.jenis-none {
-    background: #f1f5f9;
-    color: #94a3b8;
-}
-
-@media (max-width: 600px) {
+@media (max-width:768px) {
     .sb-cards {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+    }
+
+    .sb-card-val {
+        font-size: 18px;
     }
 }

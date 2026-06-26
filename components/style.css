@@ -145,7 +145,7 @@ body {
     align-items: center;
 }
 
-.nav-list li{
+.nav-list li {
     list-style-type: none;
 }
 
@@ -191,12 +191,12 @@ body {
 }
 
 /* Active state */
-.nav-item.active > .nav-link {
+.nav-item.active>.nav-link {
     color: var(--primary-light);
     font-weight: 600;
 }
 
-.nav-item.active > .nav-link::after {
+.nav-item.active>.nav-link::after {
     width: calc(100% - 1.5rem);
     background: var(--primary-gradient);
 }
@@ -210,7 +210,7 @@ body {
     opacity: 0.6;
 }
 
-.nav-item.dropdown-open > .nav-link .dd-arrow {
+.nav-item.dropdown-open>.nav-link .dd-arrow {
     transform: rotate(180deg);
 }
 
@@ -278,6 +278,121 @@ body {
     color: var(--primary-light);
 }
 
+/* ===== NESTED DROPDOWN (SPPG) ===== */
+.dropdown-item-nested {
+    position: relative;
+}
+
+.dropdown-item-nested>.dropdown-item {
+    justify-content: space-between;
+}
+
+.dd-arrow-nested {
+    font-size: 0.65rem;
+    margin-left: auto;
+    opacity: 0.6;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.dropdown-item-nested.nested-open>.dropdown-item .dd-arrow-nested {
+    transform: rotate(90deg);
+}
+
+.dropdown-item-nested.active>.dropdown-item {
+    background-color: rgba(37, 99, 168, 0.08);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.dropdown-menu-nested {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 6px);
+    background: var(--white);
+    border: 1px solid rgba(37, 99, 168, 0.1);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(37, 99, 168, 0.12);
+    min-width: 180px;
+    padding: 8px;
+    z-index: 1200;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    pointer-events: none;
+    list-style: none;
+}
+
+.dropdown-item-nested.nested-open .dropdown-menu-nested {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+/* Mobile: nested opens inline (below) */
+@media (max-width: 788px) {
+    .dropdown-menu-nested {
+        position: static;
+        box-shadow: none;
+        border: none;
+        background: transparent;
+        transform: none;
+        padding: 0 0 0 12px;
+        display: none;
+    }
+
+    .dropdown-item-nested.nested-open .dropdown-menu-nested {
+        display: block;
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .dd-arrow-nested {
+        display: inline-block !important;
+    }
+}
+
+.dropdown-subgroup-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px 4px 14px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--primary, #2563a8);
+    background: rgba(37, 99, 168, 0.04);
+    border-top: 1px solid rgba(37, 99, 168, 0.08);
+    border-bottom: 1px solid rgba(37, 99, 168, 0.08);
+    margin-top: 2px;
+    cursor: default;
+    user-select: none;
+}
+
+.dropdown-subgroup-label svg {
+    opacity: 0.6;
+}
+
+/* Item sub (indented, untuk Food Cost & Add Cost) */
+.dropdown-item-sub {
+    padding-left: 28px !important;
+}
+
+.dropdown-item-sub::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
 /* ===== HAMBURGER ===== */
 .hamburger {
     display: none;
@@ -320,6 +435,7 @@ body {
 }
 
 @media (min-width: 789px) {
+
     .nav-overlay,
     .nav-overlay.active {
         display: none !important;
@@ -410,7 +526,7 @@ body {
         border-radius: var(--radius-sm);
     }
 
-    .nav-list li{
+    .nav-list li {
         list-style-type: none;
     }
 
@@ -423,7 +539,7 @@ body {
         display: none;
     }
 
-    .nav-item.active > .nav-link {
+    .nav-item.active>.nav-link {
         background: rgba(37, 99, 168, 0.08);
         color: var(--primary);
     }
@@ -439,7 +555,8 @@ body {
         background: transparent;
         padding: 0;
         pointer-events: auto;
-        display: none; /* controlled by JS toggle on mobile */
+        display: none;
+        /* controlled by JS toggle on mobile */
     }
 
     /* Arrow hidden on mobile since group is always expanded */

@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../database/koneksi.php';
+
 $q = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM transaksi_penjualan WHERE DATE(tanggal)=CURDATE()");
 $data = mysqli_fetch_assoc($q);
 $urutan = $data['total'] + 1;

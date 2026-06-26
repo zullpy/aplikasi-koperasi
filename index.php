@@ -53,10 +53,6 @@
                 <input type="password" name="password" id="input-password" required>
                 <i class="ph ph-eye" id="togglePassword"></i>
             </div>
-            <div class="register">
-                <span>Belum punya akun?</span>
-                <a href="register.php">Daftar</a>
-            </div>
             <button type="submit">Login</button>
         </form>
         <div class="alamat">

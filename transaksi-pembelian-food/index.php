@@ -253,7 +253,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     <i class="ph ph-receipt"></i> Bukti Nota
                                                 </span>
                                                 <?php if ($hasNota): ?>
-                                                    <?php 
+                                                    <?php
                                                     $notas = explode(',', $supplierData['nota']);
                                                     foreach ($notas as $index => $singleNota):
                                                         $singleNota = trim($singleNota);
@@ -303,6 +303,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         <?php endif; ?>
     </main>
 
+    <!-- MODAL TAMBAH -->
     <div class="modal" id="tambahModal">
         <div class="modal-content modal-content-tambah">
             <div class="modal-header">
@@ -371,17 +372,19 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                             <i class="ph ph-plus"></i> Tambah Barang
                         </button>
                     </div>
-                    <div class="item-table-header">
+                    <!-- <div class="item-table-header">
                         <span class="th-nama">Nama Barang</span>
                         <span class="th-harga">Harga Beli</span>
+                        <span class="th-ket">Keterangan</span>
+                        <span class="th-eceran">Harga Eceran</span>
                         <span class="th-keuntungan">Keuntungan</span>
-                        <span class="th-harga-jual">Harga Jual</span>
+                        <span class="th-harga-jual">Harga Jual/Dus</span>
+                        <span class="th-harga-jual-eceran">Harga Jual Eceran</span>
                         <span class="th-volume">Volume</span>
                         <span class="th-satuan">Satuan</span>
-                        <span class="th-ket">Keterangan</span>
                         <span class="th-subtotal">Sub Total</span>
                         <span class="th-aksi"></span>
-                    </div>
+                    </div> -->
                     <div id="item-rows-container"></div>
                     <div class="item-empty-state" id="item-empty-state">
                         <i class="ph ph-package"></i>
@@ -430,6 +433,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         </div>
     </div>
 
+    <!-- MODAL EDIT -->
     <div class="modal" id="transaksiModal">
         <div class="modal-content">
             <h2 id="modal-title">Edit Transaksi Pembelian</h2>
@@ -521,6 +525,8 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         </div>
         <div id="toast"></div>
     </div>
+
+    <!-- MODAL NOTA -->
     <div class="modal" id="notaModal">
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
@@ -564,7 +570,8 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
             </form>
         </div>
     </div>
-    
+
+    <!-- MODAL DETAIL -->
     <div class="modal" id="detailModal">
         <div class="modal-content detail-modal-content">
             <div class="modal-header">
@@ -620,6 +627,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         </div>
     </div>
 
+    <!-- MODAL NOTA PREVIEW -->
     <div class="modal" id="notaPreviewModal">
         <div class="modal-content nota-preview-content">
             <div class="modal-header">
@@ -638,4 +646,5 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
     </div>
 </body>
 <script src="script.js"></script>
+
 </html>

@@ -4,12 +4,13 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
-$nama_barang = $_POST['nama_barang'];
-$keterangan  = $_POST['keterangan'];
-$harga       = $_POST['harga'];
-$keuntungan  = $_POST['keuntungan'] ?? []; // ✅ Field baru
-$volume      = $_POST['volume'];
-$satuan      = $_POST['satuan'];
+$nama_barang   = $_POST['nama_barang'];
+$keterangan    = $_POST['keterangan'];
+$harga         = $_POST['harga'];
+$harga_eceran  = $_POST['harga_eceran'] ?? []; // ✅ Field baru: Harga Eceran
+$keuntungan    = $_POST['keuntungan'] ?? [];
+$volume        = $_POST['volume'];
+$satuan        = $_POST['satuan'];
 
 // FIX: tanggal bisa array atau string
 $tanggal_pembelian = is_array($_POST['tanggal_pembelian'])
@@ -35,9 +36,11 @@ $kode_transaksi = 'TRX' . date('YmdHis');
 $allowed  = ['jpg', 'jpeg', 'png', 'pdf'];
 $max_size = 2 * 1024 * 1024; // 2 MB
 
-function reArrayFiles($file_post) {
+function reArrayFiles($file_post)
+{
     $file_ary = [];
     if (!isset($file_post['name'])) return $file_ary;
+
     if (is_array($file_post['name'])) {
         $file_count = count($file_post['name']);
         $file_keys = array_keys($file_post);
@@ -69,6 +72,7 @@ foreach ($all_files as $file) {
         header("Location: ../transaksi-pembelian-food/index.php");
         exit;
     }
+
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowed)) {
         $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Format file harus JPG, JPEG, PNG, atau PDF'];
@@ -97,29 +101,47 @@ if (!empty($uploaded_files)) {
 |--------------------------------------------------------------------------
 */
 if (!is_array($nama_barang)) {
-    $nama_barang = [$nama_barang];
-    $harga       = [$harga];
-    $keuntungan  = [$keuntungan];
-    $volume      = [$volume];
-    $satuan      = [$satuan];
-    $keterangan  = [$keterangan];
+    $nama_barang   = [$nama_barang];
+    $harga         = [$harga];
+    $harga_eceran  = [$harga_eceran];
+    $keuntungan    = [$keuntungan];
+    $volume        = [$volume];
+    $satuan        = [$satuan];
+    $keterangan    = [$keterangan];
 }
 
 foreach ($nama_barang as $i => $barang_nama) {
-    $harga_item      = preg_replace('/[^0-9]/', '', $harga[$i] ?? '0');
-    $keuntungan_item = preg_replace('/[^0-9]/', '', $keuntungan[$i] ?? '0');
-    $volume_item     = $volume[$i];
-    $satuan_item     = $satuan[$i];
-    $keterangan_item = $keterangan[$i];
+    $harga_item          = preg_replace('/[^0-9]/', '', $harga[$i] ?? '0');
+    $harga_eceran_item  = preg_replace('/[^0-9]/', '', $harga_eceran[$i] ?? '0');
+    $keuntungan_item     = preg_replace('/[^0-9]/', '', $keuntungan[$i] ?? '0');
+    $volume_item         = $volume[$i];
+    $satuan_item         = $satuan[$i];
+    $keterangan_item     = $keterangan[$i];
 
-    // ✅ Hitung harga jual di server (harga beli + keuntungan)
-    $harga_jual_item = $harga_item + $keuntungan_item;
+    // ✅ Hitung harga jual per dus di server
+    // Parser keterangan untuk dapat jumlah isi
+    $jumlah_isi = 0;
+    if (preg_match('/isi\s*(\d+)/i', $keterangan_item, $matches)) {
+        $jumlah_isi = (int) $matches[1];
+    } elseif (preg_match('/(\d+)\s*(?:pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i', $keterangan_item, $matches)) {
+        $jumlah_isi = (int) $matches[1];
+    }
+
+    // Harga Jual per Dus = Harga Beli + (Keuntungan × Jumlah Isi)
+    $harga_jual_item = $jumlah_isi > 0
+        ? $harga_item + ($keuntungan_item * $jumlah_isi)
+        : $harga_item + $keuntungan_item;
+
+    // Harga Jual Eceran = Harga Eceran + Keuntungan
+    $harga_jual_eceran_item = $harga_eceran_item + $keuntungan_item;
 
     $cari = mysqli_query($koneksi, "SELECT * FROM barang WHERE nama_barang='$barang_nama'");
     $barang = mysqli_fetch_assoc($cari);
+
     if (!$barang) continue;
 
     $id_barang = $barang['id_barang'];
+
     $result = mysqli_query($koneksi, "SELECT stok_akhir FROM barang WHERE id_barang='$id_barang'");
     $data = mysqli_fetch_assoc($result);
     $stok_lama = $data['stok_akhir'];
@@ -127,30 +149,34 @@ foreach ($nama_barang as $i => $barang_nama) {
 
     // ✅ Biaya admin hanya di item pertama
     $biaya_admin_item = ($i == 0) ? $biaya_admin : 0;
+
     $nota_item = $nota;
     $nota_sql = $nota_item !== null ? "'" . mysqli_real_escape_string($koneksi, $nota_item) . "'" : "NULL";
 
     // Escape string untuk keamanan
-    $kode_transaksi_esc = mysqli_real_escape_string($koneksi, $kode_transaksi);
-    $id_supplier_esc    = (int) $id_supplier;
-    $barang_nama_esc    = mysqli_real_escape_string($koneksi, $barang_nama);
-    $tanggal_esc        = mysqli_real_escape_string($koneksi, $tanggal_pembelian);
-    $harga_esc          = (int) $harga_item;
-    $harga_jual_esc     = (int) $harga_jual_item;
-    $volume_esc         = (int) $volume_item;
-    $satuan_esc         = mysqli_real_escape_string($koneksi, $satuan_item);
-    $keterangan_esc     = mysqli_real_escape_string($koneksi, $keterangan_item);
-    $metode_esc         = mysqli_real_escape_string($koneksi, $metode_pembayaran);
-    $biaya_admin_esc    = (int) $biaya_admin_item;
+    $kode_transaksi_esc    = mysqli_real_escape_string($koneksi, $kode_transaksi);
+    $id_supplier_esc       = (int) $id_supplier;
+    $barang_nama_esc       = mysqli_real_escape_string($koneksi, $barang_nama);
+    $tanggal_esc           = mysqli_real_escape_string($koneksi, $tanggal_pembelian);
+    $harga_esc             = (int) $harga_item;
+    $harga_eceran_esc      = (int) $harga_eceran_item;
+    $harga_jual_esc        = (int) $harga_jual_item;
+    $harga_jual_eceran_esc = (int) $harga_jual_eceran_item;
+    $volume_esc            = (int) $volume_item;
+    $satuan_esc            = mysqli_real_escape_string($koneksi, $satuan_item);
+    $keterangan_esc        = mysqli_real_escape_string($koneksi, $keterangan_item);
+    $metode_esc            = mysqli_real_escape_string($koneksi, $metode_pembayaran);
+    $biaya_admin_esc       = (int) $biaya_admin_item;
 
     mysqli_query($koneksi, "
         INSERT INTO transaksi_pembelian(
             kode_transaksi, id_supplier, nama_barang, tanggal_pembelian,
-            harga, volume, satuan, keterangan, nota,
+            harga, harga_eceran, harga_jual_dus, harga_jual_eceran, volume, satuan, keterangan, nota,
             metode_pembayaran, biaya_admin
         ) VALUES(
             '$kode_transaksi_esc', '$id_supplier_esc', '$barang_nama_esc', '$tanggal_esc',
-            '$harga_esc', '$volume_esc', '$satuan_esc', '$keterangan_esc',
+            '$harga_esc', '$harga_eceran_esc', '$harga_jual_esc', '$harga_jual_eceran_esc', 
+            '$volume_esc', '$satuan_esc', '$keterangan_esc',
             $nota_sql,
             '$metode_esc', $biaya_admin_esc
         )
@@ -163,12 +189,14 @@ foreach ($nama_barang as $i => $barang_nama) {
         VALUES('$id_barang', '$harga_esc', '$tanggal_esc')
     ");
 
-    // ✅ UPDATE TABEL BARANG: Harga Beli, Harga Jual, dan Tanggal Terupdate
+    // ✅ UPDATE TABEL BARANG: Harga Beli, Harga Eceran, Harga Jual, Harga Jual Eceran, dan Tanggal Terupdate
     mysqli_query($koneksi, "
         UPDATE barang
         SET stok_akhir='$stok_baru',
             harga_beli='$harga_esc',
+            harga_eceran='$harga_eceran_esc',
             harga_jual='$harga_jual_esc',
+            harga_jual_eceran='$harga_jual_eceran_esc',
             tanggal_terupdate_baru='$tanggal_esc'
         WHERE id_barang='$id_barang'
     ");
@@ -187,7 +215,8 @@ foreach ($nama_barang as $i => $barang_nama) {
 $_SESSION['alert'] = [
     'icon'  => 'success',
     'title' => 'Berhasil',
-    'text'  => 'Data transaksi berhasil ditambahkan. Harga beli, harga jual & tanggal otomatis terupdate ke tabel barang.'
+    'text'  => 'Data transaksi berhasil ditambahkan. Harga beli, harga eceran, harga jual & tanggal otomatis terupdate ke tabel barang.'
 ];
+
 header("Location: ../transaksi-pembelian-food/index.php");
 exit;

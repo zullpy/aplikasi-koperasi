@@ -459,7 +459,7 @@ body {
     margin-left: 2px;
 }
 
-/* ===== NOTA PER SUPPLIER (BARU) ===== */
+/* ===== NOTA PER SUPPLIER ===== */
 .supplier-nota-row {
     display: flex;
     flex-wrap: wrap;
@@ -706,7 +706,6 @@ body {
     padding: 30px;
     border-radius: 20px;
     width: 100%;
-    /* width: 1200px; */
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 25px -5px rgba(37, 99, 168, 0.1), 0 10px 10px -5px rgba(37, 99, 168, 0.04);
@@ -818,7 +817,6 @@ body {
 
 .modal-actions button {
     flex: 1;
-    
 }
 
 .modal-content button[type="submit"] {
@@ -1042,10 +1040,11 @@ body {
     font-size: 0.95rem;
 }
 
+/* ===== HEADER TABEL 10 KOLOM ===== */
 .item-table-header {
     display: grid;
-    /* 9 Kolom: Nama, Harga, Keuntungan, Harga Jual, Volume, Satuan, Ket, Subtotal, Aksi */
-    grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr 0.9fr 1.2fr 1fr 40px;
+    /* 11 Kolom: Nama, Harga, Ket, Eceran, Keuntungan, Jual/Dus, Jual Eceran, Volume, Satuan, Subtotal, Aksi */
+    grid-template-columns: 2fr 0.95fr 1.15fr 1fr 0.9fr 1fr 1fr 0.7fr 0.8fr 1fr 36px;
     gap: 8px;
     padding: 8px 16px;
     background: #f7fafd;
@@ -1057,18 +1056,128 @@ body {
     color: var(--text-muted);
 }
 
+/* ===== LAYOUT CARD BARU ===== */
 .item-input-row {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 0.8fr 0.9fr 1.2fr 1fr 40px;
-    gap: 8px;
-    align-items: center;
-    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
     border-bottom: 1px solid #eef3fa;
     background: var(--white);
     transition: background .15s;
 }
 
-/* Styling khusus input Keuntungan (kuning soft) */
+.item-input-row:hover {
+    background: #f7fafd;
+}
+
+.item-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #eef3fa;
+}
+
+.item-number-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.item-card-header .field-nama {
+    flex: 1;
+}
+
+.item-row-1,
+.item-row-2 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.item-row-1 .item-input-field,
+.item-row-2 .item-input-field {
+    flex: 1 1 140px;
+    min-width: 120px;
+}
+
+.item-row-2 {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px dashed #dce8f5;
+    margin-top: 4px;
+}
+
+/* Warna Input Keuntungan Dus (Kuning Soft) */
+.item-keuntungan-dus-input {
+    background: #fffbeb !important;
+    border-color: #fde68a !important;
+    color: #b45309 !important;
+    font-weight: 600;
+}
+
+.item-keuntungan-dus-input:focus {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+    border-color: #f59e0b !important;
+}
+
+/* Warna Input Keuntungan Eceran (Kuning Amber) */
+.item-keuntungan-eceran-input {
+    background: #fef3c7 !important;
+    border-color: #fcd34d !important;
+    color: #92400e !important;
+    font-weight: 600;
+}
+
+.item-keuntungan-eceran-input:focus {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+    border-color: #f59e0b !important;
+}
+
+/* Hapus CSS .item-table-header lama jika ada */
+.item-table-header {
+    display: none;
+}
+
+/* ===== MOBILE 768px ===== */
+@media (max-width: 768px) {
+    .item-input-row {
+        padding: 14px 12px;
+        border: 1px solid #dce8f5;
+        border-radius: var(--radius-sm);
+        margin: 8px;
+        box-shadow: 0 2px 8px rgba(37, 99, 168, 0.05);
+    }
+
+    .item-card-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .item-row-1,
+    .item-row-2 {
+        flex-direction: column;
+    }
+
+    .item-row-1 .item-input-field,
+    .item-row-2 .item-input-field {
+        flex: 1 1 100%;
+        min-width: 100%;
+    }
+}
+
 .item-keuntungan-input {
     background: #fffbeb !important;
     border-color: #fde68a !important;
@@ -1079,6 +1188,19 @@ body {
 .item-keuntungan-input:focus {
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
     border-color: #f59e0b !important;
+}
+
+/* Styling khusus input Harga Jual Dus (hijau soft, readonly) */
+.item-harga-jual-dus-input {
+    background: #ecfdf5 !important;
+    border-color: #10b981 !important;
+    color: #059669 !important;
+    font-weight: 700;
+    cursor: not-allowed;
+}
+
+.item-harga-jual-dus-input:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
 }
 
 /* Styling khusus input Harga Jual (hijau soft, readonly) */
@@ -1092,6 +1214,45 @@ body {
 
 .item-harga-jual-input:focus {
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* Styling khusus input Harga Jual Eceran (ungu soft, readonly) */
+.item-harga-jual-eceran-input {
+    background: #faf5ff !important;
+    border-color: #a78bfa !important;
+    color: #7c3aed !important;
+    font-weight: 700;
+    cursor: not-allowed;
+}
+
+.item-harga-jual-eceran-input:focus {
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15) !important;
+}
+
+/* Styling khusus input Harga Eceran (biru soft, readonly) */
+.item-harga-eceran-input {
+    background: #eff6ff !important;
+    border-color: #60a5fa !important;
+    color: #1d4ed8 !important;
+    font-weight: 700;
+    cursor: not-allowed;
+}
+
+.item-harga-eceran-input:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Styling input Keterangan (kuning amber biar user notice) */
+.item-ket-input {
+    background: #fefce8 !important;
+    border-color: #fde68a !important;
+    color: #92400e !important;
+    font-weight: 600;
+}
+
+.item-ket-input:focus {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+    border-color: #f59e0b !important;
 }
 
 .item-input-row:last-child {
@@ -1110,11 +1271,11 @@ body {
 }
 
 .item-field-label {
-    display: none;
-    font-size: 0.7rem;
+    display: block;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .3px;
+    letter-spacing: .4px;
     color: var(--text-muted);
 }
 
@@ -1153,21 +1314,32 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
+    gap: 7px;
+    width: 100%;
+    padding: 9px 16px;
+    border: 1.5px solid #fca5a5;
     border-radius: 8px;
     background: var(--danger-bg);
     color: var(--danger);
     cursor: pointer;
-    font-size: 1rem;
-    transition: background .2s, transform .2s;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: background .2s, border-color .2s, transform .15s;
     flex-shrink: 0;
 }
 
 .hapus-item-btn:hover {
     background: #fecaca;
-    transform: scale(1.08);
+    border-color: #f87171;
+    transform: translateY(-1px);
+}
+
+.hapus-item-btn i {
+    font-size: 1rem;
+}
+
+.item-hapus-row {
+    padding-top: 4px;
 }
 
 .autocomplete-wrapper-inline {
@@ -1576,7 +1748,9 @@ body {
     background: #dc2626;
 }
 
-/* Mobile */
+
+
+/* ===== MOBILE 768px ===== */
 @media (max-width: 768px) {
     .container {
         padding: 15px;
@@ -1782,23 +1956,51 @@ body {
         grid-column: 1 / -1;
     }
 
+    .field-harga-eceran {
+        grid-column: 1 / -1;
+    }
+
+    .field-harga-jual {
+        grid-column: 1 / -1;
+    }
+
+    .field-harga-jual-eceran {
+        grid-column: 1 / -1;
+    }
+
+    .field-subtotal {
+        grid-column: 1 / -1;
+    }
+
     .field-hapus {
         grid-column: 1 / -1;
         display: flex;
         justify-content: flex-end;
     }
 
-    .hapus-item-btn {
-        width: auto;
-        padding: 8px 16px;
-        border-radius: 8px;
-        gap: 6px;
-        font-size: 0.82rem;
-        font-weight: 600;
+    .field-harga {
+        grid-column: 1;
     }
 
-    .hapus-item-btn::after {
-        content: ' Hapus';
+    .field-keuntungan {
+        grid-column: 2;
+    }
+
+    .field-volume {
+        grid-column: 1;
+    }
+
+    .field-satuan {
+        grid-column: 2;
+    }
+
+    .hapus-item-btn {
+        width: 100%;
+        padding: 10px 16px;
+        border-radius: 8px;
+        gap: 7px;
+        font-size: 0.85rem;
+        font-weight: 700;
     }
 
     .nota-upload-grid-add {
@@ -1819,6 +2021,7 @@ body {
     }
 }
 
+/* ===== MOBILE 480px ===== */
 @media (max-width: 480px) {
     .item-actions button {
         flex: 1 1 100%;
@@ -1830,52 +2033,31 @@ body {
 
     .field-nama,
     .field-ket,
+    .field-harga-eceran,
+    .field-harga-jual,
+    .field-subtotal,
     .field-hapus {
+        grid-column: 1 / -1;
+    }
+
+    .field-harga {
+        grid-column: 1;
+    }
+
+    .field-keuntungan {
+        grid-column: 1;
+    }
+
+    .field-volume {
+        grid-column: 1;
+    }
+
+    .field-satuan {
         grid-column: 1;
     }
 
     .detail-grid {
         grid-template-columns: 1fr;
-    }
-
-    .item-input-row {
-        /* Ubah jadi 2 kolom di mobile, field nama & ket full width */
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        padding: 14px 12px;
-        border: 1px solid #dce8f5;
-        border-radius: var(--radius-sm);
-        margin: 8px;
-        box-shadow: 0 2px 8px rgba(37, 99, 168, 0.05);
-    }
-    .field-nama,
-    .field-ket {
-        grid-column: 1 / -1;
-    }
-    /* Urutan field di mobile biar enak dibaca */
-    .field-harga {
-        grid-column: 1;
-    }
-    .field-keuntungan {
-        grid-column: 2;
-    }
-    .field-harga-jual {
-        grid-column: 1 / -1;
-    }
-    /* Full width */
-    .field-volume {
-        grid-column: 1;
-    }
-    .field-satuan {
-        grid-column: 2;
-    }
-    .field-subtotal {
-        grid-column: 1 / -1;
-    }
-    .field-hapus {
-        grid-column: 1 / -1;
-        display: flex;
-        justify-content: flex-end;
     }
 }
 
@@ -1886,6 +2068,7 @@ body {
     gap: 8px;
     margin-top: 12px;
 }
+
 .selected-file-item {
     display: flex;
     align-items: center;
@@ -1897,16 +2080,19 @@ body {
     font-size: 0.85rem;
     animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .selected-file-info {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
 }
+
 .selected-file-info i {
     font-size: 1.1rem;
     color: var(--primary);
 }
+
 .selected-file-name {
     font-weight: 600;
     color: var(--text-main);
@@ -1915,10 +2101,12 @@ body {
     text-overflow: ellipsis;
     max-width: 250px;
 }
+
 .selected-file-size {
     font-size: 0.75rem;
     color: var(--text-muted);
 }
+
 .selected-file-remove {
     background: none;
     border: none;
@@ -1931,6 +2119,7 @@ body {
     border-radius: 4px;
     transition: background 0.2s;
 }
+
 .selected-file-remove:hover {
     background: #fee2e2;
 }
