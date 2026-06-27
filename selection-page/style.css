@@ -47,9 +47,9 @@ body.loading{
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    /* justify-content: center; */
     flex-shrink: 0;
-    height: 250px;
+    height: 220px;
 }
 
 .bottom p{

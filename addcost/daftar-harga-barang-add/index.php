@@ -1,6 +1,11 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+// Ensure user is logged in
+if (!isset($_SESSION['id'])) {
+    header('Location: ../../..');
+    exit;
+}
 session_start();
 include '../database/koneksi.php';
 $query = "SELECT

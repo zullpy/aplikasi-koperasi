@@ -2,6 +2,11 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
+// Ensure user is logged in
+if (!isset($_SESSION['id'])) {
+    header('Location: ../');
+    exit;
+}
 include '../database/koneksi.php';
 $query = "SELECT
 p.id_pembelian,

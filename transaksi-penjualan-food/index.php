@@ -1,5 +1,10 @@
 <?php
 session_start();
+// Ensure user is logged in
+if (!isset($_SESSION['id'])) {
+    header('Location: ../');
+    exit;
+}
 include '../database/koneksi.php';
 
 $q = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM transaksi_penjualan WHERE DATE(tanggal)=CURDATE()");

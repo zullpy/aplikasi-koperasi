@@ -2,6 +2,7 @@
 TAMBAH MODAL — multi-item form
 ============================================================ */
 let itemIndex = 0;
+
 function openAddModal() {
     const form = document.getElementById('tambah-form');
     if (form) form.reset();
@@ -12,6 +13,7 @@ function openAddModal() {
     updateGrandTotal();
     resetDropzone('add_nota_kamera');
     resetDropzone('add_nota_file');
+
     const today = new Date().toISOString().split('T')[0];
     const tglInput = document.getElementById('add_tanggal');
     if (tglInput) tglInput.value = today;
@@ -23,6 +25,7 @@ function openAddModal() {
     const modal = document.getElementById('tambahModal');
     if (modal) modal.style.display = 'block';
 }
+
 function closeTambahModal() {
     const modal = document.getElementById('tambahModal');
     if (modal) modal.style.display = 'none';
@@ -34,7 +37,7 @@ PARSER KETERANGAN → ambil jumlah isi kemasan
 function extractJumlahIsi(keterangan) {
     if (!keterangan) return 0;
     const lower = keterangan.toLowerCase().trim();
-    let match = lower.match(/isi\s*(\d+)/);
+    let match = lower.match(/isi\s(\d+)/);
     if (match) return parseInt(match[1]) || 0;
     match = lower.match(/(\d+)\s*(?:pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i);
     if (match) return parseInt(match[1]) || 0;
@@ -48,7 +51,6 @@ function hitungHargaEceran(idx) {
     const ketInput = row.querySelector('.item-ket-input');
     const eceranInput = row.querySelector('.item-harga-eceran-input');
     if (!ketInput || !eceranInput) return;
-
     const jumlahIsi = extractJumlahIsi(ketInput.value);
     const harga = parseInt(hargaRaw) || 0;
 
@@ -66,7 +68,6 @@ function hitungHargaJualEceran(idx) {
     const eceranRaw = (row.querySelector('.item-harga-eceran-input').value || '').replace(/\D/g, '');
     const keuntunganEceranRaw = (row.querySelector('.item-keuntungan-eceran-input').value || '').replace(/\D/g, '');
     const hargaJualEceranInput = row.querySelector('.item-harga-jual-eceran-input');
-
     if (!hargaJualEceranInput) return;
 
     const hargaEceran = parseInt(eceranRaw) || 0;
@@ -87,6 +88,7 @@ function hitungHargaJualDus(idx) {
     const harga = parseInt(hargaRaw) || 0;
     const keuntungan = parseInt(keuntunganDusRaw) || 0;
     const hargaJualDus = harga + keuntungan;
+
     hargaJualDusInput.value = hargaJualDus > 0 ? 'Rp ' + hargaJualDus.toLocaleString('id-ID') : '';
 }
 
@@ -113,7 +115,7 @@ function addItemRow() {
                 </div>
             </div>
         </div>
-        
+
         <div class="item-row-1">
             <div class="item-input-field field-harga">
                 <label class="item-field-label">Harga Beli</label>
@@ -233,8 +235,9 @@ function addItemRow() {
                     if (data.status === 'ada') {
                         showItemToast(buildToastAda(data), 'success');
                     } else {
+                        // ✅ PESAN BARU: barang akan otomatis didaftarkan saat simpan
                         showItemToast(
-                            `⚠️ <strong>Barang belum terdaftar</strong><br>Silakan daftarkan di <a href="../daftar-harga-barang-food/index.php" style="color:#fff;text-decoration:underline">Daftar Harga</a> terlebih dahulu`,
+                            `<strong>NEW!</strong> Barang baru terdeteksi<br>Akan otomatis didaftarkan ke tabel barang saat Anda menyimpan transaksi.`,
                             'warning'
                         );
                     }
@@ -252,7 +255,7 @@ function buildToastAda(data) {
     if (data.harga_jual) html += `<br>Harga jual: <strong>${rp(data.harga_jual)}</strong>`;
     if (data.tanggal_terupdate_baru) html += `<span style="opacity:.8;font-size:.85em">(${data.tanggal_terupdate_baru})</span>`;
     if (data.harga_min && data.harga_max && data.harga_min != data.harga_max) {
-        html += `<br>Min: ${rp(data.harga_min)}&nbsp;|&nbsp; Max: ${rp(data.harga_max)}`;
+        html += `<br>Min: ${rp(data.harga_min)}&nbsp;|&nbsp;Max: ${rp(data.harga_max)}`;
     }
     html += `<br>Stok: <strong>${data.stok} ${data.satuan}</strong>`;
     return html;
@@ -302,8 +305,9 @@ function pilihBarangInline(nama, idx) {
 
                 showItemToast(buildToastAda(data), 'success');
             } else {
+                // ✅ PESAN BARU: barang akan otomatis didaftarkan saat simpan
                 showItemToast(
-                    `⚠️ <strong>Barang belum terdaftar</strong><br>Silakan daftarkan di <a href="../daftar-harga-barang-food/index.php" style="color:#fff;text-decoration:underline">Daftar Harga</a> terlebih dahulu`,
+                    `🆕 <strong>Barang baru: "${nama}"</strong><br>Akan otomatis didaftarkan ke tabel barang saat Anda menyimpan transaksi.`,
                     'warning'
                 );
             }
@@ -366,6 +370,7 @@ function toggleBiayaAdmin(prefix) {
     const adminGroup = document.getElementById(`${prefix}_biaya_admin_group`);
     const adminInput = document.getElementById(`${prefix}_biaya_admin`);
     if (!adminGroup) return;
+
     const metode = selected ? selected.value : 'cash';
     if (metode === 'cash') {
         adminGroup.style.display = 'none';
@@ -440,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             Swal.fire({
                 icon: 'info', title: 'Simpan Transaksi?',
-                html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;"><p>Data yang diinput ini <b>sudah benar?</b></p></div>`,
+                html: `<div style="text-align:left; font-size:0.9rem; line-height:1.6;"><p>Data yang diinput ini <b>sudah benar?</b></p><p style="font-size:.82rem;color:#64748b;margin-top:6px;">💡 Barang yang belum terdaftar akan otomatis didaftarkan ke tabel barang.</p></div>`,
                 showCancelButton: true, confirmButtonText: 'Ya, Simpan', cancelButtonText: 'Batal', confirmButtonColor: '#2563a8', width: window.innerWidth < 768 ? '300px' : '420px'
             }).then((result) => {
                 if (result.isConfirmed) tambahForm.submit();
@@ -552,6 +557,7 @@ function bindDropzone(inputId) {
     const originalText = textEl ? textEl.textContent : '';
     const listContainerId = inputId + '-selected-files-list';
     const listContainer = document.getElementById(listContainerId);
+
     if (!inputEl._filesArray) {
         inputEl._filesArray = [];
     }
@@ -644,6 +650,7 @@ function bindDropzone(inputId) {
     dropzone.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputEl.click(); }
     });
+
     inputEl._resetDropzone = () => {
         inputEl._filesArray = [];
         updateDisplay();
@@ -673,6 +680,7 @@ document.addEventListener('click', (e) => {
     const gantiNotaBtn = e.target.closest('.ganti-nota-btn');
     const detailBtn = e.target.closest('.detail-btn');
     const lihatNotaBtn = e.target.closest('.lihat-nota-btn');
+
     if (editBtn) {
         e.preventDefault();
         loadEditData(editBtn.getAttribute('data-id'));
@@ -741,10 +749,12 @@ function openModal() {
     const modal = document.getElementById('transaksiModal');
     if (modal) modal.style.display = 'block';
 }
+
 function closeModal() {
     const modal = document.getElementById('transaksiModal');
     if (modal) modal.style.display = 'none';
 }
+
 function loadEditData(id) {
     if (!id) {
         Swal.fire({ icon: 'error', title: 'Oops...', text: 'ID Transaksi tidak ditemukan!', width: window.innerWidth < 768 ? '280px' : '400px' });
@@ -759,6 +769,7 @@ function loadEditData(id) {
                 document.getElementById('id_supplier').value = data.id_supplier || '';
                 document.getElementById('nama_barang').value = data.nama_barang || '';
                 document.getElementById('tanggal_pembelian').value = data.tanggal_pembelian || '';
+
                 if (data.harga) {
                     document.getElementById('harga').value = 'Rp ' + Number(data.harga).toLocaleString('id-ID');
                 }
@@ -821,6 +832,7 @@ function openNotaModal(id, supplierName = '', isGanti = false) {
     if (idInput) idInput.value = id;
     resetDropzone('nota_kamera_only');
     resetDropzone('nota_file_only');
+
     const titleEl = document.getElementById('nota-modal-title');
     const subtitleEl = document.getElementById('nota-supplier-name');
     if (titleEl) {
@@ -831,9 +843,11 @@ function openNotaModal(id, supplierName = '', isGanti = false) {
             ? `<i class="ph ph-storefront"></i> Supplier: <strong>${supplierName}</strong>`
             : '';
     }
+
     const modal = document.getElementById('notaModal');
     if (modal) modal.style.display = 'block';
 }
+
 function closeNotaModal() {
     const modal = document.getElementById('notaModal');
     if (modal) modal.style.display = 'none';
@@ -846,6 +860,7 @@ function closeDetailModal() {
     const modal = document.getElementById('detailModal');
     if (modal) modal.style.display = 'none';
 }
+
 function openDetailModal(btn) {
     const d = btn.dataset;
     const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
@@ -856,6 +871,7 @@ function openDetailModal(btn) {
     setText('detail-volume', `${d.volume || '-'} ${d.satuan || ''}`.trim());
     setText('detail-jumlah', 'Rp ' + Number(d.jumlah || 0).toLocaleString('id-ID'));
     setText('detail-supplier', d.supplier || '-');
+
     const metode = d.metode || '';
     const metodeEl = document.getElementById('detail-metode');
     if (metodeEl) {
@@ -865,6 +881,7 @@ function openDetailModal(btn) {
             ? `<span class="badge-metode badge-${metode.toLowerCase()}"><i class="ph ${icon}"></i> ${metode.toUpperCase()}</span>`
             : '-';
     }
+
     const biayaAdmin = parseFloat(d.biayaAdmin || 0);
     const adminItem = document.getElementById('detail-admin-item');
     const adminEl = document.getElementById('detail-biaya-admin');
@@ -899,6 +916,7 @@ function closeNotaPreview() {
     const body = document.getElementById('nota-preview-body');
     if (body) body.innerHTML = '';
 }
+
 function openNotaPreview(url) {
     if (!url) return;
     const body = document.getElementById('nota-preview-body');
@@ -919,6 +937,7 @@ ITEM TOAST
 ============================================================ */
 let itemToastEl = null;
 let itemToastTimer = null;
+
 function getItemToast() {
     if (!itemToastEl) {
         itemToastEl = document.createElement('div');
@@ -927,6 +946,7 @@ function getItemToast() {
     }
     return itemToastEl;
 }
+
 function showItemToast(html, type = 'success') {
     const el = getItemToast();
     el.className = 'item-toast ' + type;
@@ -937,6 +957,7 @@ function showItemToast(html, type = 'success') {
     el.classList.add('show');
     itemToastTimer = setTimeout(() => el.classList.remove('show'), 6000);
 }
+
 function hideItemToast() {
     if (itemToastEl) itemToastEl.classList.remove('show');
     clearTimeout(itemToastTimer);

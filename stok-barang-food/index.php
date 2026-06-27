@@ -1,4 +1,11 @@
-<?php $activePage = 'stok-barang';
+<?php
+session_start();
+// Ensure user is logged in
+if (!isset($_SESSION['id'])) {
+    header('Location: ../');
+    exit;
+}
+$activePage = 'stok-barang';
 include '../components/navbar.php'; ?>
 <!DOCTYPE html>
 <html lang="id">

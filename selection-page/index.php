@@ -1,3 +1,11 @@
+<?php
+session_start();
+// Ensure user is logged in
+if (!isset($_SESSION['id'])) {
+    header('Location: ../');
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -35,7 +43,7 @@
                 <a href="../transaksi-pembelian-food/index.php" class="btn link-slide slide-left">KANG dan SISTA</a>
                 <a href="../profile/index.php" class="btn link-slide slide-right">Profile Koperasi</a>
             </div>
-            <p>@ KOPERASI BINA USAHA SAUYUNAN|KBUS 2026</p>
+            <p>@ 2026 Created By Muhammad Zulfahmi</p>
         </div>
     </div>
 </body>

@@ -33,7 +33,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['role']     = $user['role'];
 
             $_SESSION['success'] = 'Login berhasil';
-            header("Location: ../selection-page/index.php");
+            // Redirect based on role
+            if ($_SESSION['role'] === 'admin') {
+                header("Location: ../selection-page/index.php");
+            } elseif (in_array($_SESSION['role'], ['bendahara', 'purchase'])) {
+                header("Location: ../transaksi-pembelian-food/index.php");
+            } else {
+                // Fallback to selection page for unknown roles
+                header("Location: ../selection-page/index.php");
+            }
             exit;
         } else {
             $_SESSION['error'] = 'Password salah';
