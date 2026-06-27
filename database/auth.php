@@ -15,7 +15,7 @@ function require_role($allowed_roles)
 {
     if (!in_array($_SESSION['role'], $allowed_roles)) {
         // Jika tidak punya akses, lempar kembali ke selection-page dengan pesan error
-        header("Location: ../transaksi-pembelian-food/error=akses_ditolak");
+        header("Location: ../transaksi-pembelian-food/index.php?error=akses_ditolak");
         exit;
     }
 }

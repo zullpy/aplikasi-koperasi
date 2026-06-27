@@ -90,8 +90,8 @@ $base_url = '';
                             </a>
                             <ul class="dropdown-menu-nested" role="menu">
                                 <li>
-                                    <a href="../transaksi-penjualan-sppg-foodcost/index.php"
-                                        class="dropdown-item <?= $activePage == 'transaksi-penjualan-sppg-foodcost' ? 'active' : '' ?>"
+                                    <a href="../penjualan-sppg-foodcost/index.php"
+                                        class="dropdown-item <?= $activePage == 'penjualan-sppg-foodcost' ? 'active' : '' ?>"
                                         role="menuitem">
                                         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                             <path d="M3 2h18v20H3z" />
@@ -101,8 +101,8 @@ $base_url = '';
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="../transaksi-penjualan-sppg-addcost/index.php"
-                                        class="dropdown-item <?= $activePage == 'transaksi-penjualan-sppg-addcost' ? 'active' : '' ?>"
+                                    <a href="../penjualan-sppg-addcost/index.php"
+                                        class="dropdown-item <?= $activePage == 'penjualan-sppg-addcost' ? 'active' : '' ?>"
                                         role="menuitem">
                                         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                             <circle cx="12" cy="12" r="10" />
@@ -198,7 +198,7 @@ $base_url = '';
                             </a>
                         </li>
                         <li>
-                            <a href="../daftar-aset-koperasi/index.php"
+                            <a href="../daftar-aset/index.php"
                                 class="dropdown-item <?= $activePage == 'daftar-aset-koperasi' ? 'active' : '' ?>"
                                 role="menuitem">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -228,7 +228,7 @@ $base_url = '';
                     <ul class="dropdown-menu" role="menu">
                         <li class="dropdown-group-label">Pengajuan</li>
                         <li>
-                            <a href="../dompet-belanja-harian/index.php"
+                            <a href="../dompet-harian/index.php"
                                 class="dropdown-item <?= $activePage == 'dompet-belanja-harian' ? 'active' : '' ?>"
                                 role="menuitem">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -241,8 +241,8 @@ $base_url = '';
                             </a>
                         </li>
                         <li>
-                            <a href="../pengajuan-anggaran-koperasi/index.php"
-                                class="dropdown-item <?= $activePage == 'pengajuan-anggaran-koperasi' ? 'active' : '' ?>"
+                            <a href="../pengajuan-koperasi/index.php"
+                                class="dropdown-item <?= $activePage == 'pengajuan-koperasi' ? 'active' : '' ?>"
                                 role="menuitem">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                     <rect x="2" y="3" width="20" height="14" rx="2" />

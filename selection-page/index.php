@@ -53,8 +53,6 @@ if (!isset($_SESSION['id'])) {
 
 
 <?php
-session_start();
-
 if (isset($_SESSION['success'])) {
 ?>
     <script>
