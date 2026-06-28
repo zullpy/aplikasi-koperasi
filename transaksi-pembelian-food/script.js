@@ -125,12 +125,12 @@ function addItemRow() {
                 <label class="item-field-label">Isi</label>
                 <input type="text" name="keterangan[]" class="item-ket-input" placeholder="1 dus isi 6 pcs" data-idx="${idx}">
             </div>
-            <div class="item-input-field field-keuntungan-dus">
-                <label class="item-field-label">Keuntungan (Dus)</label>
+            <div class="item-input-field field-keuntungan-dus" style=";">
+                <label class="item-field-label">Keuntungan (<span class="label-satuan-dus">Satuan</span>)</label>
                 <input type="text" name="keuntungan_dus[]" class="item-keuntungan-dus-input" placeholder="Rp 0" required data-idx="${idx}">
             </div>
             <div class="item-input-field field-harga-jual-dus">
-                <label class="item-field-label">Harga Jual (Dus)</label>
+                <label class="item-field-label">Harga Jual (<span class="label-satuan-harga">Satuan</span>)</label>
                 <input type="text" name="harga_jual_dus[]" class="item-harga-jual-dus-input" placeholder="Otomatis" readonly data-idx="${idx}">
             </div>
             <div class="item-input-field field-volume">
@@ -149,7 +149,7 @@ function addItemRow() {
 
         <div class="item-row-2">
             <div class="item-input-field field-harga-eceran">
-                <label class="item-field-label">Harga Eceran</label>
+                <label class="item-field-label">Harga Modal Eceran</label>
                 <input type="text" name="harga_eceran[]" class="item-harga-eceran-input" placeholder="Otomatis" readonly data-idx="${idx}">
             </div>
             <div class="item-input-field field-keuntungan-eceran">
@@ -176,6 +176,18 @@ function addItemRow() {
     const keuntunganDusInput = row.querySelector('.item-keuntungan-dus-input');
     const keuntunganEceranInput = row.querySelector('.item-keuntungan-eceran-input');
     const volumeInput = row.querySelector('.item-volume-input');
+
+    const satuanInput = row.querySelector('.item-satuan-input');
+
+    function updateLabelSatuan() {
+        const satuan = satuanInput.value.trim() || 'Satuan';
+        const labelKeuntungan = row.querySelector('.label-satuan-dus');
+        const labelHargaJual = row.querySelector('.label-satuan-harga');
+        if (labelKeuntungan) labelKeuntungan.textContent = satuan;
+        if (labelHargaJual) labelHargaJual.textContent = satuan;
+    }
+
+    satuanInput.addEventListener('input', updateLabelSatuan);
 
     hargaInput.addEventListener('input', function () {
         let raw = this.value.replace(/\D/g, '');
@@ -299,6 +311,11 @@ function pilihBarangInline(nama, idx) {
                 const satuanInput = row.querySelector('.item-satuan-input');
                 if (satuanInput && data.satuan) {
                     satuanInput.value = data.satuan;
+                    // Update label satuan secara dinamis
+                    const labelKeuntungan = row.querySelector('.label-satuan-dus');
+                    const labelHargaJual = row.querySelector('.label-satuan-harga');
+                    if (labelKeuntungan) labelKeuntungan.textContent = data.satuan;
+                    if (labelHargaJual) labelHargaJual.textContent = data.satuan;
                 }
 
                 hitungHargaEceran(idx);
