@@ -1,15 +1,45 @@
 /* ─────────────────────────────────────────────
-   approve.js — Approval Pengajuan Belanja
-   Layout card: detail item sebagai rincian saja,
-   approve/reject per pengajuan (per menu)
+approve.js — Approval Pengajuan Belanja
+Approve Modal (saldo masuk + bukti transfer)
+Simpan Tanda Tangan ke DB (real-time)
+Ekspor PDF format Laporan Belanja KBUS
 ───────────────────────────────────────────── */
 
 // ── STATE ──────────────────────────────────────
 let allData = [];
 let currentFilter = 'all';
-
-// ID yang sedang di-reject (untuk modal)
 let rejectTargetId = null;
+let approveTargetId = null;
+let approveTargetTotal = 0;
+
+// State tanda tangan lokal (untuk render UI)
+// Format: { pengajuanId -> { role -> { dataUrl, timestamp, nama, savedToDB } } }
+let signatures = {};
+
+// TTD modal state
+let ttdTargetId = null;
+let ttdTargetRole = null;
+let ttdCanvas = null;
+let ttdCtx = null;
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+
+// Role labels — sesuai enum tabel tanda_tangan_digital
+const ROLES = {
+    purchasing: { label: 'Purchasing', nama: 'Saepul Misbah' },
+    juru_bayar: { label: 'Juru Bayar', nama: 'Evin Yentiana' },
+    bendahara: { label: 'Bendahara Koperasi', nama: 'Nancy Febi Yolla' },
+    ketua: { label: 'Ketua Koperasi', nama: 'Yudi Hendrian' },
+};
+
+// Map role key → value di DB enum('bendahara','purchase','ketua')
+// Sesuaikan dengan enum di tanda_tangan_digital.role_penanda
+const ROLE_DB_MAP = {
+    purchasing: 'purchase',
+    juru_bayar: 'purchase',   // sesuaikan jika ada enum juru_bayar
+    bendahara: 'bendahara',
+    ketua: 'ketua',
+};
 
 // ── FORMAT HELPERS ──────────────────────────────
 function formatRupiah(num) {
@@ -23,11 +53,60 @@ function formatDate(dateStr) {
     });
 }
 
+function formatDateShort(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('id-ID', {
+        day: '2-digit', month: 'long', year: 'numeric'
+    });
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleString('id-ID', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+}
+
 function statusLabel(s) {
     return { pending: 'Menunggu', approved: 'Disetujui', rejected: 'Ditolak', completed: 'Selesai' }[s] || s;
 }
 
-// ── FETCH ───────────────────────────────────────
+// ── LOAD / SAVE SIGNATURES (localStorage untuk UI lokal) ──
+function loadSigs() {
+    try {
+        const raw = localStorage.getItem('kbus_signatures');
+        if (raw) signatures = JSON.parse(raw);
+    } catch (e) { signatures = {}; }
+}
+
+function saveSigsLocal() {
+    try {
+        localStorage.setItem('kbus_signatures', JSON.stringify(signatures));
+    } catch (e) { }
+}
+
+function getSig(pengajuanId, role) {
+    return (signatures[pengajuanId] || {})[role] || null;
+}
+
+function setSigLocal(pengajuanId, role, dataUrl, savedToDB = false) {
+    if (!signatures[pengajuanId]) signatures[pengajuanId] = {};
+    signatures[pengajuanId][role] = {
+        dataUrl,
+        timestamp: new Date().toISOString(),
+        nama: ROLES[role].nama,
+        savedToDB,
+    };
+    saveSigsLocal();
+}
+
+function removeSigLocal(pengajuanId, role) {
+    if (signatures[pengajuanId]) delete signatures[pengajuanId][role];
+    saveSigsLocal();
+}
+
+// ── FETCH DATA ─────────────────────────────────
 async function fetchData() {
     showSkeletons();
     try {
@@ -39,6 +118,10 @@ async function fetchData() {
                 if (!d.detail_items && d.items) d.detail_items = d.items;
                 if (!d.detail_items) d.detail_items = [];
             });
+
+            // Muat TTD dari DB ke state lokal
+            await loadTtdFromDB();
+
             updateStats();
             updateTabCounts();
             renderCards();
@@ -50,6 +133,41 @@ async function fetchData() {
         console.error(err);
         showToast('Gagal memuat data dari server', 'error');
         document.getElementById('cardsGrid').innerHTML = '';
+    }
+}
+
+// Ambil semua TTD dari DB dan merge ke state lokal
+async function loadTtdFromDB() {
+    try {
+        const ids = allData.map(d => d.id);
+        if (!ids.length) return;
+
+        const res = await fetch('../database/api-belanja.php?action=get_ttd&ids=' + ids.join(','));
+        const result = await res.json();
+
+        if (result.success && result.data) {
+            result.data.forEach(row => {
+                // Cari role key berdasarkan role_penanda
+                const matchKey = Object.keys(ROLE_DB_MAP).find(k => ROLE_DB_MAP[k] === row.role_penanda);
+                if (!matchKey) return;
+
+                const pid = row.pengajuan_id;
+                if (!signatures[pid]) signatures[pid] = {};
+
+                // Hanya overwrite jika belum ada di lokal atau belum savedToDB
+                if (!signatures[pid][matchKey] || !signatures[pid][matchKey].savedToDB) {
+                    signatures[pid][matchKey] = {
+                        dataUrl: row.signature_data,
+                        timestamp: row.timestamp,
+                        nama: row.nama || ROLES[matchKey].nama,
+                        savedToDB: true,
+                    };
+                }
+            });
+            saveSigsLocal();
+        }
+    } catch (e) {
+        console.warn('Gagal muat TTD dari DB:', e);
     }
 }
 
@@ -91,14 +209,14 @@ function showSkeletons(n = 4) {
             <div class="skeleton skeleton-line w-80"></div>
             <div class="skeleton skeleton-line w-80"></div>
             <div class="skeleton skeleton-line w-60" style="margin-top:14px"></div>
-        </div>`).join('');
+        </div>
+    `).join('');
 }
 
-// ── RENDER CARDS ────────────────────────────────
+// ─ RENDER CARDS ────────────────────────────────
 function renderCards() {
     const grid = document.getElementById('cardsGrid');
     const empty = document.getElementById('emptyState');
-
     const filtered = currentFilter === 'all'
         ? allData
         : allData.filter(d => d.status === currentFilter);
@@ -114,110 +232,302 @@ function renderCards() {
 
 function buildCard(item) {
     const isPending = item.status === 'pending';
+    const isApproved = item.status === 'approved';
     const items = item.detail_items || [];
 
-    // ── Item rows (rincian saja, tanpa aksi per item)
+    // ─ Item rows
     const itemsHtml = items.length > 0
         ? items.map((it, idx) => buildItemRow(it, idx)).join('')
         : `<p style="color:var(--text-muted);font-size:13px;padding:8px 0">Tidak ada barang</p>`;
 
-    // ── Catatan bendahara (jika ada)
+    // ── Saldo info (hanya approved)
+    let saldoHtml = '';
+    if (isApproved && (item.uang_masuk || item.sisa_uang)) {
+        const buktiHtml = item.bukti_transfer
+            ? `<a href="../uploads/bukti_transfer/${item.bukti_transfer}" target="_blank" class="saldo-chip bukti">
+                <i class="ph ph-image"></i> Lihat Bukti Transfer
+            </a>`
+            : '';
+        saldoHtml = `
+            <div class="saldo-info-strip">
+                ${item.uang_masuk ? `<div class="saldo-chip masuk"><i class="ph ph-arrow-circle-down"></i> Masuk: ${formatRupiah(item.uang_masuk)}</div>` : ''}
+                ${item.sisa_uang !== undefined && item.sisa_uang !== null ? `<div class="saldo-chip sisa"><i class="ph ph-piggy-bank"></i> Sisa: ${formatRupiah(item.sisa_uang)}</div>` : ''}
+                ${buktiHtml}
+            </div>`;
+    }
+
+    // ── Catatan bendahara
     const catatan = item.catatan_bendahara ? `
         <div class="catatan-box">
             <i class="ph ph-note"></i>
             <span><strong>Catatan:</strong> ${item.catatan_bendahara}</span>
         </div>` : '';
 
-    // ── Footer actions (hanya tampil jika pending)
+    // ── Footer actions (hanya pending)
     const footerActions = isPending ? `
         <div class="card-actions">
             <button class="btn btn-danger btn-sm" onclick="openRejectModal(${item.id})">
                 <i class="ph ph-x-circle"></i> Tolak
             </button>
-            <button class="btn btn-success btn-sm" onclick="approveCard(${item.id})">
+            <button class="btn btn-success btn-sm" onclick="openApproveModal(${item.id}, ${parseFloat(item.total_belanja) || 0})">
                 <i class="ph ph-check-circle"></i> Setujui
             </button>
         </div>` : '';
+
+    // ─ Tanda tangan section
+    const ttdHtml = buildTtdSection(item);
 
     const userName = item.created_by_name || ('User #' + item.created_by);
 
     return `
     <div class="pengajuan-card status-${item.status}" id="card-${item.id}">
-
         <div class="card-header">
             <div class="card-header-left">
                 <div class="card-menu-name">${item.nama_menu}</div>
                 <div class="card-meta">
-                    <span class="card-meta-item">
-                        <i class="ph ph-calendar"></i> ${formatDate(item.tanggal)}
-                    </span>
-                    <span class="card-meta-item">
-                        <i class="ph ph-bowl-food"></i> ${item.jumlah_porsi || '-'} porsi
-                    </span>
-                    <span class="card-meta-item">
-                        <i class="ph ph-user"></i> ${userName}
-                    </span>
-                    <span class="card-meta-item">
-                        <i class="ph ph-package"></i> ${items.length} item
-                    </span>
+                    <span class="card-meta-item"><i class="ph ph-calendar"></i> ${formatDate(item.tanggal)}</span>
+                    <span class="card-meta-item"><i class="ph ph-bowl-food"></i> ${item.jumlah_porsi || '-'} porsi</span>
+                    <span class="card-meta-item"><i class="ph ph-user"></i> ${userName}</span>
+                    <span class="card-meta-item"><i class="ph ph-package"></i> ${items.length} item</span>
                 </div>
             </div>
             <div class="card-header-right">
-                <span class="status-badge status-${item.status}">
-                    ${statusLabel(item.status)}
-                </span>
+                <span class="status-badge status-${item.status}">${statusLabel(item.status)}</span>
             </div>
         </div>
 
         <div class="card-body">
-            <div class="item-list">
-                ${itemsHtml}
-            </div>
+            <div class="item-list">${itemsHtml}</div>
+            ${saldoHtml}
             ${catatan}
         </div>
+
+        ${ttdHtml}
 
         <div class="card-footer">
             <div class="card-total">
                 <span class="card-total-label">Total Belanja</span>
                 <span class="card-total-amount">${formatRupiah(item.total_belanja)}</span>
             </div>
-            ${footerActions}
+            <div class="card-footer-right">
+                ${footerActions}
+                <button class="btn btn-outline-primary btn-sm" onclick="exportPDF(${item.id})">
+                    <i class="ph ph-file-pdf"></i> Ekspor PDF
+                </button>
+            </div>
         </div>
-
     </div>`;
 }
 
-// ── BUILD ITEM ROW (read-only, rincian saja) ────
+// ── BUILD ITEM ROW ────────────────────────────────
 function buildItemRow(it, idx) {
     const subtotal = (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0);
-    return `
-        <div class="item-row">
-            <div class="item-num">${idx + 1}</div>
-            <div class="item-info">
-                <div class="item-name">${it.nama_barang}</div>
-                <div class="item-meta">${it.qty} ${it.satuan} × ${formatRupiah(it.harga)}</div>
+    return `<div class="item-row">
+        <div class="item-num">${idx + 1}</div>
+        <div class="item-info">
+            <div class="item-name">${it.nama_barang}</div>
+            <div class="item-meta">${it.qty} ${it.satuan} × ${formatRupiah(it.harga)}</div>
+        </div>
+        <div class="item-subtotal">${formatRupiah(subtotal)}</div>
+    </div>`;
+}
+
+// ── BUILD TTD SECTION ─────────────────────────────
+function buildTtdSection(item) {
+    const roleKeys = Object.keys(ROLES);
+    const cols = roleKeys.map(role => {
+        const sig = getSig(item.id, role);
+        const info = ROLES[role];
+
+        const imgOrEmpty = sig
+            ? `<div class="ttd-img-wrap">
+                <img src="${sig.dataUrl}" alt="TTD ${info.label}" class="ttd-img">
+                <div class="ttd-timestamp">${formatDateTime(sig.timestamp)}</div>
+            </div>`
+            : `<div class="ttd-empty">
+                <i class="ph ph-pen-nib"></i>
+                <span>Belum ditandatangani</span>
+            </div>`;
+
+        const savedBadge = sig && sig.savedToDB
+            ? `<div class="ttd-saved-badge"><i class="ph ph-cloud-check"></i> Tersimpan</div>`
+            : (sig ? `<div class="ttd-saved-badge" style="background:var(--warning-bg);color:var(--warning);border-color:var(--warning-border)"><i class="ph ph-warning"></i> Lokal</div>` : '');
+
+        const btnLabel = sig ? 'Ubah' : 'Tanda Tangan';
+        const btnClass = sig ? 'btn-ghost' : 'btn-primary';
+
+        return `
+        <div class="ttd-col">
+            <div class="ttd-role-label">${info.label}</div>
+            <div class="ttd-box">${imgOrEmpty}</div>
+            <div class="ttd-name-label">${info.nama}</div>
+            ${savedBadge}
+            <div class="ttd-actions">
+                <button class="btn ${btnClass} btn-xs" onclick="openTtdModal(${item.id}, '${role}')">
+                    <i class="ph ph-pen-nib"></i> ${btnLabel}
+                </button>
+                ${sig ? `<button class="btn btn-ghost btn-xs" onclick="hapusTtd(${item.id}, '${role}')">
+                    <i class="ph ph-trash"></i>
+                </button>` : ''}
             </div>
-            <div class="item-subtotal">${formatRupiah(subtotal)}</div>
         </div>`;
-}
-
-// ── APPROVE CARD ─────────────────────────────────
-async function approveCard(id) {
-    const res = await Swal.fire({
-        title: 'Konfirmasi Persetujuan',
-        html: 'Seluruh pengajuan ini akan <strong>disetujui</strong>. Lanjutkan?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Setujui',
-        cancelButtonText: 'Batal',
-        confirmButtonColor: '#16a34a',
-        cancelButtonColor: '#e2e8f0',
     });
-    if (!res.isConfirmed) return;
-    await updateStatus(id, 'approved', '');
+
+    return `
+    <div class="ttd-section">
+        <div class="ttd-section-label">
+            <i class="ph ph-pen-nib"></i> Tanda Tangan
+        </div>
+        <div class="ttd-grid">${cols.join('')}</div>
+    </div>`;
 }
 
-// ── REJECT ───────────────────────────────────────
+// ══════════════════════════════════════════════════
+// MODAL: APPROVE (saldo masuk + bukti transfer)
+// ══════════════════════════════════════════════════
+function openApproveModal(id, totalBelanja) {
+    approveTargetId = id;
+    approveTargetTotal = totalBelanja;
+
+    // Reset form
+    document.getElementById('inputUangMasuk').value = '';
+    document.getElementById('inputBuktiTransfer').value = '';
+    removeFile(null, true); // reset preview tanpa event
+    document.getElementById('approveInfoSisaRow').style.display = 'none';
+
+    // Tampilkan total
+    const item = allData.find(d => d.id == id);
+    document.getElementById('approveModalSubtitle').textContent =
+        item ? `Menu: ${item.nama_menu}` : 'Isi saldo masuk dan bukti transfer sebelum menyetujui';
+    document.getElementById('approveInfoTotal').textContent = formatRupiah(totalBelanja);
+
+    // Enable tombol
+    const btn = document.getElementById('btnKonfirmasiSetujui');
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+
+    document.getElementById('approveModal').classList.add('active');
+}
+
+function closeApproveModal() {
+    document.getElementById('approveModal').classList.remove('active');
+    approveTargetId = null;
+    approveTargetTotal = 0;
+}
+
+function hitungSisa() {
+    const masuk = parseFloat(document.getElementById('inputUangMasuk').value) || 0;
+    const sisa = masuk - approveTargetTotal;
+    const sisaRow = document.getElementById('approveInfoSisaRow');
+    const sisaEl = document.getElementById('approveInfoSisa');
+
+    if (masuk > 0) {
+        sisaRow.style.display = 'flex';
+        sisaEl.textContent = formatRupiah(sisa);
+        sisaEl.className = 'approve-info-value sisa-value' + (sisa < 0 ? ' kurang' : '');
+    } else {
+        sisaRow.style.display = 'none';
+    }
+}
+
+// ── PREVIEW FILE UPLOAD ──────────────────────────
+function previewFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('File terlalu besar, maksimal 5 MB', 'error');
+        input.value = '';
+        return;
+    }
+
+    const uploadArea = document.getElementById('uploadArea');
+    const placeholder = document.getElementById('uploadPlaceholder');
+    const preview = document.getElementById('uploadPreview');
+    const previewImg = document.getElementById('previewImg');
+    const previewName = document.getElementById('previewName');
+
+    previewName.textContent = file.name;
+    uploadArea.classList.add('has-file');
+    placeholder.style.display = 'none';
+    preview.style.display = 'flex';
+
+    if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = e => { previewImg.src = e.target.result; previewImg.style.display = 'block'; };
+        reader.readAsDataURL(file);
+    } else {
+        // PDF — tampilkan ikon
+        previewImg.src = '';
+        previewImg.style.display = 'none';
+    }
+}
+
+function removeFile(e, silent = false) {
+    if (e) e.stopPropagation();
+    const uploadArea = document.getElementById('uploadArea');
+    const placeholder = document.getElementById('uploadPlaceholder');
+    const preview = document.getElementById('uploadPreview');
+    const previewImg = document.getElementById('previewImg');
+
+    document.getElementById('inputBuktiTransfer').value = '';
+    uploadArea.classList.remove('has-file');
+    placeholder.style.display = 'flex';
+    preview.style.display = 'none';
+    previewImg.src = '';
+}
+
+// ── SUBMIT APPROVE ───────────────────────────────
+async function submitApprove() {
+    const uangMasuk = parseFloat(document.getElementById('inputUangMasuk').value);
+    const fileInput = document.getElementById('inputBuktiTransfer');
+    const file = fileInput.files[0];
+
+    if (!uangMasuk || uangMasuk <= 0) {
+        showToast('Mohon isi saldo / uang masuk', 'error');
+        return;
+    }
+    if (!file) {
+        showToast('Mohon upload bukti transfer', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('btnKonfirmasiSetujui');
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+
+    try {
+        const formData = new FormData();
+        formData.append('id', approveTargetId);
+        formData.append('uang_masuk', uangMasuk);
+        formData.append('bukti_transfer', file);
+
+        const res = await fetch('../database/api-belanja.php?action=approve', {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            showToast('Pengajuan berhasil disetujui!', 'success');
+            closeApproveModal();
+            fetchData();
+        } else {
+            showToast(result.message || 'Gagal menyetujui pengajuan', 'error');
+            btn.classList.remove('btn-loading');
+            btn.disabled = false;
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Terjadi kesalahan saat menyetujui', 'error');
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+    }
+}
+
+// ══════════════════════════════════════════════════
+// MODAL: REJECT
+// ══════════════════════════════════════════════════
 function openRejectModal(id) {
     rejectTargetId = id;
     document.getElementById('rejectionReason').value = '';
@@ -235,7 +545,6 @@ async function confirmReject() {
     await updateStatus(rejectTargetId, 'rejected', reason);
 }
 
-// ── UPDATE STATUS ────────────────────────────────
 async function updateStatus(id, status, catatan) {
     try {
         const res = await fetch('../database/api-belanja.php?action=update_status', {
@@ -245,7 +554,7 @@ async function updateStatus(id, status, catatan) {
         });
         const result = await res.json();
         if (result.success) {
-            showToast(status === 'approved' ? 'Pengajuan disetujui' : 'Pengajuan ditolak', 'success');
+            showToast(status === 'rejected' ? 'Pengajuan ditolak' : 'Status diperbarui', 'success');
             closeRejectModal();
             fetchData();
         } else {
@@ -257,7 +566,291 @@ async function updateStatus(id, status, catatan) {
     }
 }
 
-// ── TOAST ────────────────────────────────────────
+// ══════════════════════════════════════════════════
+// TANDA TANGAN MODAL + SIMPAN KE DB (real-time)
+// ═════════════════════════════════════════════════
+function openTtdModal(pengajuanId, role) {
+    ttdTargetId = pengajuanId;
+    ttdTargetRole = role;
+    document.getElementById('ttdModalSubtitle').innerHTML =
+        `Tanda tangan sebagai <strong>${ROLES[role].label}</strong> — ${ROLES[role].nama}`;
+
+    ttdCanvas = document.getElementById('ttdCanvas');
+    ttdCtx = ttdCanvas.getContext('2d');
+    clearCanvas();
+
+    // Load existing signature
+    const existing = getSig(pengajuanId, role);
+    if (existing) {
+        const img = new Image();
+        img.onload = () => ttdCtx.drawImage(img, 0, 0);
+        img.src = existing.dataUrl;
+    }
+
+    // Reset tombol
+    const btn = document.getElementById('btnSimpanTtd');
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+
+    bindCanvasEvents();
+    document.getElementById('ttdModal').classList.add('active');
+}
+
+function closeTtdModal() {
+    document.getElementById('ttdModal').classList.remove('active');
+    unbindCanvasEvents();
+    ttdTargetId = null;
+    ttdTargetRole = null;
+}
+
+function clearCanvas() {
+    if (!ttdCtx) return;
+    ttdCtx.clearRect(0, 0, ttdCanvas.width, ttdCanvas.height);
+    ttdCtx.save();
+    ttdCtx.strokeStyle = '#d5e3f5';
+    ttdCtx.lineWidth = 1;
+    ttdCtx.setLineDash([4, 4]);
+    ttdCtx.beginPath();
+    ttdCtx.moveTo(20, 160);
+    ttdCtx.lineTo(ttdCanvas.width - 20, 160);
+    ttdCtx.stroke();
+    ttdCtx.restore();
+}
+
+function getPos(canvas, e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+function onStart(e) {
+    e.preventDefault(); isDrawing = true;
+    const pos = getPos(ttdCanvas, e);
+    lastX = pos.x; lastY = pos.y;
+    ttdCtx.beginPath(); ttdCtx.moveTo(lastX, lastY);
+}
+
+function onMove(e) {
+    if (!isDrawing) return; e.preventDefault();
+    const pos = getPos(ttdCanvas, e);
+    ttdCtx.lineWidth = 2; ttdCtx.lineCap = 'round'; ttdCtx.lineJoin = 'round';
+    ttdCtx.strokeStyle = '#1a2b4a';
+    ttdCtx.lineTo(pos.x, pos.y); ttdCtx.stroke();
+    ttdCtx.beginPath(); ttdCtx.moveTo(pos.x, pos.y);
+    lastX = pos.x; lastY = pos.y;
+}
+
+function onEnd() { isDrawing = false; }
+
+function bindCanvasEvents() {
+    ttdCanvas.addEventListener('mousedown', onStart);
+    ttdCanvas.addEventListener('mousemove', onMove);
+    ttdCanvas.addEventListener('mouseup', onEnd);
+    ttdCanvas.addEventListener('mouseleave', onEnd);
+    ttdCanvas.addEventListener('touchstart', onStart, { passive: false });
+    ttdCanvas.addEventListener('touchmove', onMove, { passive: false });
+    ttdCanvas.addEventListener('touchend', onEnd);
+}
+
+function unbindCanvasEvents() {
+    if (!ttdCanvas) return;
+    ttdCanvas.removeEventListener('mousedown', onStart);
+    ttdCanvas.removeEventListener('mousemove', onMove);
+    ttdCanvas.removeEventListener('mouseup', onEnd);
+    ttdCanvas.removeEventListener('mouseleave', onEnd);
+    ttdCanvas.removeEventListener('touchstart', onStart);
+    ttdCanvas.removeEventListener('touchmove', onMove);
+    ttdCanvas.removeEventListener('touchend', onEnd);
+}
+
+async function saveTtd() {
+    // Validasi ada goresan
+    const imgData = ttdCtx.getImageData(0, 0, ttdCanvas.width, 155);
+    const hasDrawing = Array.from(imgData.data).some((v, i) => i % 4 === 3 && v > 10);
+    if (!hasDrawing) {
+        showToast('Silakan gambar tanda tangan terlebih dahulu', 'error');
+        return;
+    }
+
+    const dataUrl = ttdCanvas.toDataURL('image/png');
+    const btn = document.getElementById('btnSimpanTtd');
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('../database/api-belanja.php?action=save_ttd', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pengajuan_id: ttdTargetId,
+                role_penanda: ROLE_DB_MAP[ttdTargetRole],
+                signature_data: dataUrl,
+                // user_id tidak wajib dikirim, akan default 0 di backend
+            })
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            setSigLocal(ttdTargetId, ttdTargetRole, dataUrl, true);
+            showToast(`Tanda tangan ${ROLES[ttdTargetRole].label} tersimpan ke database`, 'success');
+            closeTtdModal();
+            renderCards();
+        } else {
+            // Simpan lokal saja jika DB gagal
+            setSigLocal(ttdTargetId, ttdTargetRole, dataUrl, false);
+            showToast('Tersimpan lokal — DB: ' + (result.message || 'gagal'), 'info');
+            closeTtdModal();
+            renderCards();
+        }
+    } catch (err) {
+        console.error(err);
+        // Fallback: simpan lokal
+        setSigLocal(ttdTargetId, ttdTargetRole, dataUrl, false);
+        showToast('Tersimpan lokal (server tidak terjangkau)', 'info');
+        closeTtdModal();
+        renderCards();
+    }
+}
+
+function hapusTtd(pengajuanId, role) {
+    removeSigLocal(pengajuanId, role);
+    showToast(`Tanda tangan ${ROLES[role].label} dihapus dari tampilan`, 'info');
+    renderCards();
+}
+
+// ══════════════════════════════════════════════════
+// EKSPOR PDF
+// ══════════════════════════════════════════════════
+function exportPDF(id) {
+    const item = allData.find(d => d.id == id);
+    if (!item) { showToast('Data tidak ditemukan', 'error'); return; }
+
+    const items = item.detail_items || [];
+    const sigs = signatures[id] || {};
+    const totalBelanja = parseFloat(item.total_belanja) || 0;
+    const uangMasuk = parseFloat(item.uang_masuk) || 0;
+    const sisaUang = uangMasuk - totalBelanja;
+
+    let rowsHtml = '';
+    for (let i = 0; i < 10; i++) {
+        const it = items[i];
+        const subtotal = it ? (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0) : null;
+        rowsHtml += `
+        <tr>
+            <td class="center">${i + 1}</td>
+            <td>${it ? it.nama_barang : ''}</td>
+            <td class="center">${it ? it.qty : ''}</td>
+            <td class="center">${it ? it.satuan : ''}</td>
+            <td class="right">${it ? formatRupiah(it.harga) : ''}</td>
+            <td class="right">${it && subtotal ? formatRupiah(subtotal) : ''}</td>
+        </tr>`;
+    }
+
+    const roleKeys = Object.keys(ROLES);
+    const ttdCols = roleKeys.map(role => {
+        const sig = sigs[role];
+        const info = ROLES[role];
+        return `
+        <td class="ttd-cell">
+            <div class="pdf-ttd-label">${info.label}</div>
+            <div class="pdf-ttd-img-wrap">
+                ${sig ? `<img src="${sig.dataUrl}" class="pdf-ttd-img" alt="TTD">` : ''}
+            </div>
+            <div class="pdf-ttd-underline"></div>
+            <div class="pdf-ttd-name">${info.nama}</div>
+            ${sig ? `<div class="pdf-ttd-ts">${formatDateTime(sig.timestamp)}</div>` : ''}
+        </td>`;
+    }).join('');
+
+    const html = `
+    <html><head><meta charset="UTF-8">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #fff; padding: 20px 28px; }
+        .kop {  display:flex; align-items:center; gap:14px; border-bottom:3px solid #000; padding-bottom:10px; margin-bottom:6px; }
+        .kop-logo-placeholder { width:64px; height:64px; border:2px solid #333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:bold; color:#333; text-align:center; flex-shrink:0; line-height: 1.2; }
+        .kop-info .kop-nama { font-size:16px; font-weight:bold; letter-spacing:1px; line-height:1.2; }
+        .kop-info .kop-sub { font-size:9px; color:#333; margin-top:2px; line-height:1.5; }
+        .judul { text-align:center; font-size:16px; font-weight:bold; letter-spacing:2px; margin:12px 0 8px; text-decoration:underline; }
+        .info-table { width:100%; font-size:11px; margin-bottom:6px; border-collapse:collapse; }
+        .info-table td { padding:2px 4px; }
+        .info-table .label { width:90px; font-weight:bold; }
+        .info-table .colon { width:10px; }
+        .info-table .right-label { text-align:right; font-weight:bold; padding-right:6px; }
+        .uang-label { text-align:center; font-size:12px; font-weight:bold; border:1px solid #000; padding:4px; margin-bottom:6px; letter-spacing:1px; }
+        table.barang { width:100%; border-collapse:collapse; font-size:11px; margin-bottom:6px; }
+        table.barang th, table.barang td { border:1px solid #000; padding:4px 6px; }
+        table.barang th { background:#f0f0f0; font-weight:bold; text-align:center; }
+        table.barang td.center { text-align:center; } table.barang td.right { text-align:right; }
+        table.barang tr.total-row td { font-weight:bold; background:#f5f5f5; }
+        .sisa-label { text-align:center; font-size:12px; font-weight:bold; border:1px solid #000; padding:4px; margin-bottom:14px; letter-spacing:1px; }
+        table.ttd { width:100%; border-collapse:collapse; font-size:10px; margin-top:4px; }
+        table.ttd td.ttd-cell { text-align:center; vertical-align:top; padding:4px 8px; width:25%; }
+        .pdf-ttd-label { font-weight:bold; font-size:11px; margin-bottom: 4px; }
+        .pdf-ttd-img-wrap { height:70px; display:flex; align-items:center; justify-content:center; }
+        .pdf-ttd-img { max-height:68px; max-width:120px; }
+        .pdf-ttd-underline { border-bottom:1px solid #000; margin:2px 10px 4px; }
+        .pdf-ttd-name { font-weight:bold; font-size:11px; text-decoration:underline; }
+        .pdf-ttd-ts { font-size:8px; color:#666; margin-top:2px; }
+        .catatan-pdf { font-size:10px; color:#555; margin-bottom:6px; padding:4px 8px; border-left:3px solid #d97706; background:#fffbeb; }
+    </style></head><body>
+    <div class="kop">
+        <div class="kop-logo-placeholder">KBUS</div>
+        <div class="kop-info">
+            <div class="kop-nama">KOPERASI <br>BINA USAHA SAUYUNAN</div>
+            <div class="kop-sub">Panyingkiran – Singaparna <br>Kab. Tasikmalaya <br>email : kop.binausahasauyunan@gmail.com</div>
+        </div>
+    </div>
+    <div class="judul">LAPORAN BELANJA</div>
+    <table class="info-table">
+        <tr>
+            <td class="label">Tanggal</td> <td class="colon">:</td> <td>${formatDateShort(item.tanggal)}</td>
+            <td class="right-label">Jumlah Porsi</td> <td class="colon">:</td> <td>${item.jumlah_porsi || '-'}</td>
+        </tr>
+        <tr>
+            <td class="label">Menu</td> <td class="colon">:</td> <td colspan="4">${item.nama_menu}</td>
+        </tr>
+    </table>
+    <div class="uang-label">UANG MASUK : ${uangMasuk > 0 ? formatRupiah(uangMasuk) : '............'}</div>
+    <table class="barang">
+        <thead><tr><th style="width:30px">No</th><th>Nama Barang</th><th style="width:40px">Qty</th><th style="width:55px">Satuan</th><th style="width:90px">Harga</th><th style="width:90px">Sub Total</th></tr></thead>
+        <tbody>
+            ${rowsHtml}
+            <tr class="total-row"><td colspan="4"></td><td class="right" style="font-weight:bold">Total Belanja</td><td class="right">${formatRupiah(totalBelanja)}</td></tr>
+        </tbody>
+    </table>
+    <div class="sisa-label">SISA UANG : ${uangMasuk > 0 ? formatRupiah(sisaUang) : '............'}</div>
+    ${item.catatan_bendahara ? `<div class="catatan-pdf">Catatan Bendahara: ${item.catatan_bendahara}</div>` : ''}
+    <table class="ttd"><tr>${ttdCols}</tr></table>
+    </body></html>`;
+
+    const container = document.getElementById('pdfPreview');
+    container.style.display = 'block';
+    container.innerHTML = html;
+
+    const opt = {
+        margin: [8, 8, 8, 8],
+        filename: `Laporan-Belanja-${item.nama_menu.replace(/\s+/g, '-')}-${item.tanggal}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(container).save().then(() => {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        showToast('PDF berhasil diunduh', 'success');
+    }).catch(err => {
+        console.error(err);
+        container.style.display = 'none';
+        showToast('Gagal membuat PDF', 'error');
+    });
+}
+
+// ── TOAST ─────────────────────────────────────────
 function showToast(msg, type = 'info') {
     let wrapper = document.querySelector('.toast-wrapper');
     if (!wrapper) {
@@ -276,7 +869,7 @@ function showToast(msg, type = 'info') {
     }, 3500);
 }
 
-// ── FILTER TABS ──────────────────────────────────
+// ── FILTER TABS ───────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -286,12 +879,44 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
-// ── CLOSE MODAL OUTSIDE CLICK ───────────────────
+// ── CLOSE MODAL OUTSIDE CLICK ────────────────────
 document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', e => {
-        if (e.target === modal) modal.classList.remove('active');
+        if (e.target === modal) {
+            modal.classList.remove('active');
+            if (modal.id === 'ttdModal') unbindCanvasEvents();
+        }
     });
 });
 
-// ── INIT ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', fetchData);
+// ─ DRAG & DROP UPLOAD ────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const uploadArea = document.getElementById('uploadArea');
+    if (uploadArea) {
+        uploadArea.addEventListener('dragover', e => {
+            e.preventDefault();
+            uploadArea.style.borderColor = 'var(--primary)';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '';
+        });
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '';
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                const input = document.getElementById('inputBuktiTransfer');
+                input.files = dt.files;
+                previewFile(input);
+            }
+        });
+    }
+});
+
+// ── INIT ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadSigs();
+    fetchData();
+});

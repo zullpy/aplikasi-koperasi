@@ -1,5 +1,7 @@
 <?php
 // Dompet Belanja Harian SPPG
+session_start();
+$userRole = $_SESSION['role'] ?? 'admin';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -14,7 +16,6 @@
 <body>
     <?php $activePage = 'dompet-belanja-harian';
     include '../components/navbar.php'; ?>
-
     <!-- HERO -->
     <section class="page-hero">
         <div class="page-hero-inner">
@@ -34,10 +35,8 @@
             </div>
         </div>
     </section>
-
     <!-- MAIN -->
     <main class="app-main">
-
         <!-- TOOLBAR -->
         <div class="toolbar">
             <div class="search-wrapper">
@@ -58,19 +57,18 @@
                 </svg>
                 Approval
             </a>
-            <button id="btnOpenModal" class="btn-add">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 3V13M3 8H13" stroke="#fff" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                Tambah Belanja
-            </button>
+            <?php if ($userRole !== 'purchase'): ?>
+                <button id="btnOpenModal" class="btn-add">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 3V13M3 8H13" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Tambah Belanja
+                </button>
+            <?php endif; ?>
         </div>
-
         <div id="searchInfo" class="search-info"></div>
-
         <!-- TABLE CONTAINER (grouped by date > menu) -->
         <div id="tableContainer" class="table-container"></div>
-
         <!-- EMPTY STATE -->
         <div id="emptyState" class="empty-state" style="display:none;">
             <div class="empty-icon-wrap">
@@ -82,9 +80,7 @@
             <div class="empty-title">Belum ada data belanja</div>
             <div class="empty-desc">Klik "Tambah Belanja" untuk mulai mencatat pengeluaran harian.</div>
         </div>
-
     </main>
-
     <!-- ============ MODAL BELANJA ============ -->
     <div id="modalOverlay" class="modal-overlay">
         <div class="modal modal-wide">
@@ -104,11 +100,9 @@
                     </svg>
                 </button>
             </div>
-
             <div class="modal-body">
                 <!-- Header Transaksi -->
                 <div class="form-section-title">Informasi Transaksi</div>
-
                 <div class="form-group">
                     <label class="form-label" for="inputTanggal">Tanggal</label>
                     <div class="input-icon-wrapper">
@@ -120,7 +114,6 @@
                     </div>
                     <div id="errorTanggal" class="form-error"></div>
                 </div>
-
                 <div class="form-row form-row-menu">
                     <div class="form-group form-group-menu">
                         <label class="form-label" for="inputNamaMenu">Nama Menu</label>
@@ -138,7 +131,6 @@
                         </div>
                     </div>
                 </div>
-
                 <!-- Daftar Barang -->
                 <div class="form-section-title">
                     <span>Daftar Barang</span>
@@ -149,17 +141,14 @@
                         Tambah Baris
                     </button>
                 </div>
-
                 <div id="barangList" class="barang-list"></div>
                 <div id="errorBarang" class="form-error"></div>
-
                 <!-- Subtotal -->
                 <div class="subtotal-preview">
                     <div class="subtotal-label">Total Belanja</div>
                     <div id="subtotalValue" class="subtotal-value">Rp 0</div>
                 </div>
             </div>
-
             <div class="modal-footer">
                 <button id="btnCancel" class="btn-cancel">Batal</button>
                 <button id="btnSave" class="btn-save">
@@ -171,7 +160,6 @@
             </div>
         </div>
     </div>
-
     <!-- ============ MODAL TOLAK ============ -->
     <div id="rejectModal" class="modal-overlay">
         <div class="modal" style="max-width:480px;">
@@ -214,7 +202,6 @@
             </div>
         </div>
     </div>
-
     <!-- ============ MODAL PREVIEW NOTA ============ -->
     <div id="notaModalOverlay" class="modal-overlay">
         <div class="modal modal-nota">
@@ -243,10 +230,45 @@
             </div>
         </div>
     </div>
-
+    <!-- ============ MODAL UPLOAD NOTA PER ITEM ============ -->
+    <div id="uploadNotaModalOverlay" class="modal-overlay">
+        <div class="modal modal-nota">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M9 12V4M6 7l3-3 3 3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M3 14h12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <div class="modal-title" id="uploadNotaModalTitle">Upload Nota</div>
+                </div>
+                <button id="btnCloseUploadNotaModal" class="modal-close" aria-label="Tutup">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body nota-modal-body" id="uploadNotaModalBody">
+                <!-- injected by JS -->
+            </div>
+            <div class="modal-footer" id="uploadNotaModalFooter">
+                <button onclick="closeUploadNotaModal()" class="btn-cancel">Batal</button>
+                <button id="btnSubmitUploadNota" class="btn-upload-submit" disabled>
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                        <path d="M7.5 11V3M4.5 6l3-3 3 3" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M2 13h11" stroke="#fff" stroke-width="1.7" stroke-linecap="round" />
+                    </svg>
+                    Upload Nota
+                </button>
+            </div>
+        </div>
+    </div>
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
-
+    <script>
+        window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
+    </script>
     <script src="script.js"></script>
 </body>
 

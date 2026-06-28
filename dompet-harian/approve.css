@@ -113,19 +113,27 @@ body {
     margin-top: 2px;
 }
 
-.header-refresh {
-    width: 38px;
-    height: 38px;
+.header-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
     border-radius: var(--radius-xs);
     background: var(--surface-2);
     border: 1px solid var(--border);
     color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
     transition: var(--transition);
-    font-size: 16px;
+    font-family: 'Inter', sans-serif;
+}
+
+.header-back:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-color: rgba(37, 99, 235, .3);
 }
 
 .header-refresh:hover {
@@ -294,7 +302,7 @@ body {
     color: var(--text-muted);
 }
 
-/* ── CARD GRID (layout baru — langsung tampil detail) ── */
+/* ── CARD GRID ── */
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(520px, 1fr));
@@ -315,7 +323,6 @@ body {
     border-color: var(--border-hover);
 }
 
-/* Card top bar warna berdasar status */
 .pengajuan-card.status-pending {
     border-top: 3px solid var(--warning);
 }
@@ -445,14 +452,11 @@ body {
     background: var(--info);
 }
 
-/* ── CARD BODY — ITEM LIST ── */
+/* ── CARD BODY ── */
 .card-body {
     padding: 14px 20px;
 }
 
-
-
-/* Item rows */
 .item-list {
     display: flex;
     flex-direction: column;
@@ -473,7 +477,6 @@ body {
 .item-row:hover {
     border-color: var(--border-hover);
 }
-
 
 .item-num {
     width: 24px;
@@ -519,8 +522,190 @@ body {
     flex-shrink: 0;
 }
 
+/* ── SALDO INFO (pada card approved) ── */
+.saldo-info-strip {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
 
+.saldo-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 11px;
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 600;
+}
 
+.saldo-chip.masuk {
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    color: var(--success);
+}
+
+.saldo-chip.sisa {
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    color: var(--info);
+}
+
+.saldo-chip.bukti {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition);
+    text-decoration: none;
+}
+
+.saldo-chip.bukti:hover {
+    background: var(--primary-light);
+    border-color: rgba(37, 99, 235, .3);
+    color: var(--primary);
+}
+
+/* ── CATATAN ── */
+.catatan-box {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--radius-xs);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--text);
+    margin-top: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.catatan-box i {
+    flex-shrink: 0;
+    color: var(--warning);
+    font-size: 14px;
+    margin-top: 1px;
+}
+
+/* ── TTD SECTION (in card) ── */
+.ttd-section {
+    border-top: 1px solid var(--border);
+    padding: 14px 20px;
+    background: var(--surface-2);
+}
+
+.ttd-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 12px;
+}
+
+.ttd-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.ttd-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+}
+
+.ttd-role-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.ttd-box {
+    width: 100%;
+    min-height: 72px;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-xs);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+}
+
+.ttd-img-wrap {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.ttd-img {
+    max-height: 64px;
+    max-width: 90%;
+    object-fit: contain;
+}
+
+.ttd-timestamp {
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    padding: 0 4px;
+}
+
+.ttd-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    color: var(--text-dim);
+    font-size: 10px;
+    padding: 8px;
+}
+
+.ttd-empty i {
+    font-size: 18px;
+}
+
+.ttd-name-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.ttd-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ── TTD SAVED BADGE (DB) ── */
+.ttd-saved-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    padding: 2px 6px;
+    border-radius: 99px;
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid var(--success-border);
+    margin-top: 2px;
+}
 
 /* ── CARD FOOTER ── */
 .card-footer {
@@ -549,6 +734,14 @@ body {
     font-size: 16px;
     font-weight: 700;
     color: var(--primary);
+}
+
+.card-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .card-actions {
@@ -617,31 +810,32 @@ body {
     border-color: var(--border-hover);
 }
 
+.btn-outline-primary {
+    background: transparent;
+    color: var(--primary);
+    border-color: rgba(37, 99, 235, .35);
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-light);
+}
+
 .btn-sm {
     padding: 7px 12px;
     font-size: 12px;
     border-radius: var(--radius-xs);
 }
 
-/* ── CATATAN ── */
-.catatan-box {
-    background: var(--warning-bg);
-    border: 1px solid var(--warning-border);
-    border-radius: var(--radius-xs);
-    padding: 10px 12px;
-    font-size: 12px;
-    color: var(--text);
-    margin-top: 10px;
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
+.btn-xs {
+    padding: 4px 9px;
+    font-size: 11px;
+    border-radius: 6px;
 }
 
-.catatan-box i {
-    flex-shrink: 0;
-    color: var(--warning);
-    font-size: 14px;
-    margin-top: 1px;
+.btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* ── SKELETON ── */
@@ -713,7 +907,7 @@ body {
     color: var(--text-dim);
 }
 
-/* ── MODAL (reject reason) ── */
+/* ── MODAL ── */
 .modal {
     display: none;
     position: fixed;
@@ -742,6 +936,10 @@ body {
     flex-direction: column;
 }
 
+.modal-content-lg {
+    max-width: 620px;
+}
+
 @keyframes modalIn {
     from {
         opacity: 0;
@@ -766,6 +964,9 @@ body {
     font-size: 15px;
     font-weight: 700;
     color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 7px;
 }
 
 .modal-header p {
@@ -797,6 +998,9 @@ body {
 
 .modal-body {
     padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .modal-footer {
@@ -807,12 +1011,105 @@ body {
     justify-content: flex-end;
 }
 
+/* ── APPROVE MODAL SPECIFIC ── */
+.approve-info-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 13px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.approve-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.approve-info-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.approve-info-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.approve-info-value.sisa-value {
+    color: var(--info);
+}
+
+.approve-info-value.sisa-value.kurang {
+    color: var(--danger);
+}
+
+/* ── FORM ELEMENTS ── */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .form-label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-muted);
-    margin-bottom: 7px;
+}
+
+.required {
+    color: var(--danger);
+}
+
+.input-rp-wrap {
+    display: flex;
+    align-items: stretch;
+}
+
+.input-rp-prefix {
+    padding: 10px 12px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    background: var(--surface-2);
+    color: var(--text);
+    transition: var(--transition);
+}
+
+.form-input.input-rp {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    flex: 1;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: rgba(37, 99, 235, .4);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .07);
 }
 
 .form-textarea {
@@ -835,8 +1132,145 @@ body {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, .07);
 }
 
-.form-textarea::placeholder {
+.form-textarea::placeholder,
+.form-input::placeholder {
     color: var(--text-dim);
+}
+
+/* ── UPLOAD AREA ── */
+.upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    cursor: pointer;
+    transition: var(--transition);
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-area:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.upload-area.has-file {
+    border-style: solid;
+    border-color: var(--success-border);
+    background: var(--success-bg);
+    cursor: default;
+}
+
+.upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+    padding: 20px;
+    text-align: center;
+}
+
+.upload-placeholder i {
+    font-size: 28px;
+    color: var(--primary);
+    opacity: .6;
+}
+
+.upload-placeholder span {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.upload-placeholder small {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.upload-preview {
+    width: 100%;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.upload-preview img {
+    max-height: 140px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-xs);
+    box-shadow: var(--shadow-sm);
+}
+
+.upload-preview-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--success-border);
+    border-radius: var(--radius-xs);
+    padding: 6px 10px;
+}
+
+.upload-preview-info span {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--success);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80%;
+}
+
+.btn-remove-file {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--danger);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 2px;
+    transition: var(--transition);
+}
+
+.btn-remove-file:hover {
+    color: #7f1d1d;
+}
+
+/* ── TTD MODAL CANVAS ── */
+.ttd-info-box {
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    border-radius: var(--radius-xs);
+    padding: 9px 12px;
+    font-size: 12px;
+    color: var(--info);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.ttd-canvas {
+    display: block;
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.ttd-canvas-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
 }
 
 /* ── TOAST ── */
@@ -895,6 +1329,31 @@ body {
     color: var(--info);
 }
 
+/* ── LOADING SPINNER ON BTN ── */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: .75;
+}
+
+.btn-loading::after {
+    content: '';
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin .6s linear infinite;
+    margin-left: 4px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg)
+    }
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width:1100px) {
     .cards-grid {
@@ -904,6 +1363,10 @@ body {
 
 @media (max-width:900px) {
     .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ttd-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
@@ -937,7 +1400,23 @@ body {
         align-items: stretch;
     }
 
+    .card-footer-right {
+        justify-content: flex-end;
+    }
+
     .card-actions {
         justify-content: flex-end;
+    }
+
+    .ttd-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .ttd-name-label {
+        font-size: 10px;
+    }
+
+    .saldo-info-strip {
+        flex-direction: column;
     }
 }
