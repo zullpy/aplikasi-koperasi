@@ -135,11 +135,17 @@
     <!-- ══════════════════════════════════
          MODAL: SETUJUI + SALDO MASUK + BUKTI TRANSFER
     ══════════════════════════════════ -->
+    <!-- ═══════════════════════════════════════════════════════════
+     MODAL APPROVE (Saldo Masuk + Bukti Transfer)
+═══════════════════════════════════════════════════════════ -->
     <div id="approveModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content modal-content-lg">
             <div class="modal-header">
                 <div>
-                    <h2><i class="ph ph-check-circle" style="color:var(--success)"></i> Konfirmasi Persetujuan</h2>
+                    <h2>
+                        <i class="ph ph-check-circle" style="color:var(--success)"></i>
+                        Konfirmasi Persetujuan
+                    </h2>
                     <p id="approveModalSubtitle">Isi saldo masuk dan bukti transfer sebelum menyetujui</p>
                 </div>
                 <button class="modal-close" onclick="closeApproveModal()">
@@ -147,61 +153,93 @@
                 </button>
             </div>
             <div class="modal-body">
-
-                <!-- Info total belanja -->
+                <!-- Info Total Belanja -->
                 <div class="approve-info-box">
                     <div class="approve-info-row">
-                        <span class="approve-info-label"><i class="ph ph-receipt"></i> Total Belanja</span>
-                        <span class="approve-info-value" id="approveInfoTotal">–</span>
-                    </div>
-                    <div class="approve-info-row" id="approveInfoSisaRow" style="display:none">
-                        <span class="approve-info-label"><i class="ph ph-piggy-bank"></i> Sisa Uang</span>
-                        <span class="approve-info-value sisa-value" id="approveInfoSisa">–</span>
+                        <span class="approve-info-label">
+                            <i class="ph ph-shopping-cart"></i> Total Belanja
+                        </span>
+                        <span class="approve-info-value" id="approveInfoTotal">Rp 0</span>
                     </div>
                 </div>
 
-                <!-- Input Saldo Masuk -->
+                <!-- 💰 Info Sisa dari Menu Sebelumnya -->
+                <div class="approve-sisa-sebelumnya" id="approveSisaSebelumnyaRow" style="display:none;">
+                    <div class="approve-sisa-sebelumnya-icon">
+                        <i class="ph ph-coins" style="font-size:18px;"></i>
+                    </div>
+                    <div class="approve-sisa-sebelumnya-info">
+                        <div class="approve-sisa-sebelumnya-label" id="approveSisaSebelumnya">
+                            Sisa dari menu sebelumnya
+                        </div>
+                        <div class="approve-sisa-sebelumnya-value" id="approveSisaSebelumnyaValue">
+                            Rp 0
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Uang Masuk -->
                 <div class="form-group">
-                    <label class="form-label">
-                        <i class="ph ph-money"></i>&nbsp; Saldo / Uang Masuk <span class="required">*</span>
+                    <label class="form-label" for="inputUangMasuk">
+                        Saldo / Uang Masuk <span class="required">*</span>
                     </label>
                     <div class="input-rp-wrap">
                         <span class="input-rp-prefix">Rp</span>
-                        <input type="number" id="inputUangMasuk" class="form-input input-rp"
-                            placeholder="0" min="0" oninput="hitungSisa()" />
+                        <input
+                            type="number"
+                            id="inputUangMasuk"
+                            class="form-input input-rp"
+                            placeholder="0"
+                            min="0"
+                            oninput="hitungSisa()" />
                     </div>
+                </div>
+
+                <!-- Breakdown Total Masuk (Input + Sisa) -->
+                <div class="approve-total-masuk-row" id="approveTotalMasukRow" style="display:none;">
+                    <span class="approve-total-masuk-label">Total Masuk:</span>
+                    <span class="approve-total-masuk-value" id="approveTotalMasuk">Rp 0</span>
+                </div>
+
+                <!-- Info Sisa Uang -->
+                <div class="approve-info-row" id="approveInfoSisaRow" style="display:none;">
+                    <span class="approve-info-label">
+                        <i class="ph ph-wallet"></i> Sisa Uang
+                    </span>
+                    <span class="approve-info-value sisa-value" id="approveInfoSisa">Rp 0</span>
                 </div>
 
                 <!-- Upload Bukti Transfer -->
                 <div class="form-group">
                     <label class="form-label">
-                        <i class="ph ph-image"></i>&nbsp; Bukti Transfer <span class="required">*</span>
+                        Bukti Transfer <span style="color:var(--text-muted);font-weight:400;font-size:12px;">(opsional)</span>
                     </label>
                     <div class="upload-area" id="uploadArea" onclick="document.getElementById('inputBuktiTransfer').click()">
+                        <input
+                            type="file"
+                            id="inputBuktiTransfer"
+                            accept="image/*,.pdf"
+                            style="display:none"
+                            onchange="previewFile(this)" />
                         <div class="upload-placeholder" id="uploadPlaceholder">
                             <i class="ph ph-upload-simple"></i>
                             <span>Klik atau seret foto/file ke sini</span>
                             <small>JPG, PNG, PDF — maks. 5 MB</small>
                         </div>
-                        <div class="upload-preview" id="uploadPreview" style="display:none">
-                            <img id="previewImg" src="" alt="Preview" />
+                        <div class="upload-preview" id="uploadPreview" style="display:none;">
+                            <img id="previewImg" src="" alt="Preview" style="display:none;" />
                             <div class="upload-preview-info">
                                 <span id="previewName"></span>
-                                <button type="button" class="btn-remove-file" onclick="removeFile(event)">
+                                <button class="btn-remove-file" onclick="removeFile(event)">
                                     <i class="ph ph-x-circle"></i>
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <input type="file" id="inputBuktiTransfer" accept="image/*,application/pdf"
-                        style="display:none" onchange="previewFile(this)" />
                 </div>
-
             </div>
             <div class="modal-footer">
-                <button class="btn btn-ghost" onclick="closeApproveModal()">
-                    <i class="ph ph-arrow-left"></i> Batal
-                </button>
+                <button class="btn btn-ghost" onclick="closeApproveModal()">Batal</button>
                 <button class="btn btn-success" id="btnKonfirmasiSetujui" onclick="submitApprove()">
                     <i class="ph ph-check-circle"></i> Konfirmasi Setujui
                 </button>

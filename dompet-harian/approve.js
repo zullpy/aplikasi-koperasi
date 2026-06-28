@@ -1,19 +1,17 @@
 /* ─────────────────────────────────────────────
 approve.js — Approval Pengajuan Belanja
-Approve Modal (saldo masuk + bukti transfer)
-Simpan Tanda Tangan ke DB (real-time)
-Ekspor PDF format Laporan Belanja KBUS
++ Fitur: Sisa uang otomatis nambah ke menu berikutnya
 ───────────────────────────────────────────── */
 
-// ── STATE ──────────────────────────────────────
+// ── STATE ─────────────────────────────────────
 let allData = [];
 let currentFilter = 'all';
 let rejectTargetId = null;
 let approveTargetId = null;
 let approveTargetTotal = 0;
+let sisaUangSebelumnya = 0; // 💰 Sisa uang dari menu sebelumnya
 
-// State tanda tangan lokal (untuk render UI)
-// Format: { pengajuanId -> { role -> { dataUrl, timestamp, nama, savedToDB } } }
+// State tanda tangan lokal
 let signatures = {};
 
 // TTD modal state
@@ -24,24 +22,18 @@ let ttdCtx = null;
 let isDrawing = false;
 let lastX = 0, lastY = 0;
 
-// Role labels — sesuai enum tabel tanda_tangan_digital
+// Role labels
 const ROLES = {
-    purchasing: { label: 'Purchasing', nama: 'Saepul Misbah' },
-    juru_bayar: { label: 'Juru Bayar', nama: 'Evin Yentiana' },
     bendahara: { label: 'Bendahara Koperasi', nama: 'Nancy Febi Yolla' },
     ketua: { label: 'Ketua Koperasi', nama: 'Yudi Hendrian' },
 };
 
-// Map role key → value di DB enum('bendahara','purchase','ketua')
-// Sesuaikan dengan enum di tanda_tangan_digital.role_penanda
 const ROLE_DB_MAP = {
-    purchasing: 'purchase',
-    juru_bayar: 'purchase',   // sesuaikan jika ada enum juru_bayar
     bendahara: 'bendahara',
     ketua: 'ketua',
 };
 
-// ── FORMAT HELPERS ──────────────────────────────
+// ─ FORMAT HELPERS ──────────────────────────────
 function formatRupiah(num) {
     return 'Rp ' + Number(num).toLocaleString('id-ID');
 }
@@ -72,7 +64,7 @@ function statusLabel(s) {
     return { pending: 'Menunggu', approved: 'Disetujui', rejected: 'Ditolak', completed: 'Selesai' }[s] || s;
 }
 
-// ── LOAD / SAVE SIGNATURES (localStorage untuk UI lokal) ──
+// ── LOAD / SAVE SIGNATURES ─────────────────────
 function loadSigs() {
     try {
         const raw = localStorage.getItem('kbus_signatures');
@@ -81,9 +73,7 @@ function loadSigs() {
 }
 
 function saveSigsLocal() {
-    try {
-        localStorage.setItem('kbus_signatures', JSON.stringify(signatures));
-    } catch (e) { }
+    try { localStorage.setItem('kbus_signatures', JSON.stringify(signatures)); } catch (e) { }
 }
 
 function getSig(pengajuanId, role) {
@@ -106,7 +96,92 @@ function removeSigLocal(pengajuanId, role) {
     saveSigsLocal();
 }
 
-// ── FETCH DATA ─────────────────────────────────
+// ── HITUNG SISA UANG DARI MENU SEBELUMNYA ───────
+/**
+ * Mencari menu approved sebelumnya (berdasarkan tanggal & urutan)
+ * dan mengembalikan sisa uangnya
+ */
+// ── HITUNG SISA UANG DARI MENU SEBELUMNYA ───────
+/**
+ * Mencari menu approved sebelumnya berdasarkan urutan tanggal & id
+ * (bukan mencari posisi menu saat ini di daftar approved)
+ */
+function hitungSisaUangMenuSebelumnya(currentId) {
+    const currentItem = allData.find(d => d.id == currentId);
+    if (!currentItem) return 0;
+
+    const currentTanggal = currentItem.tanggal;
+    const currentIdNum = parseInt(currentItem.id);
+
+    // Cari semua menu yang URUTANNYA sebelum menu saat ini
+    // (tanggal lebih lama, ATAU tanggal sama tapi id lebih kecil)
+    const menuSebelumnya = allData
+        .filter(d => {
+            if (d.id == currentId) return false; // skip diri sendiri
+            if (d.tanggal < currentTanggal) return true;
+            if (d.tanggal === currentTanggal && parseInt(d.id) < currentIdNum) return true;
+            return false;
+        })
+        // Filter hanya yang approved/completed dan punya uang_masuk
+        .filter(d =>
+            (d.status === 'approved' || d.status === 'completed') &&
+            parseFloat(d.uang_masuk) > 0
+        )
+        // Urutkan: yang paling baru (terakhir) di atas
+        .sort((a, b) => {
+            if (a.tanggal !== b.tanggal) return new Date(b.tanggal) - new Date(a.tanggal);
+            return parseInt(b.id) - parseInt(a.id);
+        });
+
+    // Ambil menu approved paling terakhir (yang paling dekat dengan menu saat ini)
+    if (menuSebelumnya.length === 0) return 0;
+
+    const lastApproved = menuSebelumnya[0];
+    const uangMasuk = parseFloat(lastApproved.uang_masuk) || 0;
+    const totalBelanja = parseFloat(lastApproved.total_belanja) || 0;
+    const sisa = uangMasuk - totalBelanja;
+
+    console.log('💰 Sisa dari menu sebelumnya:', {
+        menu: lastApproved.nama_menu,
+        uangMasuk,
+        totalBelanja,
+        sisa
+    });
+
+    return sisa > 0 ? sisa : 0;
+}
+
+/**
+ * Cari nama menu approved sebelumnya (untuk display info)
+ */
+function cariMenuSebelumnya(currentId) {
+    const currentItem = allData.find(d => d.id == currentId);
+    if (!currentItem) return null;
+
+    const currentTanggal = currentItem.tanggal;
+    const currentIdNum = parseInt(currentItem.id);
+
+    const menuSebelumnya = allData
+        .filter(d => {
+            if (d.id == currentId) return false;
+            if (d.tanggal < currentTanggal) return true;
+            if (d.tanggal === currentTanggal && parseInt(d.id) < currentIdNum) return true;
+            return false;
+        })
+        .filter(d =>
+            (d.status === 'approved' || d.status === 'completed') &&
+            parseFloat(d.uang_masuk) > 0
+        )
+        .sort((a, b) => {
+            if (a.tanggal !== b.tanggal) return new Date(b.tanggal) - new Date(a.tanggal);
+            return parseInt(b.id) - parseInt(a.id);
+        });
+
+    if (menuSebelumnya.length === 0) return null;
+    return menuSebelumnya[0].nama_menu;
+}
+
+// ── FETCH DATA ────────────────────────────────
 async function fetchData() {
     showSkeletons();
     try {
@@ -118,10 +193,7 @@ async function fetchData() {
                 if (!d.detail_items && d.items) d.detail_items = d.items;
                 if (!d.detail_items) d.detail_items = [];
             });
-
-            // Muat TTD dari DB ke state lokal
             await loadTtdFromDB();
-
             updateStats();
             updateTabCounts();
             renderCards();
@@ -136,25 +208,18 @@ async function fetchData() {
     }
 }
 
-// Ambil semua TTD dari DB dan merge ke state lokal
 async function loadTtdFromDB() {
     try {
         const ids = allData.map(d => d.id);
         if (!ids.length) return;
-
         const res = await fetch('../database/api-belanja.php?action=get_ttd&ids=' + ids.join(','));
         const result = await res.json();
-
         if (result.success && result.data) {
             result.data.forEach(row => {
-                // Cari role key berdasarkan role_penanda
                 const matchKey = Object.keys(ROLE_DB_MAP).find(k => ROLE_DB_MAP[k] === row.role_penanda);
                 if (!matchKey) return;
-
                 const pid = row.pengajuan_id;
                 if (!signatures[pid]) signatures[pid] = {};
-
-                // Hanya overwrite jika belum ada di lokal atau belum savedToDB
                 if (!signatures[pid][matchKey] || !signatures[pid][matchKey].savedToDB) {
                     signatures[pid][matchKey] = {
                         dataUrl: row.signature_data,
@@ -235,12 +300,10 @@ function buildCard(item) {
     const isApproved = item.status === 'approved';
     const items = item.detail_items || [];
 
-    // ─ Item rows
     const itemsHtml = items.length > 0
         ? items.map((it, idx) => buildItemRow(it, idx)).join('')
         : `<p style="color:var(--text-muted);font-size:13px;padding:8px 0">Tidak ada barang</p>`;
 
-    // ── Saldo info (hanya approved)
     let saldoHtml = '';
     if (isApproved && (item.uang_masuk || item.sisa_uang)) {
         const buktiHtml = item.bukti_transfer
@@ -248,22 +311,14 @@ function buildCard(item) {
                 <i class="ph ph-image"></i> Lihat Bukti Transfer
             </a>`
             : '';
-        saldoHtml = `
-            <div class="saldo-info-strip">
-                ${item.uang_masuk ? `<div class="saldo-chip masuk"><i class="ph ph-arrow-circle-down"></i> Masuk: ${formatRupiah(item.uang_masuk)}</div>` : ''}
-                ${item.sisa_uang !== undefined && item.sisa_uang !== null ? `<div class="saldo-chip sisa"><i class="ph ph-piggy-bank"></i> Sisa: ${formatRupiah(item.sisa_uang)}</div>` : ''}
-                ${buktiHtml}
-            </div>`;
     }
 
-    // ── Catatan bendahara
     const catatan = item.catatan_bendahara ? `
         <div class="catatan-box">
             <i class="ph ph-note"></i>
             <span><strong>Catatan:</strong> ${item.catatan_bendahara}</span>
         </div>` : '';
 
-    // ── Footer actions (hanya pending)
     const footerActions = isPending ? `
         <div class="card-actions">
             <button class="btn btn-danger btn-sm" onclick="openRejectModal(${item.id})">
@@ -274,9 +329,7 @@ function buildCard(item) {
             </button>
         </div>` : '';
 
-    // ─ Tanda tangan section
     const ttdHtml = buildTtdSection(item);
-
     const userName = item.created_by_name || ('User #' + item.created_by);
 
     return `
@@ -311,6 +364,17 @@ function buildCard(item) {
             </div>
             <div class="card-footer-right">
                 ${footerActions}
+                ${isApproved ? `
+                <label class="btn ${item.bukti_transfer ? 'btn-ghost' : 'btn-outline-secondary'} btn-sm" title="${item.bukti_transfer ? 'Ganti Bukti Transfer' : 'Upload Bukti Transfer'}" style="cursor:pointer;margin:0;">
+                    <i class="ph ph-${item.bukti_transfer ? 'arrows-clockwise' : 'upload-simple'}"></i> ${item.bukti_transfer ? 'Ganti BT' : 'Bukti TF'}
+                    <input type="file" accept="image/*,.pdf" style="display:none"
+                        onchange="uploadBuktiTransfer(event, ${item.id})">
+                </label>
+                ${item.bukti_transfer ? `
+                <a href="../uploads/bukti_transfer/${item.bukti_transfer}" target="_blank"
+                    class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer">
+                    <i class="ph ph-image"></i> Lihat Bukti Transfer
+                </a>` : ''}` : ''}
                 <button class="btn btn-outline-primary btn-sm" onclick="exportPDF(${item.id})">
                     <i class="ph ph-file-pdf"></i> Ekspor PDF
                 </button>
@@ -319,7 +383,6 @@ function buildCard(item) {
     </div>`;
 }
 
-// ── BUILD ITEM ROW ────────────────────────────────
 function buildItemRow(it, idx) {
     const subtotal = (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0);
     return `<div class="item-row">
@@ -332,7 +395,6 @@ function buildItemRow(it, idx) {
     </div>`;
 }
 
-// ── BUILD TTD SECTION ─────────────────────────────
 function buildTtdSection(item) {
     const roleKeys = Object.keys(ROLES);
     const cols = roleKeys.map(role => {
@@ -384,18 +446,42 @@ function buildTtdSection(item) {
 
 // ══════════════════════════════════════════════════
 // MODAL: APPROVE (saldo masuk + bukti transfer)
-// ══════════════════════════════════════════════════
+// + FITUR: SISA UANG OTOMATIS DARI MENU SEBELUMNYA
+// ═════════════════════════════════════════════════
 function openApproveModal(id, totalBelanja) {
     approveTargetId = id;
     approveTargetTotal = totalBelanja;
 
+    // 💰 HITUNG SISA UANG DARI MENU SEBELUMNYA
+    sisaUangSebelumnya = hitungSisaUangMenuSebelumnya(id);
+
     // Reset form
     document.getElementById('inputUangMasuk').value = '';
     document.getElementById('inputBuktiTransfer').value = '';
-    removeFile(null, true); // reset preview tanpa event
-    document.getElementById('approveInfoSisaRow').style.display = 'none';
+    removeFile(null, true);
 
-    // Tampilkan total
+    // Tampilkan info sisa uang sebelumnya
+    const sisaInfoEl = document.getElementById('approveSisaSebelumnya');
+    const sisaValueEl = document.getElementById('approveSisaSebelumnyaValue');
+    const sisaRow = document.getElementById('approveSisaSebelumnyaRow');
+
+    if (sisaUangSebelumnya > 0) {
+        // Cari nama menu sebelumnya untuk info
+        const prevMenu = cariMenuSebelumnya(id);
+        sisaInfoEl.textContent = prevMenu
+            ? `Sisa dari "${prevMenu}" akan otomatis ditambahkan`
+            : 'Sisa dari menu sebelumnya akan otomatis ditambahkan';
+        sisaValueEl.textContent = formatRupiah(sisaUangSebelumnya);
+        sisaRow.style.display = 'flex';
+    } else {
+        sisaRow.style.display = 'none';
+    }
+
+    // Reset info sisa
+    document.getElementById('approveInfoSisaRow').style.display = 'none';
+    document.getElementById('approveTotalMasukRow').style.display = 'none';
+
+    // Tampilkan total belanja
     const item = allData.find(d => d.id == id);
     document.getElementById('approveModalSubtitle').textContent =
         item ? `Menu: ${item.nama_menu}` : 'Isi saldo masuk dan bukti transfer sebelum menyetujui';
@@ -413,20 +499,46 @@ function closeApproveModal() {
     document.getElementById('approveModal').classList.remove('active');
     approveTargetId = null;
     approveTargetTotal = 0;
+    sisaUangSebelumnya = 0;
 }
 
+/**
+ * Hitung sisa uang saat user mengetik di input uang masuk
+ * Total Masuk = Input User + Sisa Menu Sebelumnya
+ */
 function hitungSisa() {
-    const masuk = parseFloat(document.getElementById('inputUangMasuk').value) || 0;
-    const sisa = masuk - approveTargetTotal;
+    const inputUser = parseFloat(document.getElementById('inputUangMasuk').value) || 0;
+
+    // 💰 TOTAL MASUK = INPUT USER + SISA SEBELUMNYA
+    const totalMasuk = inputUser + sisaUangSebelumnya;
+    const sisa = totalMasuk - approveTargetTotal;
+
     const sisaRow = document.getElementById('approveInfoSisaRow');
     const sisaEl = document.getElementById('approveInfoSisa');
+    const totalMasukEl = document.getElementById('approveTotalMasuk');
+    const totalMasukRow = document.getElementById('approveTotalMasukRow');
 
-    if (masuk > 0) {
+    if (inputUser > 0 || sisaUangSebelumnya > 0) {
         sisaRow.style.display = 'flex';
         sisaEl.textContent = formatRupiah(sisa);
         sisaEl.className = 'approve-info-value sisa-value' + (sisa < 0 ? ' kurang' : '');
+
+        // Tampilkan breakdown total masuk jika ada sisa sebelumnya
+        if (sisaUangSebelumnya > 0) {
+            totalMasukRow.style.display = 'flex';
+            totalMasukEl.innerHTML = `
+                <span style="font-size:0.75rem;color:var(--text-muted);">${formatRupiah(inputUser)}</span>
+                <span style="color:var(--text-muted);margin:0 4px;">+</span>
+                <span style="font-size:0.75rem;color:var(--success);">${formatRupiah(sisaUangSebelumnya)}</span>
+                <span style="color:var(--text-muted);margin:0 4px;">=</span>
+                <strong style="color:var(--primary);">${formatRupiah(totalMasuk)}</strong>
+            `;
+        } else {
+            totalMasukRow.style.display = 'none';
+        }
     } else {
         sisaRow.style.display = 'none';
+        totalMasukRow.style.display = 'none';
     }
 }
 
@@ -457,7 +569,6 @@ function previewFile(input) {
         reader.onload = e => { previewImg.src = e.target.result; previewImg.style.display = 'block'; };
         reader.readAsDataURL(file);
     } else {
-        // PDF — tampilkan ikon
         previewImg.src = '';
         previewImg.style.display = 'none';
     }
@@ -477,20 +588,18 @@ function removeFile(e, silent = false) {
     previewImg.src = '';
 }
 
-// ── SUBMIT APPROVE ───────────────────────────────
+// ─ SUBMIT APPROVE ───────────────────────────────
 async function submitApprove() {
-    const uangMasuk = parseFloat(document.getElementById('inputUangMasuk').value);
+    const inputUser = parseFloat(document.getElementById('inputUangMasuk').value) || 0;
     const fileInput = document.getElementById('inputBuktiTransfer');
     const file = fileInput.files[0];
 
-    if (!uangMasuk || uangMasuk <= 0) {
+    if (!inputUser && sisaUangSebelumnya <= 0) {
         showToast('Mohon isi saldo / uang masuk', 'error');
         return;
     }
-    if (!file) {
-        showToast('Mohon upload bukti transfer', 'error');
-        return;
-    }
+    // 💰 TOTAL MASUK = INPUT USER + SISA SEBELUMNYA
+    const uangMasukTotal = inputUser + sisaUangSebelumnya;
 
     const btn = document.getElementById('btnKonfirmasiSetujui');
     btn.classList.add('btn-loading');
@@ -499,8 +608,8 @@ async function submitApprove() {
     try {
         const formData = new FormData();
         formData.append('id', approveTargetId);
-        formData.append('uang_masuk', uangMasuk);
-        formData.append('bukti_transfer', file);
+        formData.append('uang_masuk', uangMasukTotal); // Kirim total yang sudah ditambah sisa
+        if (file) formData.append('bukti_transfer', file); // opsional
 
         const res = await fetch('../database/api-belanja.php?action=approve', {
             method: 'POST',
@@ -509,7 +618,10 @@ async function submitApprove() {
         const result = await res.json();
 
         if (result.success) {
-            showToast('Pengajuan berhasil disetujui!', 'success');
+            const pesan = sisaUangSebelumnya > 0
+                ? `Pengajuan disetujui! (+${formatRupiah(sisaUangSebelumnya)} sisa menu sebelumnya)`
+                : 'Pengajuan berhasil disetujui!';
+            showToast(pesan, 'success');
             closeApproveModal();
             fetchData();
         } else {
@@ -525,9 +637,9 @@ async function submitApprove() {
     }
 }
 
-// ══════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
 // MODAL: REJECT
-// ══════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
 function openRejectModal(id) {
     rejectTargetId = id;
     document.getElementById('rejectionReason').value = '';
@@ -567,7 +679,7 @@ async function updateStatus(id, status, catatan) {
 }
 
 // ══════════════════════════════════════════════════
-// TANDA TANGAN MODAL + SIMPAN KE DB (real-time)
+// TANDA TANGAN MODAL
 // ═════════════════════════════════════════════════
 function openTtdModal(pengajuanId, role) {
     ttdTargetId = pengajuanId;
@@ -579,7 +691,6 @@ function openTtdModal(pengajuanId, role) {
     ttdCtx = ttdCanvas.getContext('2d');
     clearCanvas();
 
-    // Load existing signature
     const existing = getSig(pengajuanId, role);
     if (existing) {
         const img = new Image();
@@ -587,7 +698,6 @@ function openTtdModal(pengajuanId, role) {
         img.src = existing.dataUrl;
     }
 
-    // Reset tombol
     const btn = document.getElementById('btnSimpanTtd');
     btn.classList.remove('btn-loading');
     btn.disabled = false;
@@ -667,7 +777,6 @@ function unbindCanvasEvents() {
 }
 
 async function saveTtd() {
-    // Validasi ada goresan
     const imgData = ttdCtx.getImageData(0, 0, ttdCanvas.width, 155);
     const hasDrawing = Array.from(imgData.data).some((v, i) => i % 4 === 3 && v > 10);
     if (!hasDrawing) {
@@ -688,7 +797,6 @@ async function saveTtd() {
                 pengajuan_id: ttdTargetId,
                 role_penanda: ROLE_DB_MAP[ttdTargetRole],
                 signature_data: dataUrl,
-                // user_id tidak wajib dikirim, akan default 0 di backend
             })
         });
         const result = await res.json();
@@ -699,7 +807,6 @@ async function saveTtd() {
             closeTtdModal();
             renderCards();
         } else {
-            // Simpan lokal saja jika DB gagal
             setSigLocal(ttdTargetId, ttdTargetRole, dataUrl, false);
             showToast('Tersimpan lokal — DB: ' + (result.message || 'gagal'), 'info');
             closeTtdModal();
@@ -707,7 +814,6 @@ async function saveTtd() {
         }
     } catch (err) {
         console.error(err);
-        // Fallback: simpan lokal
         setSigLocal(ttdTargetId, ttdTargetRole, dataUrl, false);
         showToast('Tersimpan lokal (server tidak terjangkau)', 'info');
         closeTtdModal();
@@ -722,132 +828,47 @@ function hapusTtd(pengajuanId, role) {
 }
 
 // ══════════════════════════════════════════════════
-// EKSPOR PDF
-// ══════════════════════════════════════════════════
-function exportPDF(id) {
-    const item = allData.find(d => d.id == id);
-    if (!item) { showToast('Data tidak ditemukan', 'error'); return; }
+// UPLOAD BUKTI TRANSFER (dari card langsung)
+// ═════════════════════════════════════════════════
+async function uploadBuktiTransfer(event, id) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    const items = item.detail_items || [];
-    const sigs = signatures[id] || {};
-    const totalBelanja = parseFloat(item.total_belanja) || 0;
-    const uangMasuk = parseFloat(item.uang_masuk) || 0;
-    const sisaUang = uangMasuk - totalBelanja;
-
-    let rowsHtml = '';
-    for (let i = 0; i < 10; i++) {
-        const it = items[i];
-        const subtotal = it ? (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0) : null;
-        rowsHtml += `
-        <tr>
-            <td class="center">${i + 1}</td>
-            <td>${it ? it.nama_barang : ''}</td>
-            <td class="center">${it ? it.qty : ''}</td>
-            <td class="center">${it ? it.satuan : ''}</td>
-            <td class="right">${it ? formatRupiah(it.harga) : ''}</td>
-            <td class="right">${it && subtotal ? formatRupiah(subtotal) : ''}</td>
-        </tr>`;
+    if (file.size > 5 * 1024 * 1024) {
+        showToast('File terlalu besar, maksimal 5 MB', 'error');
+        return;
     }
 
-    const roleKeys = Object.keys(ROLES);
-    const ttdCols = roleKeys.map(role => {
-        const sig = sigs[role];
-        const info = ROLES[role];
-        return `
-        <td class="ttd-cell">
-            <div class="pdf-ttd-label">${info.label}</div>
-            <div class="pdf-ttd-img-wrap">
-                ${sig ? `<img src="${sig.dataUrl}" class="pdf-ttd-img" alt="TTD">` : ''}
-            </div>
-            <div class="pdf-ttd-underline"></div>
-            <div class="pdf-ttd-name">${info.nama}</div>
-            ${sig ? `<div class="pdf-ttd-ts">${formatDateTime(sig.timestamp)}</div>` : ''}
-        </td>`;
-    }).join('');
+    showToast('Mengupload bukti transfer...', 'info');
 
-    const html = `
-    <html><head><meta charset="UTF-8">
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #fff; padding: 20px 28px; }
-        .kop {  display:flex; align-items:center; gap:14px; border-bottom:3px solid #000; padding-bottom:10px; margin-bottom:6px; }
-        .kop-logo-placeholder { width:64px; height:64px; border:2px solid #333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:bold; color:#333; text-align:center; flex-shrink:0; line-height: 1.2; }
-        .kop-info .kop-nama { font-size:16px; font-weight:bold; letter-spacing:1px; line-height:1.2; }
-        .kop-info .kop-sub { font-size:9px; color:#333; margin-top:2px; line-height:1.5; }
-        .judul { text-align:center; font-size:16px; font-weight:bold; letter-spacing:2px; margin:12px 0 8px; text-decoration:underline; }
-        .info-table { width:100%; font-size:11px; margin-bottom:6px; border-collapse:collapse; }
-        .info-table td { padding:2px 4px; }
-        .info-table .label { width:90px; font-weight:bold; }
-        .info-table .colon { width:10px; }
-        .info-table .right-label { text-align:right; font-weight:bold; padding-right:6px; }
-        .uang-label { text-align:center; font-size:12px; font-weight:bold; border:1px solid #000; padding:4px; margin-bottom:6px; letter-spacing:1px; }
-        table.barang { width:100%; border-collapse:collapse; font-size:11px; margin-bottom:6px; }
-        table.barang th, table.barang td { border:1px solid #000; padding:4px 6px; }
-        table.barang th { background:#f0f0f0; font-weight:bold; text-align:center; }
-        table.barang td.center { text-align:center; } table.barang td.right { text-align:right; }
-        table.barang tr.total-row td { font-weight:bold; background:#f5f5f5; }
-        .sisa-label { text-align:center; font-size:12px; font-weight:bold; border:1px solid #000; padding:4px; margin-bottom:14px; letter-spacing:1px; }
-        table.ttd { width:100%; border-collapse:collapse; font-size:10px; margin-top:4px; }
-        table.ttd td.ttd-cell { text-align:center; vertical-align:top; padding:4px 8px; width:25%; }
-        .pdf-ttd-label { font-weight:bold; font-size:11px; margin-bottom: 4px; }
-        .pdf-ttd-img-wrap { height:70px; display:flex; align-items:center; justify-content:center; }
-        .pdf-ttd-img { max-height:68px; max-width:120px; }
-        .pdf-ttd-underline { border-bottom:1px solid #000; margin:2px 10px 4px; }
-        .pdf-ttd-name { font-weight:bold; font-size:11px; text-decoration:underline; }
-        .pdf-ttd-ts { font-size:8px; color:#666; margin-top:2px; }
-        .catatan-pdf { font-size:10px; color:#555; margin-bottom:6px; padding:4px 8px; border-left:3px solid #d97706; background:#fffbeb; }
-    </style></head><body>
-    <div class="kop">
-        <div class="kop-logo-placeholder">KBUS</div>
-        <div class="kop-info">
-            <div class="kop-nama">KOPERASI <br>BINA USAHA SAUYUNAN</div>
-            <div class="kop-sub">Panyingkiran – Singaparna <br>Kab. Tasikmalaya <br>email : kop.binausahasauyunan@gmail.com</div>
-        </div>
-    </div>
-    <div class="judul">LAPORAN BELANJA</div>
-    <table class="info-table">
-        <tr>
-            <td class="label">Tanggal</td> <td class="colon">:</td> <td>${formatDateShort(item.tanggal)}</td>
-            <td class="right-label">Jumlah Porsi</td> <td class="colon">:</td> <td>${item.jumlah_porsi || '-'}</td>
-        </tr>
-        <tr>
-            <td class="label">Menu</td> <td class="colon">:</td> <td colspan="4">${item.nama_menu}</td>
-        </tr>
-    </table>
-    <div class="uang-label">UANG MASUK : ${uangMasuk > 0 ? formatRupiah(uangMasuk) : '............'}</div>
-    <table class="barang">
-        <thead><tr><th style="width:30px">No</th><th>Nama Barang</th><th style="width:40px">Qty</th><th style="width:55px">Satuan</th><th style="width:90px">Harga</th><th style="width:90px">Sub Total</th></tr></thead>
-        <tbody>
-            ${rowsHtml}
-            <tr class="total-row"><td colspan="4"></td><td class="right" style="font-weight:bold">Total Belanja</td><td class="right">${formatRupiah(totalBelanja)}</td></tr>
-        </tbody>
-    </table>
-    <div class="sisa-label">SISA UANG : ${uangMasuk > 0 ? formatRupiah(sisaUang) : '............'}</div>
-    ${item.catatan_bendahara ? `<div class="catatan-pdf">Catatan Bendahara: ${item.catatan_bendahara}</div>` : ''}
-    <table class="ttd"><tr>${ttdCols}</tr></table>
-    </body></html>`;
+    const formData = new FormData();
+    formData.append('id', id);
+    formData.append('bukti_transfer', file);
 
-    const container = document.getElementById('pdfPreview');
-    container.style.display = 'block';
-    container.innerHTML = html;
-
-    const opt = {
-        margin: [8, 8, 8, 8],
-        filename: `Laporan-Belanja-${item.nama_menu.replace(/\s+/g, '-')}-${item.tanggal}.pdf`,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(container).save().then(() => {
-        container.style.display = 'none';
-        container.innerHTML = '';
-        showToast('PDF berhasil diunduh', 'success');
-    }).catch(err => {
+    try {
+        const res = await fetch('../database/api-belanja.php?action=upload_bukti', {
+            method: 'POST',
+            body: formData,
+        });
+        const result = await res.json();
+        if (result.success) {
+            showToast('Bukti transfer berhasil diupload!', 'success');
+            fetchData();
+        } else {
+            showToast(result.message || 'Gagal upload bukti transfer', 'error');
+        }
+    } catch (err) {
         console.error(err);
-        container.style.display = 'none';
-        showToast('Gagal membuat PDF', 'error');
-    });
+        showToast('Terjadi kesalahan saat upload', 'error');
+    }
+}
+
+// ══════════════════════════════════════════════════
+// EKSPOR PDF - BUKA FILE TERPISAH
+// ═════════════════════════════════════════════════
+function exportPDF(id) {
+    const url = `cetak-laporan-sppg.php?id=${id}`;
+    window.open(url, '_blank');
 }
 
 // ── TOAST ─────────────────────────────────────────
@@ -915,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ── INIT ──────────────────────────────────────────
+// ─ INIT ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     loadSigs();
     fetchData();

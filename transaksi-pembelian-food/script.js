@@ -254,8 +254,10 @@ function buildToastAda(data) {
     html += `Harga beli: <strong>${rp(data.harga)}</strong>`;
     if (data.harga_jual) html += `<br>Harga jual: <strong>${rp(data.harga_jual)}</strong>`;
     if (data.tanggal_terupdate_baru) html += `<span style="opacity:.8;font-size:.85em">(${data.tanggal_terupdate_baru})</span>`;
-    if (data.harga_min && data.harga_max && data.harga_min != data.harga_max) {
-        html += `<br>Min: ${rp(data.harga_min)}&nbsp;|&nbsp;Max: ${rp(data.harga_max)}`;
+    const min = Number(data.harga_min);
+    const max = Number(data.harga_max);
+    if (min > 0 && max > 0 && min !== max) {
+        html += `<br>Min: ${rp(min)}&nbsp;|&nbsp;Max: ${rp(max)}`;
     }
     html += `<br>Stok: <strong>${data.stok} ${data.satuan}</strong>`;
     return html;
