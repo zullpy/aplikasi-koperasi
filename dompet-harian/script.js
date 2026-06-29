@@ -19,6 +19,17 @@ function formatRupiah(num) {
   return 'Rp ' + Number(num).toLocaleString('id-ID');
 }
 
+function parseRupiah(str) {
+  return parseFloat(String(str).replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+}
+
+function onHargaInput(el, rowId) {
+  const raw = String(el.value).replace(/\./g, '').replace(/[^\d]/g, '');
+  const num = parseInt(raw) || 0;
+  el.value = num ? num.toLocaleString('id-ID') : '';
+  updateRowSubtotal(rowId);
+}
+
 function formatDateFull(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
@@ -538,13 +549,13 @@ function addBarangRow(data = null) {
       <div class="input-icon-wrapper">
         <span class="input-icon input-icon-text">Rp</span>
         <input
-          type="number"
+          type="text"
           class="form-input has-icon-text barang-harga"
           data-row="${rowId}"
-          value="${data?.harga ?? ''}"
+          value="${data?.harga ? Number(data.harga).toLocaleString('id-ID') : ''}"
           placeholder="0"
-          min="0"
-          oninput="updateRowSubtotal(${rowId})"
+          inputmode="numeric"
+          oninput="onHargaInput(this, ${rowId})"
         />
       </div>
     </div>
@@ -581,7 +592,8 @@ function addBarangRow(data = null) {
     item.addEventListener('click', () => {
       row.querySelector(`.barang-id[data-row="${rowId}"]`).value = item.dataset.id;
       searchInput.value = item.dataset.name;
-      row.querySelector(`.barang-harga[data-row="${rowId}"]`).value = item.dataset.harga;
+      const hargaNum = parseFloat(item.dataset.harga) || 0;
+      row.querySelector(`.barang-harga[data-row="${rowId}"]`).value = hargaNum ? hargaNum.toLocaleString('id-ID') : '';
       row.querySelector(`.barang-satuan[data-row="${rowId}"]`).value = item.dataset.satuan;
       dropdownList.classList.remove('active');
       updateRowSubtotal(rowId);
@@ -617,7 +629,7 @@ function renumberRows() {
 }
 
 function updateRowSubtotal(rowId) {
-  const harga = parseFloat(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value) || 0;
+  const harga = parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value);
   const quantity = parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0;
   document.querySelector(`.row-subtotal-value[data-row="${rowId}"]`).textContent = formatRupiah(harga * quantity);
   updateSubtotal();
@@ -627,7 +639,7 @@ function updateSubtotal() {
   let total = 0;
   document.querySelectorAll('.barang-row').forEach(row => {
     const rowId = row.dataset.rowId;
-    const harga = parseFloat(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value) || 0;
+    const harga = parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value);
     const quantity = parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0;
     total += harga * quantity;
   });
@@ -644,7 +656,7 @@ function getBarangData() {
       barangList.push({
         id_barang: idBarang,
         nama_barang: namaBarang,
-        harga: parseFloat(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value) || 0,
+        harga: parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value),
         quantity: parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0,
         satuan: document.querySelector(`.barang-satuan[data-row="${rowId}"]`).value,
       });

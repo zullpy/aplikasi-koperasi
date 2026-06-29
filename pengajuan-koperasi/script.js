@@ -1,18 +1,55 @@
 // ===== DATA =====
+// Struktur baru: setiap pengajuan punya array `items` [{keterangan, qty, harga, subtotal}]
+// jumlah = total semua subtotal
 let data = [
-    { id: 1, jenis: 'stok', tanggal: '2025-06-10', keterangan: 'Beli beras 50 kg', jumlah: 500000, qty: 50, nota: '', notaName: 'nota_beras.jpg', status: 'approved', saldo: 500000, bukti: '', buktiName: 'bukti_beras.jpg', catatan: 'Sudah cair', approvedAt: '2025-06-11', alasan: '' },
-    { id: 2, jenis: 'stok', tanggal: '2025-06-10', keterangan: 'Beli minyak goreng', jumlah: 300000, qty: 20, nota: '', notaName: 'nota_minyak.jpg', status: 'pending', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: '' },
-    { id: 3, jenis: 'lainlain', tanggal: '2025-06-10', keterangan: 'Beli printer kantor', jumlah: 1500000, qty: 1, nota: '', notaName: '', status: 'rejected', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: 'Anggaran tidak mencukupi' },
-    { id: 4, jenis: 'lainlain', tanggal: '2025-06-12', keterangan: 'Beli lemari showcase', jumlah: 2000000, qty: 1, nota: '', notaName: '', status: 'pending', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: '' },
-    { id: 5, jenis: 'stok', tanggal: '2025-06-15', keterangan: 'Beli gula pasir 30 kg', jumlah: 450000, qty: 30, nota: '', notaName: 'nota_gula.jpg', status: 'approved', saldo: 450000, bukti: '', buktiName: 'bukti_gula.jpg', catatan: '', approvedAt: '2025-06-15', alasan: '' },
+    {
+        id: 1, jenis: 'stok', tanggal: '2025-06-10',
+        items: [
+            { keterangan: 'Beli beras', qty: 50, harga: 8000, subtotal: 400000 },
+            { keterangan: 'Beli garam', qty: 10, harga: 10000, subtotal: 100000 },
+        ],
+        jumlah: 500000,
+        status: 'approved', saldo: 500000, bukti: '', buktiName: 'bukti_beras.jpg', catatan: 'Sudah cair', approvedAt: '2025-06-11', alasan: ''
+    },
+    {
+        id: 2, jenis: 'stok', tanggal: '2025-06-10',
+        items: [
+            { keterangan: 'Beli minyak goreng', qty: 20, harga: 15000, subtotal: 300000 },
+        ],
+        jumlah: 300000,
+        status: 'pending', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: ''
+    },
+    {
+        id: 3, jenis: 'lainlain', tanggal: '2025-06-10',
+        items: [
+            { keterangan: 'Beli printer kantor', qty: 1, harga: 1500000, subtotal: 1500000 },
+        ],
+        jumlah: 1500000,
+        status: 'rejected', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: 'Anggaran tidak mencukupi'
+    },
+    {
+        id: 4, jenis: 'lainlain', tanggal: '2025-06-12',
+        items: [
+            { keterangan: 'Beli lemari showcase', qty: 1, harga: 2000000, subtotal: 2000000 },
+        ],
+        jumlah: 2000000,
+        status: 'pending', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: ''
+    },
+    {
+        id: 5, jenis: 'stok', tanggal: '2025-06-15',
+        items: [
+            { keterangan: 'Beli gula pasir', qty: 30, harga: 15000, subtotal: 450000 },
+        ],
+        jumlah: 450000,
+        status: 'approved', saldo: 450000, bukti: '', buktiName: 'bukti_gula.jpg', catatan: '', approvedAt: '2025-06-15', alasan: ''
+    },
 ];
 
 let nextId = 10;
-let tmpNota = null;
-let tmpNotaName = '';
 let tmpBukti = null;
 let tmpBuktiName = '';
 let currentKeputusan = '';
+let itemRowCount = 0;
 
 // ===== HELPERS =====
 function fmt(n) {
@@ -83,8 +120,8 @@ function renderGroup(g) {
         <tr>
           <th style="width:80px">Jenis</th>
           <th>Keterangan</th>
-          <th style="width:55px;text-align:center">Qty</th>
-          <th style="width:120px">Jumlah diajukan</th>
+          <th style="width:70px;text-align:center">Item</th>
+          <th style="width:130px">Total diajukan</th>
           <th style="width:85px">Status</th>
           <th style="width:140px">Aksi</th>
         </tr>
@@ -102,14 +139,15 @@ function renderRow(i) {
     else if (i.status === 'approved') statusBadge = '<span class="badge approved"><i class="ti ti-check" style="font-size:10px"></i> Disetujui</span>';
     else statusBadge = '<span class="badge rejected"><i class="ti ti-x" style="font-size:10px"></i> Ditolak</span>';
 
-    const notaInfo = i.jenis === 'stok' && i.notaName
-        ? `<br><span style="font-size:11px;color:var(--text-muted)"><i class="ti ti-file"></i> ${i.notaName}</span>`
-        : '';
+    // Ringkasan keterangan: tampilkan item pertama + sisanya
+    const firstItem = i.items && i.items.length ? i.items[0].keterangan : '-';
+    const extraCount = i.items && i.items.length > 1 ? `<span class="more-badge">+${i.items.length - 1} lainnya</span>` : '';
+    const ketEl = `<span class="ket-link" onclick="openDetail(${i.id})">${firstItem}</span>${extraCount}`;
 
     return `<tr>
     <td>${jenisBadge}</td>
-    <td>${i.keterangan}${notaInfo}</td>
-    <td style="text-align:center">${i.qty || '-'}</td>
+    <td>${ketEl}</td>
+    <td style="text-align:center">${i.items ? i.items.length : 1}</td>
     <td>${fmt(i.jumlah)}</td>
     <td>${statusBadge}</td>
     <td><div class="actions">
@@ -127,22 +165,117 @@ function clearFilter() {
     render();
 }
 
+// ===== FORMAT HARGA (titik ribuan saat mengetik) =====
+function parseHarga(str) {
+    // Hapus semua titik, ambil angka murni
+    return parseFloat(String(str).replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+}
+
+function formatHarga(str) {
+    const num = parseHarga(str);
+    if (!num) return '';
+    return num.toLocaleString('id-ID'); // hasilkan format 1.500.000
+}
+
+function onHargaInput(el, rid) {
+    const raw = el.value.replace(/\./g, '').replace(/[^\d]/g, '');
+    const num = parseInt(raw) || 0;
+    // Simpan posisi kursor agar tidak loncat
+    const formatted = num ? num.toLocaleString('id-ID') : '';
+    el.value = formatted;
+    recalcRow(rid);
+}
+
+// ===== ITEM ROWS (multi-item form) =====
+function addItemRow(ket = '', qty = '', harga = '') {
+    itemRowCount++;
+    const rid = 'row_' + itemRowCount;
+    const tbody = document.getElementById('itemRows');
+    const tr = document.createElement('tr');
+    tr.id = rid;
+    tr.dataset.rid = rid;
+
+    const hargaFormatted = harga ? Number(harga).toLocaleString('id-ID') : '';
+
+    tr.innerHTML = `
+        <td>
+            <button class="btn sm danger icon-only" onclick="removeItemRow('${rid}')" title="Hapus baris">
+                <i class="ti ti-trash" aria-hidden="true"></i>
+            </button>
+        </td>
+        <td><input type="text" class="row-ket" placeholder="Keterangan item" value="${ket}" oninput="recalcRow('${rid}')" style="width:100%"></td>
+        <td><input type="number" class="row-qty" placeholder="0" value="${qty}" min="0" oninput="recalcRow('${rid}')" style="width:100%"></td>
+        <td><input type="text" class="row-harga" placeholder="0" value="${hargaFormatted}" inputmode="numeric" oninput="onHargaInput(this,'${rid}')" style="width:100%"></td>
+        <td class="subtotal-cell" style="text-align:right;font-weight:500;white-space:nowrap">Rp 0</td>
+    `;
+    tbody.appendChild(tr);
+    recalcRow(rid);
+    tr.querySelector('.row-ket').focus();
+}
+
+function removeItemRow(rid) {
+    const tr = document.getElementById(rid);
+    if (!tr) return;
+    const rows = document.getElementById('itemRows').querySelectorAll('tr');
+    if (rows.length <= 1) {
+        tr.querySelector('.row-ket').value = '';
+        tr.querySelector('.row-qty').value = '';
+        tr.querySelector('.row-harga').value = '';
+        recalcRow(rid);
+        return;
+    }
+    tr.remove();
+    recalcTotal();
+}
+
+function recalcRow(rid) {
+    const tr = document.getElementById(rid);
+    if (!tr) return;
+    const qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+    const harga = parseHarga(tr.querySelector('.row-harga').value);
+    const sub = qty * harga;
+    tr.querySelector('.subtotal-cell').textContent = fmt(sub);
+    recalcTotal();
+}
+
+function recalcTotal() {
+    let total = 0;
+    document.querySelectorAll('#itemRows tr').forEach(tr => {
+        const qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+        const harga = parseHarga(tr.querySelector('.row-harga').value);
+        total += qty * harga;
+    });
+    document.getElementById('grandTotal').textContent = fmt(total);
+}
+
+function getItemsFromRows() {
+    const items = [];
+    document.querySelectorAll('#itemRows tr').forEach(tr => {
+        const ket = tr.querySelector('.row-ket').value.trim();
+        const qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
+        const harga = parseHarga(tr.querySelector('.row-harga').value);
+        const subtotal = qty * harga;
+        if (ket || qty || harga) {
+            items.push({ keterangan: ket, qty, harga, subtotal });
+        }
+    });
+    return items;
+}
+
+function clearItemRows() {
+    document.getElementById('itemRows').innerHTML = '';
+    itemRowCount = 0;
+}
+
 // ===== MODAL TAMBAH / EDIT =====
 function openAdd() {
     document.getElementById('editId').value = '';
     document.getElementById('modalAddTitle').textContent = 'Tambah Pengajuan';
     document.getElementById('fJenis').value = 'stok';
     document.getElementById('fTanggal').value = today();
-    document.getElementById('fKeterangan').value = '';
-    document.getElementById('fJumlah').value = '';
-    document.getElementById('fQty').value = '';
-    document.getElementById('fNota').value = '';
-    document.getElementById('notaLabel').textContent = 'Klik untuk upload nota';
-    document.getElementById('notaPreview').style.display = 'none';
-    document.getElementById('btnSimpanLagi').style.display = 'inline-flex';
-    tmpNota = null;
-    tmpNotaName = '';
-    toggleJenis();
+    clearItemRows();
+    addItemRow();
+    recalcTotal();
     document.getElementById('modalAdd').style.display = 'flex';
 }
 
@@ -153,93 +286,46 @@ function openEdit(id) {
     document.getElementById('modalAddTitle').textContent = 'Edit Pengajuan';
     document.getElementById('fJenis').value = i.jenis;
     document.getElementById('fTanggal').value = i.tanggal;
-    document.getElementById('fKeterangan').value = i.keterangan;
-    document.getElementById('fJumlah').value = i.jumlah;
-    document.getElementById('fQty').value = i.qty;
-    document.getElementById('notaLabel').textContent = i.notaName || 'Klik untuk upload nota';
-    document.getElementById('notaPreview').style.display = 'none';
-    document.getElementById('btnSimpanLagi').style.display = 'none';
-    tmpNota = i.nota || null;
-    tmpNotaName = i.notaName || '';
-    toggleJenis();
+    clearItemRows();
+    if (i.items && i.items.length) {
+        i.items.forEach(it => addItemRow(it.keterangan, it.qty, it.harga));
+    } else {
+        // Legacy: satu item dari keterangan lama
+        addItemRow(i.keterangan || '', 1, i.jumlah || 0);
+    }
+    recalcTotal();
     document.getElementById('modalAdd').style.display = 'flex';
 }
 
-function toggleJenis() {
-    const j = document.getElementById('fJenis').value;
-    document.getElementById('notaWrap').style.display = j === 'stok' ? 'block' : 'none';
-}
-
-function previewNota() {
-    const f = document.getElementById('fNota').files[0];
-    if (!f) return;
-    tmpNotaName = f.name;
-    document.getElementById('notaLabel').textContent = f.name;
-    const r = new FileReader();
-    r.onload = e => {
-        tmpNota = e.target.result;
-        if (f.type.startsWith('image/')) {
-            const img = document.getElementById('notaPreview');
-            img.src = e.target.result;
-            img.style.display = 'block';
-        }
-    };
-    r.readAsDataURL(f);
-}
-
-function saveItem(tambahLagi = false) {
+function saveItem() {
     const eid = document.getElementById('editId').value;
     const jenis = document.getElementById('fJenis').value;
     const tgl = document.getElementById('fTanggal').value;
-    const ket = document.getElementById('fKeterangan').value.trim();
-    const jml = parseFloat(document.getElementById('fJumlah').value) || 0;
-    const qty = parseFloat(document.getElementById('fQty').value) || 0;
 
-    if (!tgl || !ket || !jml) {
-        alert('Tanggal, keterangan, dan jumlah wajib diisi.');
+    if (!tgl) {
+        alert('Tanggal wajib diisi.');
         return;
     }
 
+    const items = getItemsFromRows();
+    if (!items.length || items.every(it => !it.keterangan)) {
+        alert('Minimal satu keterangan item wajib diisi.');
+        return;
+    }
+
+    const jumlah = items.reduce((s, it) => s + it.subtotal, 0);
+
     if (eid) {
         const item = data.find(x => x.id === parseInt(eid));
-        if (item) Object.assign(item, {
-            jenis, tanggal: tgl, keterangan: ket, jumlah: jml, qty,
-            nota: tmpNota || item.nota,
-            notaName: tmpNotaName || item.notaName,
-        });
-        closeModal('modalAdd');
+        if (item) Object.assign(item, { jenis, tanggal: tgl, items, jumlah });
     } else {
         data.push({
-            id: nextId++, jenis, tanggal: tgl, keterangan: ket, jumlah: jml, qty,
-            nota: tmpNota || '', notaName: tmpNotaName || '',
+            id: nextId++, jenis, tanggal: tgl, items, jumlah,
             status: 'pending', saldo: 0, bukti: '', buktiName: '',
             catatan: '', approvedAt: '', alasan: '',
         });
-        if (tambahLagi) {
-            // Reset form tapi modal tetap terbuka, pertahankan tanggal & jenis
-            const keepTgl = tgl;
-            const keepJenis = jenis;
-            document.getElementById('fKeterangan').value = '';
-            document.getElementById('fJumlah').value = '';
-            document.getElementById('fQty').value = '';
-            document.getElementById('fNota').value = '';
-            document.getElementById('notaLabel').textContent = 'Klik untuk upload nota';
-            document.getElementById('notaPreview').style.display = 'none';
-            document.getElementById('fTanggal').value = keepTgl;
-            document.getElementById('fJenis').value = keepJenis;
-            toggleJenis();
-            tmpNota = null;
-            tmpNotaName = '';
-            // Flash feedback
-            const btn = document.getElementById('btnSimpanLagi');
-            const orig = btn.innerHTML;
-            btn.innerHTML = '<i class="ti ti-check"></i> Tersimpan!';
-            btn.style.color = 'var(--text-success)';
-            setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1200);
-        } else {
-            closeModal('modalAdd');
-        }
     }
+    closeModal('modalAdd');
     render();
 }
 
@@ -247,12 +333,43 @@ function saveItem(tambahLagi = false) {
 function deleteItem(id) {
     const i = data.find(x => x.id === id);
     if (!i) return;
-    const msg = i.jenis === 'stok'
-        ? `Hapus pengajuan "${i.keterangan}" beserta notanya?`
-        : `Hapus pengajuan "${i.keterangan}"?`;
-    if (!confirm(msg)) return;
+    const label = i.items && i.items.length ? i.items[0].keterangan : 'pengajuan ini';
+    if (!confirm(`Hapus pengajuan "${label}"?`)) return;
     data = data.filter(x => x.id !== id);
     render();
+}
+
+// ===== MODAL DETAIL =====
+function openDetail(id) {
+    const i = data.find(x => x.id === id);
+    if (!i) return;
+    const rows = (i.items || []).map(it => `
+        <tr>
+            <td>${it.keterangan || '-'}</td>
+            <td style="text-align:center">${it.qty}</td>
+            <td style="text-align:right">${fmt(it.harga)}</td>
+            <td style="text-align:right;font-weight:500">${fmt(it.subtotal)}</td>
+        </tr>
+    `).join('');
+
+    document.getElementById('detailContent').innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+                <tr>
+                    <th style="text-align:left;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border)">Keterangan</th>
+                    <th style="text-align:center;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:50px">Qty</th>
+                    <th style="text-align:right;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:120px">Harga</th>
+                    <th style="text-align:right;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:120px">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <div class="total-bar" style="margin-top:0;border-radius:0 0 8px 8px">
+            <span class="total-label">Total</span>
+            <span class="total-value">${fmt(i.jumlah)}</span>
+        </div>
+    `;
+    document.getElementById('modalDetail').style.display = 'flex';
 }
 
 // ===== MODAL APPROVAL =====
@@ -261,7 +378,11 @@ function openApproval(id) {
     if (!i) return;
 
     document.getElementById('approvalId').value = id;
-    document.getElementById('approvalDesc').textContent = i.keterangan;
+    // Keterangan ringkas untuk info box
+    const descItems = (i.items || []).map(it => it.keterangan).filter(Boolean);
+    document.getElementById('approvalDesc').textContent = descItems.length > 1
+        ? descItems[0] + ' (+' + (descItems.length - 1) + ' item lainnya)'
+        : (descItems[0] || '-');
     document.getElementById('approvalJumlah').textContent = fmt(i.jumlah);
     document.getElementById('aSaldo').value = i.saldo || '';
     document.getElementById('aAlasan').value = i.alasan || '';
@@ -269,7 +390,6 @@ function openApproval(id) {
     tmpBukti = i.bukti || null;
     tmpBuktiName = i.buktiName || '';
 
-    // reset tombol keputusan
     currentKeputusan = '';
     document.getElementById('btnSetuju').className = 'keputusan-btn';
     document.getElementById('btnTolak').className = 'keputusan-btn';
@@ -277,10 +397,8 @@ function openApproval(id) {
     document.getElementById('rejectedFields').className = 'approval-fields';
     document.getElementById('btnSimpanApproval').style.display = 'none';
 
-    // pre-select jika sudah ada status
     if (i.status !== 'pending') pilihKeputusan(i.status);
 
-    // bukti state
     const buktiExist = document.getElementById('aBuktiExist');
     const buktiEmpty = document.getElementById('aBuktiEmpty');
     if (i.buktiName) {
@@ -305,17 +423,11 @@ function openApproval(id) {
 
 function pilihKeputusan(v) {
     currentKeputusan = v;
-    const setuju = document.getElementById('btnSetuju');
-    const tolak = document.getElementById('btnTolak');
-    const appF = document.getElementById('approvedFields');
-    const rejF = document.getElementById('rejectedFields');
-    const simpan = document.getElementById('btnSimpanApproval');
-
-    setuju.className = 'keputusan-btn' + (v === 'approved' ? ' selected-approve' : '');
-    tolak.className = 'keputusan-btn' + (v === 'rejected' ? ' selected-reject' : '');
-    appF.className = 'approval-fields' + (v === 'approved' ? ' open' : '');
-    rejF.className = 'approval-fields' + (v === 'rejected' ? ' open' : '');
-    simpan.style.display = 'inline-flex';
+    document.getElementById('btnSetuju').className = 'keputusan-btn' + (v === 'approved' ? ' selected-approve' : '');
+    document.getElementById('btnTolak').className = 'keputusan-btn' + (v === 'rejected' ? ' selected-reject' : '');
+    document.getElementById('approvedFields').className = 'approval-fields' + (v === 'approved' ? ' open' : '');
+    document.getElementById('rejectedFields').className = 'approval-fields' + (v === 'rejected' ? ' open' : '');
+    document.getElementById('btnSimpanApproval').style.display = 'inline-flex';
 }
 
 function previewBukti() {
@@ -340,10 +452,7 @@ function saveApproval() {
     const id = parseInt(document.getElementById('approvalId').value);
     const i = data.find(x => x.id === id);
     if (!i) return;
-    if (!currentKeputusan) {
-        alert('Pilih keputusan terlebih dahulu.');
-        return;
-    }
+    if (!currentKeputusan) { alert('Pilih keputusan terlebih dahulu.'); return; }
     i.status = currentKeputusan;
     if (currentKeputusan === 'approved') {
         i.saldo = parseFloat(document.getElementById('aSaldo').value) || 0;
@@ -366,13 +475,10 @@ function saveApproval() {
 function viewBuktiGroup(tanggal) {
     const items = data.filter(i => i.tanggal === tanggal && i.status === 'approved' && i.saldo > 0);
     if (!items.length) return;
-
     const totalSaldo = items.reduce((s, i) => s + i.saldo, 0);
     const buktiItem = items.find(i => i.buktiName) || items[0];
-
     document.getElementById('viewSaldo').textContent = fmt(totalSaldo);
     document.getElementById('viewTgl').textContent = fmtDate(buktiItem.approvedAt || tanggal);
-
     const img = document.getElementById('viewBuktiImg');
     const note = document.getElementById('viewBuktiNote');
     if (buktiItem.bukti && buktiItem.bukti.startsWith('data:image')) {
@@ -386,7 +492,6 @@ function viewBuktiGroup(tanggal) {
         img.style.display = 'none';
         note.textContent = 'Belum ada bukti transfer diupload.';
     }
-
     const cat = buktiItem.catatan;
     if (cat) {
         document.getElementById('viewCatatan').style.display = 'block';
@@ -394,7 +499,6 @@ function viewBuktiGroup(tanggal) {
     } else {
         document.getElementById('viewCatatan').style.display = 'none';
     }
-
     document.getElementById('modalBukti').style.display = 'flex';
 }
 

@@ -186,12 +186,12 @@
                     <div class="input-rp-wrap">
                         <span class="input-rp-prefix">Rp</span>
                         <input
-                            type="number"
+                            type="text"
                             id="inputUangMasuk"
                             class="form-input input-rp"
                             placeholder="0"
-                            min="0"
-                            oninput="hitungSisa()" />
+                            inputmode="numeric"
+                            oninput="onUangMasukInput(this)" />
                     </div>
                 </div>
 

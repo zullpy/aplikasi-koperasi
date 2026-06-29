@@ -31,52 +31,58 @@
 
     <!-- Modal Tambah/Edit -->
     <div id="modalAdd" style="display:none" class="overlay" onclick="closeOnBg(event,'modalAdd')">
-        <div class="modal">
+        <div class="modal modal-wide">
             <div class="modal-header">
                 <h3 id="modalAddTitle">Tambah Pengajuan</h3>
                 <button class="btn sm" onclick="closeModal('modalAdd')"><i class="ti ti-x"></i></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editId">
-                <div class="field">
-                    <label>Jenis</label>
-                    <select id="fJenis" onchange="toggleJenis()">
-                        <option value="stok">Stok</option>
-                        <option value="lainlain">Lain-lain</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label>Tanggal</label>
-                    <input type="date" id="fTanggal">
-                </div>
-                <div class="field">
-                    <label>Keterangan</label>
-                    <input type="text" id="fKeterangan" placeholder="Contoh: Beli beras 10 kg / Beli printer">
-                </div>
+
+                <!-- Header pengajuan -->
                 <div class="field-row">
                     <div class="field">
-                        <label>Jumlah yang Diajukan (Rp)</label>
-                        <input type="number" id="fJumlah" placeholder="0">
+                        <label>Jenis</label>
+                        <select id="fJenis">
+                            <option value="stok">Stok</option>
+                            <option value="lainlain">Lain-lain</option>
+                        </select>
                     </div>
                     <div class="field">
-                        <label>Qty</label>
-                        <input type="number" id="fQty" placeholder="0">
+                        <label>Tanggal</label>
+                        <input type="date" id="fTanggal">
                     </div>
                 </div>
-                <div class="field" id="notaWrap">
-                    <label>Upload Nota (Stok)</label>
-                    <div class="upload-area" onclick="document.getElementById('fNota').click()">
-                        <i class="ti ti-file-upload" style="font-size:24px;color:var(--text-muted)" aria-hidden="true"></i>
-                        <p id="notaLabel">Klik untuk upload nota</p>
-                    </div>
-                    <input type="file" id="fNota" accept="image/*,.pdf" style="display:none" onchange="previewNota()">
-                    <img id="notaPreview" style="display:none" class="img-preview">
+
+                <!-- Tabel item -->
+                <div class="items-table-wrap">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th style="width:36px"></th>
+                                <th>Keterangan</th>
+                                <th style="width:90px">Qty</th>
+                                <th style="width:140px">Harga Satuan (Rp)</th>
+                                <th style="width:140px;text-align:right">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemRows"></tbody>
+                    </table>
+                </div>
+
+                <button class="btn sm add-row-btn" onclick="addItemRow()">
+                    <i class="ti ti-plus" aria-hidden="true"></i> Tambah Keterangan
+                </button>
+
+                <!-- Total -->
+                <div class="total-bar">
+                    <span class="total-label">Total Pengajuan</span>
+                    <span class="total-value" id="grandTotal">Rp 0</span>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn" onclick="closeModal('modalAdd')">Batal</button>
-                <button class="btn" id="btnSimpanLagi" onclick="saveItem(true)" style="display:none"><i class="ti ti-plus" aria-hidden="true"></i> Simpan & Tambah Lagi</button>
-                <button class="btn primary" onclick="saveItem(false)"><i class="ti ti-check" aria-hidden="true"></i> Simpan</button>
+                <button class="btn primary" onclick="saveItem()"><i class="ti ti-check" aria-hidden="true"></i> Simpan Pengajuan</button>
             </div>
         </div>
     </div>
@@ -95,7 +101,7 @@
                 <div class="info-box">
                     <p class="info-label">Keterangan</p>
                     <p class="info-value" id="approvalDesc"></p>
-                    <p class="info-label" style="margin-top:6px">Jumlah diajukan</p>
+                    <p class="info-label" style="margin-top:6px">Total diajukan</p>
                     <p class="info-value accent" id="approvalJumlah"></p>
                 </div>
 
@@ -186,6 +192,22 @@
             </div>
             <div class="modal-footer">
                 <button class="btn" onclick="closeModal('modalBukti')">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detail Item -->
+    <div id="modalDetail" style="display:none" class="overlay" onclick="closeOnBg(event,'modalDetail')">
+        <div class="modal" style="max-width:480px">
+            <div class="modal-header">
+                <h3>Detail Pengajuan</h3>
+                <button class="btn sm" onclick="closeModal('modalDetail')"><i class="ti ti-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="detailContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('modalDetail')">Tutup</button>
             </div>
         </div>
     </div>

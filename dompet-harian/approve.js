@@ -38,6 +38,17 @@ function formatRupiah(num) {
     return 'Rp ' + Number(num).toLocaleString('id-ID');
 }
 
+function parseRupiah(str) {
+    return parseFloat(String(str).replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+}
+
+function onUangMasukInput(el) {
+    const raw = String(el.value).replace(/\./g, '').replace(/[^\d]/g, '');
+    const num = parseInt(raw) || 0;
+    el.value = num ? num.toLocaleString('id-ID') : '';
+    hitungSisa();
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('id-ID', {
@@ -507,7 +518,7 @@ function closeApproveModal() {
  * Total Masuk = Input User + Sisa Menu Sebelumnya
  */
 function hitungSisa() {
-    const inputUser = parseFloat(document.getElementById('inputUangMasuk').value) || 0;
+    const inputUser = parseRupiah(document.getElementById('inputUangMasuk').value);
 
     // 💰 TOTAL MASUK = INPUT USER + SISA SEBELUMNYA
     const totalMasuk = inputUser + sisaUangSebelumnya;
@@ -590,7 +601,7 @@ function removeFile(e, silent = false) {
 
 // ─ SUBMIT APPROVE ───────────────────────────────
 async function submitApprove() {
-    const inputUser = parseFloat(document.getElementById('inputUangMasuk').value) || 0;
+    const inputUser = parseRupiah(document.getElementById('inputUangMasuk').value);
     const fileInput = document.getElementById('inputBuktiTransfer');
     const file = fileInput.files[0];
 

@@ -491,3 +491,130 @@ tr:hover td {
     opacity: 1;
     pointer-events: all;
 }
+
+/* ===== MULTI-ITEM FORM ===== */
+.modal-wide {
+    max-width: 640px;
+}
+
+.items-table-wrap {
+    border: 0.5px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.items-table thead th {
+    background: var(--surface-1, #f9fafb);
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary, #555);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 0.5px solid var(--border, #e5e7eb);
+}
+
+.items-table tbody tr:not(:last-child) td {
+    border-bottom: 0.5px solid var(--border, #e5e7eb);
+}
+
+.items-table tbody td {
+    padding: 7px 8px;
+    vertical-align: middle;
+}
+
+.items-table tbody td input {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 13px;
+    border: 0.5px solid var(--border-strong, #ccc);
+    border-radius: 6px;
+    background: var(--surface-2, #fff);
+    color: var(--text-primary, #111);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.items-table tbody td input:focus {
+    border-color: var(--border-accent, #3b82f6);
+    box-shadow: 0 0 0 2px var(--bg-accent, #dbeafe);
+}
+
+.subtotal-cell {
+    font-size: 13px;
+    color: var(--text-primary, #111);
+    padding-right: 12px !important;
+}
+
+.add-row-btn {
+    margin-bottom: 12px;
+    color: var(--text-accent, #1d4ed8);
+    border-color: var(--border-accent, #93c5fd);
+}
+
+.add-row-btn:hover {
+    background: var(--bg-accent, #dbeafe);
+}
+
+.btn.icon-only {
+    padding: 4px 7px;
+}
+
+/* ===== TOTAL BAR ===== */
+.total-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface-1, #f9fafb);
+    border: 0.5px solid var(--border, #e5e7eb);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 4px;
+}
+
+.total-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary, #555);
+}
+
+.total-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-accent, #1d4ed8);
+}
+
+/* ===== LIST — keterangan link & more badge ===== */
+.ket-link {
+    cursor: pointer;
+    color: var(--text-primary, #111);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: var(--border, #e5e7eb);
+}
+
+.ket-link:hover {
+    color: var(--text-accent, #1d4ed8);
+    text-decoration-color: var(--text-accent, #1d4ed8);
+}
+
+.more-badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    background: var(--surface-1, #f3f4f6);
+    color: var(--text-secondary, #555);
+    border: 0.5px solid var(--border, #e5e7eb);
+    cursor: pointer;
+    vertical-align: middle;
+}
