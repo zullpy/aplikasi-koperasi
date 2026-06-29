@@ -253,6 +253,7 @@ function render() {
         .forEach(tgl => {
             const items = grouped[tgl];
             const totalHari = items.reduce((s, i) => s + (parseFloat(i.jumlah) || 0), 0);
+            let noUrut = 1;
             const rows = items.map(i => renderRow(i)).join('');
 
             html += `
@@ -290,7 +291,7 @@ const JENIS_META = {
     lainlain: { label: 'Lain-lain', icon: 'ti-dots', cls: 'badge-peralatan' },
 };
 
-function renderRow(i) {
+function renderRow(i, no = 1) {
     let statusBadge = '';
     if (i.status === 'pending') statusBadge = '<span class="badge pending"><i class="ti ti-clock" style="font-size:10px"></i> Pending</span>';
     else if (i.status === 'approved') statusBadge = '<span class="badge approved"><i class="ti ti-check" style="font-size:10px"></i> Disetujui</span>';
@@ -323,7 +324,7 @@ function renderRow(i) {
     }
 
     return `<tr>
-        <td style="text-align:center;color:var(--text-muted);font-size:12px">${i.id}</td>
+        <td style="text-align:center;color:var(--text-muted);font-size:12px">${no}</td>
         <td>${jenisBadge} ${ketEl}</td>
         <td style="text-align:center">${itemCount}</td>
         <td style="text-align:right;font-weight:500">${fmt(i.jumlah)}</td>
