@@ -1,3 +1,4 @@
+<?php session_start(); ?>
 <!DOCTYPE html>
 <html lang="id">
 
@@ -220,9 +221,59 @@
         </div>
     </div>
 
+    <!-- ===== MODAL TANDA TANGAN DIGITAL (TAMBAHAN BARU) ===== -->
+    <div class="overlay" id="modalSignature" style="display:none" onclick="closeOnBg(event,'modalSignature')">
+        <div class="modal modal-wide" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="ti ti-pencil"></i> Tanda Tangan Digital</h3>
+                <button class="btn sm" onclick="closeModal('modalSignature')"><i class="ti ti-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="info-box">
+                    <div class="info-label">Pengajuan</div>
+                    <div class="info-value" id="sigPengajuanTitle">-</div>
+                    <div class="info-label" style="margin-top:8px">Total Diajukan</div>
+                    <div class="info-value accent" id="sigPengajuanTotal">Rp 0</div>
+                </div>
+
+                <div class="field">
+                    <label>Penandatangan</label>
+                    <select id="sigRole" onchange="prepareSignatureCanvas()" style="width:100%" disabled>
+                        <!-- <option value="">-- Pilih Penandatangan --</option> -->
+                        <option value="ketua">Yudi Hendrian (Ketua Koperasi)</option>
+                        <option value="bendahara">Nancy Febi Yolla (Bendahara)</option>
+                        <option value="admin">Evin Yentiana (Admin)</option>
+                    </select>
+                </div>
+
+                <div id="sigCanvasArea" style="display:none;">
+                    <div class="field">
+                        <label>Area Tanda Tangan</label>
+                        <div style="border:2px dashed var(--border-strong,#ccc);border-radius:8px;background:#fff;touch-action:none;">
+                            <canvas id="signatureCanvas" width="800" height="250" style="width:100%;height:250px;cursor:crosshair;display:block;"></canvas>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <div id="sigBtnArea" style="display:flex;gap:8px;margin-top:8px;">
+                                <button class="btn sm danger" onclick="clearSignatureCanvas()"><i class="ti ti-trash"></i> Hapus TTD</button>
+                                <button class="btn sm primary" onclick="saveSignature()"><i class="ti ti-check"></i> Simpan Tanda Tangan</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Status Tanda Tangan</label>
+                        <div id="sigStatusList" style="font-size:13px;color:var(--text-secondary);min-height:24px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Datalist untuk Autocomplete Stok -->
     <datalist id="stokList"></datalist>
-
+    <script>
+        const SESSION_ROLE = "<?php echo $_SESSION['role'] ?? ''; ?>";
+    </script>
     <script src="script.js"></script>
 </body>
 

@@ -333,6 +333,7 @@ function renderRow(i, no = 1) {
         <td>
             <div class="actions" style="justify-content:center">
                 <button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>
+                <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"> <i class="ti ti-pencil" aria-hidden="true"></i> TTD </button>
                 <button class="btn sm" onclick="openEdit(${i.id})" title="Edit"><i class="ti ti-edit" aria-hidden="true"></i></button>
                 <button class="btn sm danger" onclick="deleteItem(${i.id})" title="Hapus"><i class="ti ti-trash" aria-hidden="true"></i></button>
             </div>
@@ -936,3 +937,216 @@ document.addEventListener('DOMContentLoaded', function () {
     loadData();
     loadStokData();
 });
+
+// ===== FITUR TANDA TANGAN DIGITAL (TAMBAHAN BARU) =====
+let currentSigPengajuanId = null;
+let isDrawing = false;
+let lastX = 0;
+let lastY = 0;
+let signatureDataList = [];
+
+function openSignature(id) {
+    const i = data.find(x => x.id === id);
+    if (!i) return;
+    currentSigPengajuanId = id;
+
+    document.getElementById('sigPengajuanTitle').textContent = i.tujuan || (i.items && i.items[0] ? i.items[0].keterangan : '-');
+    document.getElementById('sigPengajuanTotal').textContent = fmt(i.jumlah);
+    document.getElementById('sigCanvasArea').style.display = 'none';
+    document.getElementById('sigStatusList').innerHTML = '<i>Memuat data tanda tangan...</i>';
+
+    // Auto-set role sesuai login, lalu langsung buka canvas
+    const select = document.getElementById('sigRole');
+    const roleMap = {
+        'ketua': 'ketua',
+        'bendahara': 'bendahara',
+        'admin': 'admin',
+    };
+
+    if (SESSION_ROLE && roleMap[SESSION_ROLE]) {
+        select.value = roleMap[SESSION_ROLE];
+        // Sembunyikan semua option, tampilkan hanya yang sesuai role
+        Array.from(select.options).forEach(opt => {
+            if (opt.value === '' || opt.value === roleMap[SESSION_ROLE]) {
+                opt.style.display = '';
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+    } else {
+        select.value = '';
+    }
+
+    fetchSignatures(id).then(() => {
+        if (select.value) prepareSignatureCanvas();
+    });
+
+    document.getElementById('modalSignature').style.display = 'flex';
+}
+
+function prepareSignatureCanvas() {
+    const role = document.getElementById('sigRole').value;
+    const canvasArea = document.getElementById('sigCanvasArea');
+    if (!role) {
+        canvasArea.style.display = 'none';
+        return;
+    }
+    canvasArea.style.display = 'block';
+
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Ambil elemen tombol
+    const btnArea = document.getElementById('sigBtnArea');
+
+    const existing = signatureDataList.find(s => s.role_penanda === role);
+
+    if (existing && existing.signature_data) {
+        // Gambar TTD yang sudah ada
+        const img = new Image();
+        img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); };
+        img.src = existing.signature_data;
+
+        // Kunci canvas — hapus semua event
+        canvas.onmousedown = null;
+        canvas.onmousemove = null;
+        canvas.onmouseup = null;
+        canvas.onmouseout = null;
+        canvas.ontouchstart = null;
+        canvas.ontouchmove = null;
+        canvas.ontouchend = null;
+        canvas.style.cursor = 'not-allowed';
+
+        // Ganti tombol
+        btnArea.innerHTML = `
+            <span style="font-size:12px;color:green"><i class="ti ti-circle-check"></i> Tanda tangan sudah tersimpan</span>
+            <button class="btn sm" onclick="resetSignatureCanvas()"><i class="ti ti-refresh"></i> Ulangi TTD</button>
+        `;
+    } else {
+        // Canvas kosong, aktifkan drawing
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.style.cursor = 'crosshair';
+
+        btnArea.innerHTML = `
+            <button class="btn sm danger" onclick="clearSignatureCanvas()"><i class="ti ti-trash"></i> Hapus TTD</button>
+            <button class="btn sm primary" onclick="saveSignature()"><i class="ti ti-check"></i> Simpan Tanda Tangan</button>
+        `;
+
+        canvas.onmousedown = (e) => { isDrawing = true;[lastX, lastY] = [e.offsetX, e.offsetY]; };
+        canvas.onmousemove = (e) => {
+            if (!isDrawing) return;
+            ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke();
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        };
+        canvas.onmouseup = () => isDrawing = false;
+        canvas.onmouseout = () => isDrawing = false;
+
+        canvas.ontouchstart = (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            isDrawing = true;
+            lastX = touch.clientX - rect.left;
+            lastY = touch.clientY - rect.top;
+        };
+        canvas.ontouchmove = (e) => {
+            e.preventDefault();
+            if (!isDrawing) return;
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke();
+            lastX = x; lastY = y;
+        };
+        canvas.ontouchend = () => isDrawing = false;
+    }
+}
+
+function resetSignatureCanvas() {
+    const role = document.getElementById('sigRole').value;
+    signatureDataList = signatureDataList.filter(s => s.role_penanda !== role);
+    prepareSignatureCanvas();
+}
+
+function clearSignatureCanvas() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+async function saveSignature() {
+    const role = document.getElementById('sigRole').value;
+    if (!role) { showToast('Pilih penandatangan terlebih dahulu.', 'error'); return; }
+
+    const canvas = document.getElementById('signatureCanvas');
+    const blank = document.createElement('canvas');
+    blank.width = canvas.width; blank.height = canvas.height;
+    if (canvas.toDataURL() === blank.toDataURL()) {
+        showToast('Tanda tangan masih kosong.', 'error'); return;
+    }
+
+    const signatureDataUrl = canvas.toDataURL('image/png');
+
+    try {
+        const res = await fetch('../database/save-signature.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pengajuan_id: currentSigPengajuanId,
+                role_penanda: role,
+                signature_data: signatureDataUrl
+            })
+        });
+        const json = await res.json();
+        if (json.success) {
+            showToast('Tanda tangan berhasil disimpan.', 'success');
+            fetchSignatures(currentSigPengajuanId).then(() => {
+                prepareSignatureCanvas();
+            });
+        } else {
+            showToast(json.message || 'Gagal menyimpan tanda tangan.', 'error');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+async function fetchSignatures(pengajuanId) {
+    try {
+        const res = await fetch(`../database/get-signatures.php?pengajuan_id=${pengajuanId}`);
+        const json = await res.json();
+        const arr = extractArray(json) || [];
+        signatureDataList = arr;
+
+        const statusList = document.getElementById('sigStatusList');
+        if (arr.length === 0) {
+            statusList.innerHTML = '<i>Belum ada tanda tangan.</i>';
+            return;
+        }
+
+        let html = '';
+        arr.forEach(s => {
+            let roleName = s.role_penanda;
+            if (s.role_penanda === 'ketua') roleName = 'Yudi Hendrian (Ketua)';
+            if (s.role_penanda === 'bendahara') roleName = 'Nancy Febi Yolla (Bendahara)';
+            if (s.role_penanda === 'admin') roleName = 'Evin Yentiana (Admin)';
+
+            html += `<span class="sig-badge ${s.role_penanda} done">
+                <i class="ti ti-check"></i> ${roleName}
+            </span>`;
+        });
+        statusList.innerHTML = html;
+    } catch (e) {
+        document.getElementById('sigStatusList').innerHTML = '<i>Gagal memuat data.</i>';
+    }
+}
