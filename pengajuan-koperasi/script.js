@@ -1,161 +1,342 @@
-// ===== DATA =====
-// Struktur baru: setiap pengajuan punya array `items` [{keterangan, qty, harga, subtotal}]
-// jumlah = total semua subtotal
-let data = [
-    {
-        id: 1, jenis: 'stok', tanggal: '2025-06-10',
-        items: [
-            { keterangan: 'Beli beras', qty: 50, harga: 8000, subtotal: 400000 },
-            { keterangan: 'Beli garam', qty: 10, harga: 10000, subtotal: 100000 },
-        ],
-        jumlah: 500000,
-        status: 'approved', saldo: 500000, bukti: '', buktiName: 'bukti_beras.jpg', catatan: 'Sudah cair', approvedAt: '2025-06-11', alasan: ''
-    },
-    {
-        id: 2, jenis: 'stok', tanggal: '2025-06-10',
-        items: [
-            { keterangan: 'Beli minyak goreng', qty: 20, harga: 15000, subtotal: 300000 },
-        ],
-        jumlah: 300000,
-        status: 'pending', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: ''
-    },
-    {
-        id: 3, jenis: 'lainlain', tanggal: '2025-06-10',
-        items: [
-            { keterangan: 'Beli printer kantor', qty: 1, harga: 1500000, subtotal: 1500000 },
-        ],
-        jumlah: 1500000,
-        status: 'rejected', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: 'Anggaran tidak mencukupi'
-    },
-    {
-        id: 4, jenis: 'lainlain', tanggal: '2025-06-12',
-        items: [
-            { keterangan: 'Beli lemari showcase', qty: 1, harga: 2000000, subtotal: 2000000 },
-        ],
-        jumlah: 2000000,
-        status: 'pending', saldo: 0, bukti: '', buktiName: '', catatan: '', approvedAt: '', alasan: ''
-    },
-    {
-        id: 5, jenis: 'stok', tanggal: '2025-06-15',
-        items: [
-            { keterangan: 'Beli gula pasir', qty: 30, harga: 15000, subtotal: 450000 },
-        ],
-        jumlah: 450000,
-        status: 'approved', saldo: 450000, bukti: '', buktiName: 'bukti_gula.jpg', catatan: '', approvedAt: '2025-06-15', alasan: ''
-    },
-];
-
-let nextId = 10;
+// ===== STATE =====
+let data = [];
+let nextId = 1;
 let tmpBukti = null;
 let tmpBuktiName = '';
 let currentKeputusan = '';
 let itemRowCount = 0;
+let stokData = []; // Data stok dari tabel barang
 
 // ===== HELPERS =====
 function fmt(n) {
     return 'Rp ' + Number(n).toLocaleString('id-ID');
 }
-
 function fmtDate(d) {
     if (!d) return '-';
     const p = d.split('-');
-    return p[2] + '/' + p[1] + '/' + p[0];
+    const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return p[2] + ' ' + bulan[parseInt(p[1]) - 1] + ' ' + p[0];
 }
-
 function today() {
     return new Date().toISOString().slice(0, 10);
 }
 
-// ===== GROUPING & RENDER =====
-function grouped(items) {
-    const m = {};
-    items.forEach(i => {
-        if (!m[i.tanggal]) m[i.tanggal] = [];
-        m[i.tanggal].push(i);
-    });
-    return Object.keys(m)
-        .sort((a, b) => b.localeCompare(a))
-        .map(k => ({ tanggal: k, items: m[k] }));
+// ===== DEBUG HELPER =====
+const DEBUG = true; // set false di production
+function dbg(...args) { if (DEBUG) console.log('[Pengajuan]', ...args); }
+
+// ===== EXTRACT ARRAY dari berbagai format response PHP =====
+// Handles: {success,data}, {status,data}, {data}, langsung array, dsb.
+function extractArray(json) {
+    if (!json) return null;
+    if (Array.isArray(json)) return json;                         // langsung array
+    if (Array.isArray(json.data)) return json.data;               // {data:[...]}
+    if (Array.isArray(json.items)) return json.items;             // {items:[...]}
+    if (Array.isArray(json.result)) return json.result;           // {result:[...]}
+    // cek semua key yang nilainya array
+    for (const k of Object.keys(json)) {
+        if (Array.isArray(json[k])) return json[k];
+    }
+    return null;
 }
 
+// ===== NORMALIZE ITEM baris pengajuan =====
+function normalizeItem(it) {
+    return {
+        ...it,
+        keterangan: it.keterangan || it.nama_barang || it.ket || it.name || it.barang || '',
+        qty: Number(it.qty) || 0,
+        harga: Number(it.harga) || Number(it.harga_satuan) || Number(it.price) || 0,
+        subtotal: Number(it.subtotal) || 0,
+        sisaStok: it.sisaStok ?? it.sisa_stok ?? it.stok ?? '',
+        satuan: it.satuan || it.unit || '',
+    };
+}
+
+// ===== NORMALIZE STOK ITEM =====
+function normalizeStok(s) {
+    return {
+        ...s,
+        nama_barang: s.nama_barang || s.nama || s.name || s.barang || '',
+        stok_akhir: Number(s.stok_akhir ?? s.stok ?? s.qty ?? s.stock ?? 0),
+        harga_beli: Number(s.harga_beli ?? s.harga ?? s.price ?? 0),
+        satuan: s.satuan || s.unit || '',
+    };
+}
+
+// ===== LOAD DATA DARI SERVER =====
+async function loadData() {
+    try {
+        const res = await fetch('../database/get-pengajuan.php');
+        const text = await res.text(); // baca sebagai text dulu untuk debug
+        dbg('get-pengajuan raw response:', text.slice(0, 300));
+
+        let json;
+        try { json = JSON.parse(text); }
+        catch (e) {
+            console.error('get-pengajuan.php tidak return JSON valid:', e.message);
+            console.error('Response:', text.slice(0, 500));
+            render(); return;
+        }
+
+        dbg('get-pengajuan parsed:', json);
+        const arr = extractArray(json);
+        if (arr) {
+            data = arr.map(row => {
+                if (Array.isArray(row.items)) {
+                    row.items = row.items.map(normalizeItem);
+                }
+                return row;
+            });
+            nextId = data.length ? Math.max(...data.map(x => Number(x.id) || 0)) + 1 : 1;
+            dbg('Loaded', data.length, 'pengajuan rows');
+        } else {
+            console.warn('get-pengajuan.php: tidak ditemukan array dalam response. Full JSON:', json);
+        }
+    } catch (e) {
+        console.error('Gagal fetch get-pengajuan.php:', e);
+    }
+    render();
+}
+
+// ===== LOAD DATA STOK DARI SERVER =====
+async function loadStokData() {
+    try {
+        const res = await fetch('../database/get-stok.php');
+        const text = await res.text();
+        dbg('get-stok raw response:', text.slice(0, 300));
+
+        let json;
+        try { json = JSON.parse(text); }
+        catch (e) {
+            console.error('get-stok.php tidak return JSON valid:', e.message);
+            console.error('Response:', text.slice(0, 500));
+            return;
+        }
+
+        dbg('get-stok parsed:', json);
+        const arr = extractArray(json);
+        if (arr) {
+            stokData = arr.map(normalizeStok);
+            dbg('Loaded', stokData.length, 'stok items:', stokData.slice(0, 3));
+        } else {
+            console.warn('get-stok.php: tidak ditemukan array dalam response. Full JSON:', json);
+        }
+    } catch (e) {
+        console.error('Gagal fetch get-stok.php:', e);
+    }
+}
+
+// ===== TAMPILKAN TOAST SUGGEST STOK =====
+function updateStokDatalist(filterText, inputElement) {
+    // Hapus toast lama
+    document.querySelectorAll('.stok-toast-list').forEach(t => t.remove());
+
+    const filter = filterText.toLowerCase().trim();
+    if (filter === '') return;
+
+    if (!stokData.length) {
+        dbg('updateStokDatalist: stokData kosong, dropdown tidak muncul');
+        return;
+    }
+
+    const filtered = stokData.filter(s =>
+        s.nama_barang.toLowerCase().includes(filter)
+    ).slice(0, 7);
+
+    if (filtered.length === 0) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'stok-toast-list';
+
+    toast.innerHTML = filtered.map(s => {
+        let badgeClass = 'aman', badgeLabel = 'Aman';
+        if (s.stok_akhir <= 0) { badgeClass = 'habis'; badgeLabel = 'Habis'; }
+        else if (s.stok_akhir < 10) { badgeClass = 'rendah'; badgeLabel = 'Rendah'; }
+
+        const safeNama = s.nama_barang.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        return `
+            <div class="stok-toast-item"
+                 onmousedown="event.preventDefault(); selectStokItem('${safeNama}', '${inputElement.id}')">
+                <span class="stok-toast-info">${s.nama_barang}</span>
+                <div class="stok-toast-right">
+                    <span class="stok-toast-qty">Sisa: <strong>${s.stok_akhir}</strong></span>
+                    <span class="stok-badge ${badgeClass}">${badgeLabel}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // *** FIX: append ke body dengan posisi fixed mengikuti input ***
+    // Ini bypass overflow:hidden pada .items-table-wrap dan .modal
+    const rect = inputElement.getBoundingClientRect();
+    toast.style.position = 'fixed';
+    toast.style.top = (rect.bottom + 3) + 'px';
+    toast.style.left = rect.left + 'px';
+    toast.style.width = rect.width + 'px';
+    toast.style.zIndex = '100001';
+    document.body.appendChild(toast);
+
+    // Repositioning saat scroll (modal bisa di-scroll)
+    const reposition = () => {
+        const r = inputElement.getBoundingClientRect();
+        toast.style.top = (r.bottom + 3) + 'px';
+        toast.style.left = r.left + 'px';
+    };
+    document.addEventListener('scroll', reposition, { passive: true, once: true });
+}
+
+// ===== SELECT ITEM DARI TOAST =====
+function selectStokItem(namaBarang, inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    // Ambil rid dari id input: "ket_row_X" → "row_X"
+    const rid = inputId.replace('ket_', '');
+    const tr = document.getElementById(rid);
+
+    input.value = namaBarang;
+
+    // Cari data stok exact match
+    const found = stokData.find(s => s.nama_barang === namaBarang);
+    if (found && tr) {
+        const hargaInput = tr.querySelector('.row-harga');
+        if (hargaInput) {
+            hargaInput.value = Number(found.harga_beli).toLocaleString('id-ID');
+        }
+        const sisaInput = tr.querySelector('.row-sisa-stok');
+        if (sisaInput) sisaInput.value = found.stok_akhir;
+
+        const satuanInput = tr.querySelector('.row-satuan');
+        if (satuanInput) satuanInput.value = found.satuan || '';
+
+        tr.dataset.stokMatched = found.nama_barang;
+        recalcRow(rid);
+    }
+
+    // Hapus semua toast
+    document.querySelectorAll('.stok-toast-list').forEach(t => t.remove());
+
+    // Fokus ke kolom qty supaya flow lebih enak
+    if (tr) {
+        const qtyInput = tr.querySelector('.row-qty');
+        if (qtyInput) qtyInput.focus();
+    }
+}
+
+// ===== RENDER — GROUP PER TANGGAL =====
 function render() {
     const from = document.getElementById('filterFrom').value;
     const to = document.getElementById('filterTo').value;
-    let filtered = data;
+    let filtered = data.slice();
     if (from) filtered = filtered.filter(i => i.tanggal >= from);
     if (to) filtered = filtered.filter(i => i.tanggal <= to);
-    const groups = grouped(filtered);
     const el = document.getElementById('list');
-    if (!groups.length) {
+
+    if (!filtered.length) {
         el.innerHTML = '<div class="empty"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Tidak ada data pengajuan</div>';
         return;
     }
-    el.innerHTML = groups.map(g => renderGroup(g)).join('');
+
+    filtered.sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.id - a.id);
+
+    const grouped = {};
+    filtered.forEach(i => {
+        if (!grouped[i.tanggal]) grouped[i.tanggal] = [];
+        grouped[i.tanggal].push(i);
+    });
+
+    let html = '';
+    Object.keys(grouped)
+        .sort((a, b) => b.localeCompare(a))
+        .forEach(tgl => {
+            const items = grouped[tgl];
+            const totalHari = items.reduce((s, i) => s + (parseFloat(i.jumlah) || 0), 0);
+            const rows = items.map(i => renderRow(i)).join('');
+
+            html += `
+            <div class="date-group">
+                <div class="date-group-header">
+                    <span class="date-label"><i class="ti ti-calendar" aria-hidden="true"></i> ${fmtDate(tgl)}</span>
+                    <span class="date-total">${items.length} pengajuan &nbsp;·&nbsp; Total: ${fmt(totalHari)}</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="main-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;text-align:center">#</th>
+                                <th>Tujuan / Keterangan</th>
+                                <th style="width:50px;text-align:center">Item</th>
+                                <th style="width:140px;text-align:right">Total Diajukan</th>
+                                <th style="width:80px;text-align:center">Status</th>
+                                <th style="width:120px;text-align:center">Saldo Cair</th>
+                                <th style="width:160px;text-align:center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`;
+        });
+
+    el.innerHTML = html;
 }
 
-function renderGroup(g) {
-    const hasSaldo = g.items.some(i => i.status === 'approved' && i.saldo > 0);
-    const totalSaldo = g.items.filter(i => i.status === 'approved').reduce((s, i) => s + i.saldo, 0);
-    const buktiItems = g.items.filter(i => i.status === 'approved' && i.saldo > 0);
-    const hasBukti = buktiItems.some(i => i.buktiName);
-    const buktiBtn = hasSaldo
-        ? (hasBukti
-            ? `<span class="bukti-chip" onclick="viewBuktiGroup('${g.tanggal}')"><i class="ti ti-file-check" aria-hidden="true"></i> Lihat Bukti TF</span>`
-            : `<span class="no-bukti-chip" onclick="viewBuktiGroup('${g.tanggal}')"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Bukti TF belum ada</span>`)
-        : '';
-    const saldoBadge = hasSaldo ? `<span class="saldo-badge">${fmt(totalSaldo)}</span>` : '';
-    const rows = g.items.map(i => renderRow(i)).join('');
-
-    return `<div class="group-block">
-    <div class="group-header">
-      <div class="group-header-left">
-        <i class="ti ti-calendar" style="color:var(--text-secondary)" aria-hidden="true"></i>
-        <span class="group-date">${fmtDate(g.tanggal)}</span>
-        ${saldoBadge}${buktiBtn}
-      </div>
-      <span style="font-size:12px;color:var(--text-muted)">${g.items.length} pengajuan</span>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:80px">Jenis</th>
-          <th>Keterangan</th>
-          <th style="width:70px;text-align:center">Item</th>
-          <th style="width:130px">Total diajukan</th>
-          <th style="width:85px">Status</th>
-          <th style="width:140px">Aksi</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  </div>`;
-}
+const JENIS_META = {
+    stok: { label: 'Stok', icon: 'ti-package', cls: 'badge-stok' },
+    peralatan: { label: 'Peralatan', icon: 'ti-tools', cls: 'badge-peralatan' },
+    operasional: { label: 'Operasional', icon: 'ti-settings', cls: 'badge-operasional' },
+    lainlain: { label: 'Lain-lain', icon: 'ti-dots', cls: 'badge-peralatan' },
+};
 
 function renderRow(i) {
-    const jenisBadge = `<span class="badge ${i.jenis === 'stok' ? 'stok' : 'lainlain'}">${i.jenis === 'stok' ? 'Stok' : 'Lain-lain'}</span>`;
-
     let statusBadge = '';
     if (i.status === 'pending') statusBadge = '<span class="badge pending"><i class="ti ti-clock" style="font-size:10px"></i> Pending</span>';
     else if (i.status === 'approved') statusBadge = '<span class="badge approved"><i class="ti ti-check" style="font-size:10px"></i> Disetujui</span>';
     else statusBadge = '<span class="badge rejected"><i class="ti ti-x" style="font-size:10px"></i> Ditolak</span>';
 
-    // Ringkasan keterangan: tampilkan item pertama + sisanya
-    const firstItem = i.items && i.items.length ? i.items[0].keterangan : '-';
-    const extraCount = i.items && i.items.length > 1 ? `<span class="more-badge">+${i.items.length - 1} lainnya</span>` : '';
-    const ketEl = `<span class="ket-link" onclick="openDetail(${i.id})">${firstItem}</span>${extraCount}`;
+    const meta = JENIS_META[i.jenis] || JENIS_META['lainlain'];
+    const jenisBadge = `<span class="badge ${meta.cls}"><i class="ti ${meta.icon}" style="font-size:10px"></i> ${meta.label}</span>`;
+
+    const tujuan = i.tujuan ? `<span style="font-weight:500">${i.tujuan}</span>` : '';
+    let subKet = '';
+    if (i.jenis !== 'operasional' && i.items && i.items.length) {
+        const firstItem = i.items[0].keterangan;
+        const extraCount = i.items.length > 1 ? `<span class="more-badge" onclick="openDetail(${i.id})">+${i.items.length - 1}</span>` : '';
+        subKet = `<br><span class="ket-link" style="color:var(--text-muted);font-size:12px" onclick="openDetail(${i.id})">${firstItem}</span>${extraCount}`;
+    }
+    const ketEl = tujuan ? `${tujuan}${subKet}` : `<span class="ket-link" onclick="openDetail(${i.id})">${i.items && i.items.length ? i.items[0].keterangan : '-'}</span>`;
+
+    const itemCount = i.jenis === 'operasional'
+        ? '<span style="color:var(--text-muted);font-size:12px">—</span>'
+        : (i.items ? i.items.length : 1);
+
+    let saldoCell = '<span style="color:var(--text-muted);font-size:12px">—</span>';
+    if (i.status === 'approved' && i.saldo > 0) {
+        const buktiBtn = i.buktiName
+            ? `<span class="bukti-chip" onclick="viewBuktiSingle(${i.id})" title="Lihat bukti TF"><i class="ti ti-file-check"></i></span>`
+            : `<span class="no-bukti-chip" onclick="viewBuktiSingle(${i.id})" title="Bukti belum ada"><i class="ti ti-alert-triangle"></i></span>`;
+        saldoCell = `<span style="color:var(--text-success);font-size:12px;font-weight:500">${fmt(i.saldo)}</span> ${buktiBtn}`;
+    } else if (i.status === 'rejected') {
+        saldoCell = `<span style="color:var(--text-danger);font-size:11px" title="${i.alasan || ''}">Ditolak</span>`;
+    }
 
     return `<tr>
-    <td>${jenisBadge}</td>
-    <td>${ketEl}</td>
-    <td style="text-align:center">${i.items ? i.items.length : 1}</td>
-    <td>${fmt(i.jumlah)}</td>
-    <td>${statusBadge}</td>
-    <td><div class="actions">
-      <button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>
-      <button class="btn sm" onclick="openEdit(${i.id})" title="Edit"><i class="ti ti-edit" aria-hidden="true"></i></button>
-      <button class="btn sm danger" onclick="deleteItem(${i.id})" title="Hapus"><i class="ti ti-trash" aria-hidden="true"></i></button>
-    </div></td>
-  </tr>`;
+        <td style="text-align:center;color:var(--text-muted);font-size:12px">${i.id}</td>
+        <td>${jenisBadge} ${ketEl}</td>
+        <td style="text-align:center">${itemCount}</td>
+        <td style="text-align:right;font-weight:500">${fmt(i.jumlah)}</td>
+        <td style="text-align:center">${statusBadge}</td>
+        <td style="text-align:center">${saldoCell}</td>
+        <td>
+            <div class="actions" style="justify-content:center">
+                <button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>
+                <button class="btn sm" onclick="openEdit(${i.id})" title="Edit"><i class="ti ti-edit" aria-hidden="true"></i></button>
+                <button class="btn sm danger" onclick="deleteItem(${i.id})" title="Hapus"><i class="ti ti-trash" aria-hidden="true"></i></button>
+            </div>
+        </td>
+    </tr>`;
 }
 
 // ===== FILTER =====
@@ -165,37 +346,30 @@ function clearFilter() {
     render();
 }
 
-// ===== FORMAT HARGA (titik ribuan saat mengetik) =====
+// ===== FORMAT HARGA =====
 function parseHarga(str) {
-    // Hapus semua titik, ambil angka murni
     return parseFloat(String(str).replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
 }
-
-function formatHarga(str) {
-    const num = parseHarga(str);
-    if (!num) return '';
-    return num.toLocaleString('id-ID'); // hasilkan format 1.500.000
-}
-
 function onHargaInput(el, rid) {
     const raw = el.value.replace(/\./g, '').replace(/[^\d]/g, '');
     const num = parseInt(raw) || 0;
-    // Simpan posisi kursor agar tidak loncat
-    const formatted = num ? num.toLocaleString('id-ID') : '';
-    el.value = formatted;
+    el.value = num ? num.toLocaleString('id-ID') : '';
     recalcRow(rid);
 }
 
-// ===== ITEM ROWS (multi-item form) =====
-function addItemRow(ket = '', qty = '', harga = '') {
+// ===== ITEM ROWS =====
+function addItemRow(ket = '', qty = '', harga = '', sisaStok = '', satuan = '') {
     itemRowCount++;
     const rid = 'row_' + itemRowCount;
     const tbody = document.getElementById('itemRows');
     const tr = document.createElement('tr');
     tr.id = rid;
     tr.dataset.rid = rid;
-
+    tr.dataset.stokMatched = '';
     const hargaFormatted = harga ? Number(harga).toLocaleString('id-ID') : '';
+
+    const cfg = MODAL_JENIS_CFG[currentJenis] || MODAL_JENIS_CFG['stok'];
+    const placeholder = cfg.useStokLookup ? 'Ketik nama barang...' : 'Nama peralatan...';
 
     tr.innerHTML = `
         <td>
@@ -203,14 +377,44 @@ function addItemRow(ket = '', qty = '', harga = '') {
                 <i class="ti ti-trash" aria-hidden="true"></i>
             </button>
         </td>
-        <td><input type="text" class="row-ket" placeholder="Keterangan item" value="${ket}" oninput="recalcRow('${rid}')" style="width:100%"></td>
+        <td style="position:relative">
+            <input type="text" class="row-ket" id="ket_${rid}"
+                placeholder="${placeholder}" value="${ket}" autocomplete="off"
+                oninput="onKetInput(this,'${rid}')"
+                onblur="onKetBlur(this)"
+                style="width:100%">
+        </td>
+        <td>
+            <input type="text" class="row-sisa-stok" readonly value="${sisaStok}"
+               placeholder="-" style="width:100%;background:var(--surface-1,#f9fafb);color:var(--text-secondary,#555);cursor:default;text-align:center;">
+        </td>
+        <td>
+            <input type="text" class="row-satuan" readonly value="${satuan}"
+               placeholder="-" style="width:100%;background:var(--surface-1,#f9fafb);color:var(--text-secondary,#555);cursor:default;text-align:center;">
+        </td>
         <td><input type="number" class="row-qty" placeholder="0" value="${qty}" min="0" oninput="recalcRow('${rid}')" style="width:100%"></td>
         <td><input type="text" class="row-harga" placeholder="0" value="${hargaFormatted}" inputmode="numeric" oninput="onHargaInput(this,'${rid}')" style="width:100%"></td>
         <td class="subtotal-cell" style="text-align:right;font-weight:500;white-space:nowrap">Rp 0</td>
     `;
     tbody.appendChild(tr);
+
+    // Sembunyikan kolom sisa stok & satuan untuk peralatan
+    if (cfg.hideStokCols) {
+        tr.querySelector('.row-sisa-stok').closest('td').style.display = 'none';
+        tr.querySelector('.row-satuan').closest('td').style.display = 'none';
+    }
+
     recalcRow(rid);
-    tr.querySelector('.row-ket').focus();
+    if (!ket) {
+        tr.querySelector('.row-ket').focus();
+    }
+}
+
+// Blur handler — delay agar onmousedown di toast sempat jalan dulu
+function onKetBlur(el) {
+    setTimeout(() => {
+        document.querySelectorAll('.stok-toast-list').forEach(t => t.remove());
+    }, 200);
 }
 
 function removeItemRow(rid) {
@@ -221,6 +425,7 @@ function removeItemRow(rid) {
         tr.querySelector('.row-ket').value = '';
         tr.querySelector('.row-qty').value = '';
         tr.querySelector('.row-harga').value = '';
+        tr.querySelector('.row-sisa-stok').value = '';
         recalcRow(rid);
         return;
     }
@@ -254,9 +459,11 @@ function getItemsFromRows() {
         const ket = tr.querySelector('.row-ket').value.trim();
         const qty = parseFloat(tr.querySelector('.row-qty').value) || 0;
         const harga = parseHarga(tr.querySelector('.row-harga').value);
+        const sisaStok = tr.querySelector('.row-sisa-stok').value;
+        const satuan = tr.querySelector('.row-satuan')?.value || '';
         const subtotal = qty * harga;
         if (ket || qty || harga) {
-            items.push({ keterangan: ket, qty, harga, subtotal });
+            items.push({ keterangan: ket, qty, harga, subtotal, sisaStok, satuan });
         }
     });
     return items;
@@ -267,97 +474,298 @@ function clearItemRows() {
     itemRowCount = 0;
 }
 
+// ===== LOOKUP STOK (Auto-fill harga & sisa stok) =====
+function onKetInput(el, rid) {
+    recalcRow(rid);
+    const nama = el.value.trim();
+    const tr = document.getElementById(rid);
+    if (!tr) return;
+
+    const cfg = MODAL_JENIS_CFG[currentJenis] || MODAL_JENIS_CFG['stok'];
+
+    // Jenis peralatan: tidak pakai autocomplete & tidak lookup stok
+    if (!cfg.useStokLookup) {
+        document.querySelectorAll('.stok-toast-list').forEach(t => t.remove());
+        return;
+    }
+
+    // Tampilkan toast suggest (hanya untuk stok)
+    updateStokDatalist(nama, el);
+
+    if (!nama) {
+        tr.querySelector('.row-sisa-stok').value = '';
+        tr.dataset.stokMatched = '';
+        return;
+    }
+
+    // Exact match → auto-fill harga & sisa stok
+    const found = stokData.find(s => s.nama_barang.toLowerCase() === nama.toLowerCase());
+    if (found && tr.dataset.stokMatched !== found.nama_barang) {
+        tr.dataset.stokMatched = found.nama_barang;
+
+        const hargaInput = tr.querySelector('.row-harga');
+        hargaInput.value = Number(found.harga_beli).toLocaleString('id-ID');
+
+        tr.querySelector('.row-sisa-stok').value = found.stok_akhir;
+
+        const satuanInput = tr.querySelector('.row-satuan');
+        if (satuanInput) satuanInput.value = found.satuan || '';
+
+        recalcRow(rid);
+    } else if (!found) {
+        tr.dataset.stokMatched = '';
+        tr.querySelector('.row-sisa-stok').value = '';
+        const satuanInput = tr.querySelector('.row-satuan');
+        if (satuanInput) satuanInput.value = '';
+    }
+}
+
+// ===== SETUP MODAL SESUAI JENIS =====
+const MODAL_JENIS_CFG = {
+    stok: {
+        title: 'Tambah Pengajuan Stok',
+        icon: 'ti-package',
+        labelTujuan: 'Tujuan Pembelian',
+        placeholderTujuan: 'Contoh: Pembelian sembako minggu ini...',
+        thNama: 'Nama Barang',
+        labelTambah: 'Tambah Barang',
+        hideStokCols: false,  // tampilkan sisa stok & satuan
+        useStokLookup: true,  // aktifkan autocomplete dari tabel barang
+    },
+    peralatan: {
+        title: 'Tambah Pengajuan Peralatan',
+        icon: 'ti-tools',
+        labelTujuan: 'Tujuan Pembelian',
+        placeholderTujuan: 'Contoh: Pembelian peralatan dapur...',
+        thNama: 'Nama Peralatan',
+        labelTambah: 'Tambah Peralatan',
+        hideStokCols: true,   // sembunyikan sisa stok & satuan
+        useStokLookup: false, // jangan lookup dari tabel barang
+    },
+    operasional: {
+        title: 'Tambah Pengajuan Operasional',
+        icon: 'ti-settings',
+        labelTujuan: 'Tujuan / Keperluan',
+        placeholderTujuan: 'Contoh: Servis AC ruang kantor...',
+        thNama: '',
+        labelTambah: '',
+        hideStokCols: true,
+        useStokLookup: false,
+    },
+};
+
+// Simpan jenis aktif supaya bisa dicek di onKetInput
+let currentJenis = 'stok';
+
+function applyModalJenis(jenis) {
+    currentJenis = jenis;
+    const cfg = MODAL_JENIS_CFG[jenis] || MODAL_JENIS_CFG['stok'];
+    document.getElementById('fJenis').value = jenis;
+    document.getElementById('modalAddIcon').className = `ti ${cfg.icon}`;
+    document.getElementById('modalAddTitle').textContent = cfg.title;
+    document.getElementById('labelTujuan').textContent = cfg.labelTujuan;
+    document.getElementById('fTujuan').placeholder = cfg.placeholderTujuan;
+    const isOps = jenis === 'operasional';
+    document.getElementById('sectionItems').style.display = isOps ? 'none' : 'block';
+    document.getElementById('sectionOperasional').style.display = isOps ? 'block' : 'none';
+
+    if (!isOps) {
+        document.getElementById('thNamaBarang').textContent = cfg.thNama;
+        document.getElementById('labelTambahItem').textContent = cfg.labelTambah;
+
+        // Show/hide kolom Sisa Stok (index 2) dan Satuan (index 3) di header
+        const ths = document.querySelectorAll('.items-table thead th');
+        if (ths.length >= 4) {
+            ths[2].style.display = cfg.hideStokCols ? 'none' : '';  // Sisa Stok
+            ths[3].style.display = cfg.hideStokCols ? 'none' : '';  // Satuan
+        }
+    }
+}
+
+// ===== ANGGARAN INPUT (operasional) =====
+function onAnggaranInput(el) {
+    const raw = el.value.replace(/\./g, '').replace(/[^\d]/g, '');
+    const num = parseInt(raw) || 0;
+    el.value = num ? num.toLocaleString('id-ID') : '';
+    document.getElementById('grandTotalOps').textContent = fmt(num);
+}
+
+// ===== SALDO INPUT (approval) =====
+function onSaldoInput(el) {
+    const raw = el.value.replace(/\./g, '').replace(/[^\d]/g, '');
+    const num = parseInt(raw) || 0;
+    el.value = num ? num.toLocaleString('id-ID') : '';
+}
+
 // ===== MODAL TAMBAH / EDIT =====
-function openAdd() {
+function openAdd(jenis = 'stok') {
     document.getElementById('editId').value = '';
-    document.getElementById('modalAddTitle').textContent = 'Tambah Pengajuan';
-    document.getElementById('fJenis').value = 'stok';
     document.getElementById('fTanggal').value = today();
+    document.getElementById('fTujuan').value = '';
+    document.getElementById('fAnggaran').value = '';
+    document.getElementById('grandTotalOps').textContent = fmt(0);
     clearItemRows();
-    addItemRow();
-    recalcTotal();
+    applyModalJenis(jenis);
+    if (jenis !== 'operasional') {
+        addItemRow();
+        recalcTotal();
+    }
     document.getElementById('modalAdd').style.display = 'flex';
 }
 
 function openEdit(id) {
     const i = data.find(x => x.id === id);
     if (!i) return;
+    const jenis = i.jenis || 'stok';
     document.getElementById('editId').value = id;
-    document.getElementById('modalAddTitle').textContent = 'Edit Pengajuan';
-    document.getElementById('fJenis').value = i.jenis;
     document.getElementById('fTanggal').value = i.tanggal;
-    clearItemRows();
-    if (i.items && i.items.length) {
-        i.items.forEach(it => addItemRow(it.keterangan, it.qty, it.harga));
+    document.getElementById('fTujuan').value = i.tujuan || '';
+
+    applyModalJenis(jenis);
+
+    const cfg = MODAL_JENIS_CFG[jenis] || MODAL_JENIS_CFG['stok'];
+    document.getElementById('modalAddTitle').textContent = cfg.title.replace('Tambah', 'Edit');
+
+    if (jenis === 'operasional') {
+        const angNum = i.jumlah || 0;
+        document.getElementById('fAnggaran').value = angNum ? Number(angNum).toLocaleString('id-ID') : '';
+        document.getElementById('grandTotalOps').textContent = fmt(angNum);
     } else {
-        // Legacy: satu item dari keterangan lama
-        addItemRow(i.keterangan || '', 1, i.jumlah || 0);
+        clearItemRows();
+        if (i.items && i.items.length) {
+            i.items.forEach(it => addItemRow(it.keterangan, it.qty, it.harga, it.sisaStok || '', it.satuan || ''));
+        } else {
+            addItemRow('', 1, i.jumlah || 0, '');
+        }
+        recalcTotal();
     }
-    recalcTotal();
+
     document.getElementById('modalAdd').style.display = 'flex';
 }
 
-function saveItem() {
+async function saveItem() {
     const eid = document.getElementById('editId').value;
     const jenis = document.getElementById('fJenis').value;
     const tgl = document.getElementById('fTanggal').value;
+    const tujuan = document.getElementById('fTujuan').value.trim();
+    if (!tgl) { showToast('Tanggal wajib diisi.', 'error'); return; }
+    if (!tujuan) { showToast('Tujuan wajib diisi.', 'error'); return; }
 
-    if (!tgl) {
-        alert('Tanggal wajib diisi.');
-        return;
-    }
+    let items = [];
+    let jumlah = 0;
 
-    const items = getItemsFromRows();
-    if (!items.length || items.every(it => !it.keterangan)) {
-        alert('Minimal satu keterangan item wajib diisi.');
-        return;
-    }
-
-    const jumlah = items.reduce((s, it) => s + it.subtotal, 0);
-
-    if (eid) {
-        const item = data.find(x => x.id === parseInt(eid));
-        if (item) Object.assign(item, { jenis, tanggal: tgl, items, jumlah });
+    if (jenis === 'operasional') {
+        jumlah = parseHarga(document.getElementById('fAnggaran').value);
+        if (!jumlah) { showToast('Anggaran yang diajukan wajib diisi.', 'error'); return; }
     } else {
-        data.push({
-            id: nextId++, jenis, tanggal: tgl, items, jumlah,
-            status: 'pending', saldo: 0, bukti: '', buktiName: '',
-            catatan: '', approvedAt: '', alasan: '',
-        });
+        items = getItemsFromRows();
+        if (!items.length || items.every(it => !it.keterangan)) {
+            showToast('Minimal satu item wajib diisi.', 'error');
+            return;
+        }
+        jumlah = items.reduce((s, it) => s + it.subtotal, 0);
     }
-    closeModal('modalAdd');
-    render();
+
+    const payload = {
+        id: eid ? parseInt(eid) : null,
+        jenis, tanggal: tgl, tujuan, items, jumlah,
+    };
+
+    try {
+        const res = await fetch('../database/add-pengajuan.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        // Baca sebagai text dulu agar bisa debug jika bukan JSON
+        const text = await res.text();
+        dbg('add-pengajuan response:', text.slice(0, 300));
+
+        let json = {};
+        try { json = JSON.parse(text); } catch (e) {
+            // PHP mungkin return bukan JSON (misal echo "ok" atau ada warning PHP)
+            // Kalau HTTP status OK, anggap berhasil
+            if (res.ok) {
+                json = { success: true, id: null };
+            } else {
+                throw new Error('Server error: ' + text.slice(0, 100));
+            }
+        }
+
+        // Handle berbagai format: {success}, {status:"ok"}, {error}, HTTP status
+        const isSuccess = json.success === true
+            || json.success === 1
+            || json.status === 'ok'
+            || json.status === 'success'
+            || (res.ok && json.error == null && json.message == null);
+
+        if (!isSuccess) {
+            throw new Error(json.message || json.error || 'Gagal simpan');
+        }
+
+        // Gunakan id dari server, atau generate lokal jika tidak ada
+        const newId = json.id ? Number(json.id) : nextId++;
+
+        if (eid) {
+            const item = data.find(x => x.id === parseInt(eid));
+            if (item) Object.assign(item, { jenis, tanggal: tgl, tujuan, items, jumlah });
+        } else {
+            data.push({
+                id: newId, jenis, tanggal: tgl, tujuan, items, jumlah,
+                status: 'pending', saldo: 0, bukti: '', buktiName: '',
+                catatan: '', approvedAt: '', alasan: '',
+            });
+        }
+
+        closeModal('modalAdd');
+        render();
+        showToast(eid ? 'Pengajuan berhasil diperbarui.' : 'Pengajuan berhasil disimpan.', 'success');
+    } catch (e) {
+        console.error('saveItem error:', e);
+        showToast('Error: ' + e.message, 'error');
+    }
 }
 
 // ===== DELETE =====
-function deleteItem(id) {
+async function deleteItem(id) {
     const i = data.find(x => x.id === id);
     if (!i) return;
-    const label = i.items && i.items.length ? i.items[0].keterangan : 'pengajuan ini';
+    const label = i.tujuan || (i.items && i.items.length ? i.items[0].keterangan : 'pengajuan ini');
     if (!confirm(`Hapus pengajuan "${label}"?`)) return;
-    data = data.filter(x => x.id !== id);
-    render();
+    try {
+        const res = await fetch('../database/add-pengajuan.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'Gagal hapus');
+        data = data.filter(x => x.id !== id);
+        render();
+        showToast('Pengajuan dihapus.', 'success');
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
 }
 
 // ===== MODAL DETAIL =====
 function openDetail(id) {
     const i = data.find(x => x.id === id);
     if (!i) return;
-    const rows = (i.items || []).map(it => `
-        <tr>
-            <td>${it.keterangan || '-'}</td>
-            <td style="text-align:center">${it.qty}</td>
-            <td style="text-align:right">${fmt(it.harga)}</td>
-            <td style="text-align:right;font-weight:500">${fmt(it.subtotal)}</td>
-        </tr>
-    `).join('');
-
+    const rows = (i.items || []).map(it => `<tr>
+        <td>${it.keterangan || '-'}</td>
+        <td style="text-align:center">${it.qty}${it.satuan ? ' <span style="color:var(--text-muted);font-size:11px">' + it.satuan + '</span>' : ''}</td>
+        <td style="text-align:right">${fmt(it.harga)}</td>
+        <td style="text-align:right;font-weight:500">${fmt(it.subtotal)}</td>
+    </tr>`).join('');
     document.getElementById('detailContent').innerHTML = `
+        ${i.tujuan ? `<p style="margin-bottom:10px;font-size:13px;color:var(--text-secondary)">Tujuan: <strong style="color:var(--text-primary)">${i.tujuan}</strong></p>` : ''}
         <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
                 <tr>
                     <th style="text-align:left;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border)">Keterangan</th>
-                    <th style="text-align:center;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:50px">Qty</th>
+                    <th style="text-align:center;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:70px">Qty</th>
                     <th style="text-align:right;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:120px">Harga</th>
                     <th style="text-align:right;padding:6px 8px;font-size:12px;color:var(--text-secondary);border-bottom:0.5px solid var(--border);width:120px">Subtotal</th>
                 </tr>
@@ -376,15 +784,13 @@ function openDetail(id) {
 function openApproval(id) {
     const i = data.find(x => x.id === id);
     if (!i) return;
-
     document.getElementById('approvalId').value = id;
-    // Keterangan ringkas untuk info box
     const descItems = (i.items || []).map(it => it.keterangan).filter(Boolean);
-    document.getElementById('approvalDesc').textContent = descItems.length > 1
-        ? descItems[0] + ' (+' + (descItems.length - 1) + ' item lainnya)'
-        : (descItems[0] || '-');
+    document.getElementById('approvalDesc').textContent = i.tujuan
+        ? i.tujuan + (descItems.length ? ` (${descItems.length} item)` : '')
+        : (descItems[0] || '-') + (descItems.length > 1 ? ` (+${descItems.length - 1} lainnya)` : '');
     document.getElementById('approvalJumlah').textContent = fmt(i.jumlah);
-    document.getElementById('aSaldo').value = i.saldo || '';
+    document.getElementById('aSaldo').value = i.saldo ? Number(i.saldo).toLocaleString('id-ID') : '';
     document.getElementById('aAlasan').value = i.alasan || '';
     document.getElementById('aCatatan').value = i.catatan || '';
     tmpBukti = i.bukti || null;
@@ -407,11 +813,8 @@ function openApproval(id) {
         document.getElementById('aBuktiNote').textContent = i.buktiName;
         const img = document.getElementById('aBuktiImg');
         if (i.bukti && i.bukti.startsWith('data:image')) {
-            img.src = i.bukti;
-            img.style.display = 'block';
-        } else {
-            img.style.display = 'none';
-        }
+            img.src = i.bukti; img.style.display = 'block';
+        } else { img.style.display = 'none'; }
     } else {
         buktiExist.style.display = 'none';
         buktiEmpty.style.display = 'block';
@@ -442,8 +845,7 @@ function previewBukti() {
         document.getElementById('aBuktiEmpty').style.display = 'none';
         document.getElementById('aBuktiNote').textContent = f.name;
         const img = document.getElementById('aBuktiImg');
-        img.src = e.target.result;
-        img.style.display = 'block';
+        img.src = e.target.result; img.style.display = 'block';
     };
     r.readAsDataURL(f);
 }
@@ -452,10 +854,10 @@ function saveApproval() {
     const id = parseInt(document.getElementById('approvalId').value);
     const i = data.find(x => x.id === id);
     if (!i) return;
-    if (!currentKeputusan) { alert('Pilih keputusan terlebih dahulu.'); return; }
+    if (!currentKeputusan) { showToast('Pilih keputusan terlebih dahulu.', 'error'); return; }
     i.status = currentKeputusan;
     if (currentKeputusan === 'approved') {
-        i.saldo = parseFloat(document.getElementById('aSaldo').value) || 0;
+        i.saldo = parseHarga(document.getElementById('aSaldo').value);
         i.bukti = tmpBukti || i.bukti || '';
         i.buktiName = tmpBuktiName || i.buktiName || '';
         i.catatan = document.getElementById('aCatatan').value;
@@ -463,36 +865,31 @@ function saveApproval() {
         i.alasan = '';
     } else {
         i.alasan = document.getElementById('aAlasan').value;
-        i.saldo = 0;
-        i.bukti = '';
-        i.buktiName = '';
+        i.saldo = 0; i.bukti = ''; i.buktiName = '';
     }
     closeModal('modalApproval');
     render();
 }
 
 // ===== MODAL LIHAT BUKTI TF =====
-function viewBuktiGroup(tanggal) {
-    const items = data.filter(i => i.tanggal === tanggal && i.status === 'approved' && i.saldo > 0);
-    if (!items.length) return;
-    const totalSaldo = items.reduce((s, i) => s + i.saldo, 0);
-    const buktiItem = items.find(i => i.buktiName) || items[0];
-    document.getElementById('viewSaldo').textContent = fmt(totalSaldo);
-    document.getElementById('viewTgl').textContent = fmtDate(buktiItem.approvedAt || tanggal);
+function viewBuktiSingle(id) {
+    const i = data.find(x => x.id === id);
+    if (!i) return;
+    document.getElementById('viewSaldo').textContent = fmt(i.saldo || 0);
+    document.getElementById('viewTgl').textContent = fmtDate(i.approvedAt || i.tanggal);
     const img = document.getElementById('viewBuktiImg');
     const note = document.getElementById('viewBuktiNote');
-    if (buktiItem.bukti && buktiItem.bukti.startsWith('data:image')) {
-        img.src = buktiItem.bukti;
-        img.style.display = 'block';
-        note.textContent = buktiItem.buktiName;
-    } else if (buktiItem.buktiName) {
+    if (i.bukti && i.bukti.startsWith('data:image')) {
+        img.src = i.bukti; img.style.display = 'block';
+        note.textContent = i.buktiName;
+    } else if (i.buktiName) {
         img.style.display = 'none';
-        note.textContent = 'File: ' + buktiItem.buktiName;
+        note.textContent = 'File: ' + i.buktiName;
     } else {
         img.style.display = 'none';
         note.textContent = 'Belum ada bukti transfer diupload.';
     }
-    const cat = buktiItem.catatan;
+    const cat = i.catatan;
     if (cat) {
         document.getElementById('viewCatatan').style.display = 'block';
         document.getElementById('viewCatatanText').textContent = cat;
@@ -502,14 +899,39 @@ function viewBuktiGroup(tanggal) {
     document.getElementById('modalBukti').style.display = 'flex';
 }
 
+// ===== TOAST =====
+function showToast(msg, type = 'success') {
+    // Remove any existing toasts first to avoid stacking
+    document.querySelectorAll('.app-toast').forEach(t => t.remove());
+
+    const el = document.createElement('div');
+    el.className = `app-toast app-toast--${type}`;
+    el.innerHTML = `<i class="ti ${type === 'success' ? 'ti-circle-check' : 'ti-circle-x'}"></i> ${msg}`;
+
+    // Append langsung ke <body> — jangan ke elemen lain yang punya stacking context
+    document.body.appendChild(el);
+
+    // Paksa reflow agar animasi jalan
+    el.getBoundingClientRect();
+
+    // Auto-remove setelah 3s dengan fade-out
+    setTimeout(() => {
+        el.style.transition = 'opacity 0.3s ease';
+        el.style.opacity = '0';
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 300);
+    }, 2700);
+}
+
 // ===== MODAL HELPERS =====
 function closeModal(id) {
     document.getElementById(id).style.display = 'none';
 }
-
 function closeOnBg(e, id) {
     if (e.target === document.getElementById(id)) closeModal(id);
 }
 
 // ===== INIT =====
-render();
+document.addEventListener('DOMContentLoaded', function () {
+    loadData();
+    loadStokData();
+});
