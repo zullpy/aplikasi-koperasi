@@ -12,6 +12,7 @@ $query = "SELECT
 p.id_pembelian,
 p.kode_transaksi,
 p.nama_barang,
+p.kategori,
 p.keterangan,
 p.harga,
 p.volume,
@@ -23,9 +24,13 @@ p.biaya_admin,
 s.id_supplier,
 s.nama_supplier,
 s.no_telepon,
-s.alamat
+s.alamat,
+pp.status_pembayaran,
+pp.total_tagihan,
+pp.jumlah_dibayar
 FROM transaksi_pembelian p
 INNER JOIN suplier s ON p.id_supplier = s.id_supplier
+LEFT JOIN pembayaran_pembelian pp ON pp.kode_transaksi COLLATE utf8mb4_unicode_ci = p.kode_transaksi COLLATE utf8mb4_unicode_ci
 ORDER BY p.tanggal_pembelian DESC, s.nama_supplier ASC, p.id_pembelian DESC";
 $result = mysqli_query($koneksi, $query);
 $grouped = [];
@@ -57,6 +62,9 @@ while ($row = mysqli_fetch_assoc($result)) {
             'nota'              => null,
             'kode_transaksi'    => $kodeTrx,
             'sample_id'         => $row['id_pembelian'],
+            'status_pembayaran' => $row['status_pembayaran'] ?? 'lunas',
+            'total_tagihan'     => (float) ($row['total_tagihan'] ?? 0),
+            'jumlah_dibayar'    => (float) ($row['jumlah_dibayar'] ?? 0),
         ];
     }
     $grouped[$tanggal]['suppliers'][$idSupplier]['items'][] = $row;
@@ -141,10 +149,10 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                     <i class="ph ph-magnifying-glass"></i>
                 </div>
             </div>
-            <button class="add-btn" onclick="openAddModal()">
+            <a href="tambah-pembelian.php" class="add-btn">
                 <i class="ph ph-plus-circle"></i>
                 Tambah Transaksi Pembelian
-            </button>
+            </a>
         </div>
         <?php if (empty($grouped)): ?>
             <div class="empty-state">
@@ -191,12 +199,32 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                     };
                                     $hasNota = !empty($supplierData['nota']);
                                     $notaUrl = $hasNota ? '../uploads/nota/' . rawurlencode($supplierData['nota']) : '';
+                                    $statusBayar = $supplierData['status_pembayaran'] ?? 'lunas';
+                                    $sisaBayar = max($supplierData['total_tagihan'] - $supplierData['jumlah_dibayar'], 0);
+                                    $badgeBayarClass = match ($statusBayar) {
+                                        'lunas'     => 'badge-bayar badge-bayar-lunas',
+                                        'sebagian'  => 'badge-bayar badge-bayar-sebagian',
+                                        default     => 'badge-bayar badge-bayar-belum',
+                                    };
+                                    $labelBayar = match ($statusBayar) {
+                                        'lunas'     => 'Lunas',
+                                        'sebagian'  => 'Sebagian',
+                                        default     => 'Belum Bayar',
+                                    };
                                     ?>
                                     <details class="supplier-accordion">
                                         <summary class="supplier-header">
                                             <span class="supplier-icon"><i class="ph ph-storefront"></i></span>
                                             <span class="supplier-info">
-                                                <strong><?= htmlspecialchars($supplierData['nama_supplier']) ?></strong>
+                                                <span class="supplier-name-row">
+                                                    <strong><?= htmlspecialchars($supplierData['nama_supplier']) ?></strong>
+                                                    <span class="<?= $badgeBayarClass ?>">
+                                                        <i class="ph ph-wallet"></i> <?= $labelBayar ?>
+                                                    </span>
+                                                    <?php if ($statusBayar !== 'lunas'): ?>
+                                                        <span class="supplier-sisa-info">Sisa: <?= rupiah($sisaBayar) ?></span>
+                                                    <?php endif; ?>
+                                                </span>
                                                 <small><i class="ph ph-phone"></i> <?= htmlspecialchars($supplierData['no_telepon']) ?></small>
                                                 <span class="<?= $badgeMetodeClass ?>" style="margin-top:4px;">
                                                     <i class="ph <?= $iconMetode ?>"></i>
@@ -215,6 +243,9 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     <div class="item-name-col">
                                                         <span class="item-name"><?= !empty($row['nama_barang']) ? htmlspecialchars($row['nama_barang']) : '-' ?></span>
                                                         <span class="item-sub"><?= !empty($row['keterangan']) ? htmlspecialchars($row['keterangan']) : '-' ?></span>
+                                                        <?php if (!empty($row['kategori'])): ?>
+                                                            <span class="item-kategori-tag"><i class="ph ph-tag"></i> <?= htmlspecialchars($row['kategori']) ?></span>
+                                                        <?php endif; ?>
                                                     </div>
                                                     <div class="item-qty-col">
                                                         <span class="col-label">Qty</span>
@@ -285,6 +316,14 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     <i class="ph ph-<?= $hasNota ? 'arrows-clockwise' : 'camera-plus' ?>"></i>
                                                     <?= $hasNota ? 'Ganti Nota' : 'Tambah Nota' ?>
                                                 </button>
+                                                <?php if ($statusBayar !== 'lunas'): ?>
+                                                    <button type="button" class="bayar-sisa-btn"
+                                                        data-kode="<?= htmlspecialchars($supplierData['kode_transaksi']) ?>"
+                                                        data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>"
+                                                        data-sisa="<?= (int) $sisaBayar ?>">
+                                                        <i class="ph ph-wallet"></i> Bayar Sisa
+                                                    </button>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                         <?php if ($supplierData['total_biaya_admin'] > 0): ?>
@@ -307,136 +346,6 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
             </div>
         <?php endif; ?>
     </main>
-
-    <!-- MODAL TAMBAH -->
-    <div class="modal" id="tambahModal">
-        <div class="modal-content modal-content-tambah">
-            <div class="modal-header">
-                <h2><i class="ph ph-shopping-cart"></i> Tambah Transaksi Pembelian</h2>
-                <button type="button" class="modal-close" onclick="closeTambahModal()" aria-label="Tutup">
-                    <i class="ph ph-x"></i>
-                </button>
-            </div>
-            <form id="tambah-form" action="../database/add-transaksi.php" method="post" enctype="multipart/form-data">
-                <div class="tambah-top-grid">
-                    <div class="form-group">
-                        <label for="add_id_supplier">Supplier</label>
-                        <select name="id_supplier" id="add_id_supplier" required>
-                            <option value="">-- Pilih Supplier --</option>
-                            <?php
-                            if ($supplierResult) {
-                                mysqli_data_seek($supplierResult, 0);
-                                while ($s = mysqli_fetch_assoc($supplierResult)) {
-                            ?>
-                                    <option value="<?= (int) $s['id_supplier']; ?>">
-                                        <?= htmlspecialchars($s['nama_supplier']); ?>
-                                    </option>
-                            <?php
-                                }
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="add_tanggal">Tanggal Pembelian</label>
-                        <input type="date" id="add_tanggal" name="tanggal_pembelian" required>
-                    </div>
-                </div>
-                <div class="tambah-payment-grid">
-                    <div class="form-group">
-                        <label for="add_metode_pembayaran">Metode Pembayaran</label>
-                        <div class="metode-radio-group">
-                            <label class="metode-radio-label" data-metode="cash">
-                                <input type="radio" name="metode_pembayaran" value="cash" id="add_metode_cash" checked>
-                                <span class="metode-radio-btn"><i class="ph ph-money"></i> Cash</span>
-                            </label>
-                            <label class="metode-radio-label" data-metode="qris">
-                                <input type="radio" name="metode_pembayaran" value="qris" id="add_metode_qris">
-                                <span class="metode-radio-btn"><i class="ph ph-qr-code"></i> QRIS</span>
-                            </label>
-                            <label class="metode-radio-label" data-metode="transfer">
-                                <input type="radio" name="metode_pembayaran" value="transfer" id="add_metode_transfer">
-                                <span class="metode-radio-btn"><i class="ph ph-bank"></i> Transfer</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="form-group" id="add_biaya_admin_group" style="display:none;">
-                        <label for="add_biaya_admin">Biaya Admin</label>
-                        <input type="text" id="add_biaya_admin" name="biaya_admin" placeholder="Rp 0" value="">
-                        <small class="upload-hint">Biaya admin QRIS/Transfer (opsional, isi 0 jika tidak ada).</small>
-                    </div>
-                </div>
-                <div class="daftar-barang-section">
-                    <div class="daftar-barang-header">
-                        <div class="daftar-barang-title">
-                            <i class="ph ph-list-bullets"></i>
-                            <span>Daftar Barang</span>
-                            <span class="item-count-badge" id="item-count-badge">0 item</span>
-                        </div>
-                        <button type="button" class="tambah-barang-btn" onclick="addItemRow()">
-                            <i class="ph ph-plus"></i> Tambah Barang
-                        </button>
-                    </div>
-                    <!-- <div class="item-table-header">
-                        <span class="th-nama">Nama Barang</span>
-                        <span class="th-harga">Harga Beli</span>
-                        <span class="th-ket">Keterangan</span>
-                        <span class="th-eceran">Harga Eceran</span>
-                        <span class="th-keuntungan">Keuntungan</span>
-                        <span class="th-harga-jual">Harga Jual/Dus</span>
-                        <span class="th-harga-jual-eceran">Harga Jual Eceran</span>
-                        <span class="th-volume">Volume</span>
-                        <span class="th-satuan">Satuan</span>
-                        <span class="th-subtotal">Sub Total</span>
-                        <span class="th-aksi"></span>
-                    </div> -->
-                    <div id="item-rows-container"></div>
-                    <div class="item-empty-state" id="item-empty-state">
-                        <i class="ph ph-package"></i>
-                        <p>Belum ada barang.<br>Klik <strong>+ Tambah Barang</strong> untuk mulai.</p>
-                    </div>
-                    <div class="total-row" id="total-row" style="display:none;">
-                        <span class="total-label">Total Keseluruhan</span>
-                        <span class="total-value" id="grand-total-display">Rp 0</span>
-                    </div>
-                </div>
-                <div class="nota-upload-wrapper">
-                    <p class="nota-upload-heading">
-                        <i class="ph ph-receipt"></i> Bukti Nota <span class="optional-tag">opsional</span>
-                    </p>
-                    <div class="nota-upload-grid-add">
-                        <div class="form-group camera-only">
-                            <label for="add_nota_kamera">Foto Nota (Kamera)</label>
-                            <label class="upload-dropzone" for="add_nota_kamera" tabindex="0">
-                                <i class="ph ph-camera"></i>
-                                <span class="upload-text">Ambil foto nota</span>
-                                <span class="upload-filename"></span>
-                            </label>
-                            <input type="file" id="add_nota_kamera" name="nota_kamera[]" accept="image/*,.png,.jpg,.jpeg,.pdf" capture="environment" multiple hidden>
-                            <div class="selected-files-list" id="add_nota_kamera-selected-files-list"></div>
-                        </div>
-                        <div class="form-group">
-                            <label for="add_nota_file">Foto Nota (File)</label>
-                            <label class="upload-dropzone" for="add_nota_file" tabindex="0">
-                                <i class="ph ph-upload-simple"></i>
-                                <span class="upload-text">Pilih atau seret berkas di sini</span>
-                                <span class="upload-filename"></span>
-                            </label>
-                            <input type="file" id="add_nota_file" name="nota_file[]" accept="image/*,.png,.jpg,.jpeg,.pdf" multiple hidden>
-                            <small class="upload-hint">Jika nota belum ada, boleh dikosongkan (Bisa pilih/unggah lebih dari 1 file).</small>
-                            <div class="selected-files-list" id="add_nota_file-selected-files-list"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="cancel" onclick="closeTambahModal()">Batal</button>
-                    <button type="submit" id="tambah-submit-btn">
-                        <i class="ph ph-paper-plane-tilt"></i> Simpan Transaksi
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <!-- MODAL EDIT -->
     <div class="modal" id="transaksiModal">
@@ -571,6 +480,47 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                 <div class="modal-actions">
                     <button type="button" class="cancel" onclick="closeNotaModal()">Batal</button>
                     <button type="submit">Unggah</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL BAYAR SISA -->
+    <div class="modal" id="bayarSisaModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="ph ph-wallet"></i> Bayar Sisa Tagihan</h2>
+                <button type="button" class="modal-close" onclick="closeBayarSisaModal()" aria-label="Tutup">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <p class="nota-modal-subtitle" id="bayar-sisa-supplier-name" style="margin:-10px 0 16px 0; color:var(--text-muted); font-size:0.9rem;"></p>
+            <form id="bayar-sisa-form" action="../database/bayar-sisa.php" method="post" enctype="multipart/form-data">
+                <input type="hidden" id="bayar_sisa_kode_transaksi" name="kode_transaksi">
+                <div class="grid" style="grid-template-columns: 1fr;">
+                    <div class="form-group">
+                        <label for="bayar_sisa_jumlah">Jumlah Dibayar Sekarang</label>
+                        <input type="text" id="bayar_sisa_jumlah" name="jumlah_bayar" placeholder="Rp 0" required>
+                        <small class="upload-hint" id="bayar-sisa-info"></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="bayar_sisa_tanggal">Tanggal Bayar</label>
+                        <input type="date" id="bayar_sisa_tanggal" name="tanggal_bayar" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="bayar_sisa_bukti">Bukti Pembayaran</label>
+                        <label class="upload-dropzone" for="bayar_sisa_bukti" tabindex="0">
+                            <i class="ph ph-upload-simple"></i>
+                            <span class="upload-text">Pilih atau seret bukti transfer/QRIS di sini</span>
+                            <span class="upload-filename"></span>
+                        </label>
+                        <input type="file" id="bayar_sisa_bukti" name="bukti_pembayaran" accept="image/*,.png,.jpg,.jpeg,.pdf" hidden>
+                        <div class="selected-files-list" id="bayar_sisa_bukti-selected-files-list"></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="cancel" onclick="closeBayarSisaModal()">Batal</button>
+                    <button type="submit">Simpan Pembayaran</button>
                 </div>
             </form>
         </div>

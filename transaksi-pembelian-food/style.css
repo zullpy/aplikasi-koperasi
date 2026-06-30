@@ -87,6 +87,10 @@ body {
     box-shadow: 0 4px 12px rgba(37, 99, 168, 0.15);
 }
 
+.header-section a {
+    text-decoration: none;
+}
+
 .add-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(74, 159, 212, 0.3);
@@ -1095,8 +1099,89 @@ body {
     flex-shrink: 0;
 }
 
-.item-card-header .field-nama {
+.item-card-header .field-kategori {
     flex: 1;
+}
+
+@media (max-width: 768px) {
+    .item-card-header {
+        flex-wrap: wrap;
+    }
+
+    .item-card-header .field-nama,
+    .item-card-header .field-kategori {
+        flex: 1 1 100%;
+    }
+}
+
+/* ============================================================
+STATUS PEMBAYARAN — badge & tombol bayar sisa
+============================================================ */
+.badge-bayar {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.badge-bayar-lunas {
+    background: #e7f8ee;
+    color: #1a8a4d;
+}
+
+.badge-bayar-sebagian {
+    background: #fff4e0;
+    color: #b8740a;
+}
+
+.badge-bayar-belum {
+    background: #fde9e9;
+    color: #c0392b;
+}
+
+.supplier-name-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.supplier-sisa-info {
+    font-size: 0.78rem;
+    color: #64748b;
+    align-self: center;
+    width: fit-content;
+}
+
+.item-kategori-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.bayar-sisa-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 10px;
+    border: none;
+    background: var(--primary-gradient);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bayar-sisa-btn:hover {
+    opacity: 0.9;
 }
 
 .item-row-1,

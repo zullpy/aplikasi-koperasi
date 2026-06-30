@@ -3,7 +3,8 @@ TAMBAH MODAL — multi-item form
 ============================================================ */
 let itemIndex = 0;
 
-function openAddModal() {
+// Tambah Transaksi Pembelian sekarang halaman tersendiri (tambah-pembelian.php), bukan modal lagi.
+function initTambahForm() {
     const form = document.getElementById('tambah-form');
     if (form) form.reset();
     const container = document.getElementById('item-rows-container');
@@ -21,14 +22,6 @@ function openAddModal() {
     const cashRadio = document.getElementById('add_metode_cash');
     if (cashRadio) cashRadio.checked = true;
     toggleBiayaAdmin('add');
-
-    const modal = document.getElementById('tambahModal');
-    if (modal) modal.style.display = 'block';
-}
-
-function closeTambahModal() {
-    const modal = document.getElementById('tambahModal');
-    if (modal) modal.style.display = 'none';
 }
 
 /* ============================================================
@@ -113,6 +106,10 @@ function addItemRow() {
                     <input type="text" name="nama_barang[]" class="item-nama-input" placeholder="Nama barang..." autocomplete="off" required data-idx="${idx}">
                     <div class="suggestions-inline" id="sug-${idx}"></div>
                 </div>
+            </div>
+            <div class="item-input-field field-kategori" style="flex:1;">
+                <label class="item-field-label">Kategori</label>
+                <input type="text" name="kategori[]" class="item-kategori-input" list="kategori-list" placeholder="Pilih atau ketik kategori baru" autocomplete="off" data-idx="${idx}">
             </div>
         </div>
 
@@ -318,6 +315,11 @@ function pilihBarangInline(nama, idx) {
                     if (labelHargaJual) labelHargaJual.textContent = data.satuan;
                 }
 
+                const kategoriInput = row.querySelector('.item-kategori-input');
+                if (kategoriInput && data.kategori && !kategoriInput.value) {
+                    kategoriInput.value = data.kategori;
+                }
+
                 hitungHargaEceran(idx);
                 hitungHargaJualEceran(idx);
                 recalcSubtotal(idx);
@@ -367,12 +369,13 @@ function updateGrandTotal() {
         total += (parseFloat(hargaRaw) || 0) * volume;
     });
     const biayaAdminEl = document.getElementById('add_biaya_admin');
-    if (biayaAdminEl && biayaAdminEl.closest('#tambahModal')) {
+    if (biayaAdminEl && biayaAdminEl.closest('#tambah-form')) {
         const biayaRaw = (biayaAdminEl.value || '').replace(/\D/g, '');
         total += parseFloat(biayaRaw) || 0;
     }
     const el = document.getElementById('grand-total-display');
     if (el) el.textContent = 'Rp ' + total.toLocaleString('id-ID');
+    updateSisaBayarHint();
 }
 
 function updateItemCount() {
@@ -398,8 +401,99 @@ function toggleBiayaAdmin(prefix) {
         adminGroup.style.display = 'flex';
         adminGroup.style.flexDirection = 'column';
     }
-    if (prefix === 'add') updateGrandTotal();
+    if (prefix === 'add') {
+        updateGrandTotal();
+        toggleStatusPembayaran();
+    }
 }
+
+/* ============================================================
+STATUS PEMBAYARAN — lunas / sebagian (cicil)
+============================================================ */
+function toggleStatusPembayaran() {
+    const selected = document.querySelector('input[name="status_pembayaran"]:checked');
+    const metodeSelected = document.querySelector('#tambah-form input[name="metode_pembayaran"]:checked');
+    const jumlahGroup = document.getElementById('add_jumlah_dibayar_group');
+    const buktiWrapper = document.getElementById('add_bukti_bayar_wrapper');
+    const jumlahInput = document.getElementById('add_jumlah_dibayar');
+    const buktiInput = document.getElementById('add_bukti_pembayaran');
+    if (!jumlahGroup) return;
+
+    const status = selected ? selected.value : 'lunas';
+    const metode = metodeSelected ? metodeSelected.value : 'cash';
+
+    if (status === 'sebagian') {
+        jumlahGroup.style.display = 'flex';
+        jumlahGroup.style.flexDirection = 'column';
+    } else {
+        jumlahGroup.style.display = 'none';
+        if (jumlahInput) jumlahInput.value = '';
+    }
+
+    // Bukti pembayaran hanya relevan untuk QRIS/Transfer. Kalau cash, sembunyikan & kosongkan.
+    if (buktiWrapper) {
+        if (metode === 'cash') {
+            buktiWrapper.style.display = 'none';
+            if (buktiInput) buktiInput.value = '';
+            resetDropzone('add_bukti_pembayaran');
+        } else {
+            buktiWrapper.style.display = 'block';
+        }
+    }
+    updateSisaBayarHint();
+}
+
+function updateSisaBayarHint() {
+    const hint = document.getElementById('sisa-bayar-hint');
+    if (!hint) return;
+    const totalRaw = (document.getElementById('grand-total-display')?.textContent || '').replace(/\D/g, '');
+    const dibayarRaw = (document.getElementById('add_jumlah_dibayar')?.value || '').replace(/\D/g, '');
+    const total = parseInt(totalRaw) || 0;
+    const dibayar = parseInt(dibayarRaw) || 0;
+    const sisa = Math.max(total - dibayar, 0);
+    hint.textContent = `Sisa: Rp ${sisa.toLocaleString('id-ID')} dari total Rp ${total.toLocaleString('id-ID')}`;
+}
+
+/* ============================================================
+MODAL BAYAR SISA
+============================================================ */
+function openBayarSisaModal(kode, supplier, sisa) {
+    const modal = document.getElementById('bayarSisaModal');
+    if (!modal) return;
+    document.getElementById('bayar_sisa_kode_transaksi').value = kode;
+    document.getElementById('bayar-sisa-supplier-name').textContent = supplier;
+    const info = document.getElementById('bayar-sisa-info');
+    if (info) info.textContent = `Sisa tagihan: Rp ${Number(sisa).toLocaleString('id-ID')}`;
+    const tglInput = document.getElementById('bayar_sisa_tanggal');
+    if (tglInput) tglInput.value = new Date().toISOString().split('T')[0];
+    const jumlahInput = document.getElementById('bayar_sisa_jumlah');
+    if (jumlahInput) jumlahInput.value = '';
+    resetDropzone('bayar_sisa_bukti');
+    modal.style.display = 'block';
+}
+
+function closeBayarSisaModal() {
+    const modal = document.getElementById('bayarSisaModal');
+    if (modal) modal.style.display = 'none';
+}
+
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.bayar-sisa-btn');
+    if (btn) {
+        openBayarSisaModal(btn.dataset.kode, btn.dataset.supplier, btn.dataset.sisa);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const jumlahBayarSisa = document.getElementById('bayar_sisa_jumlah');
+    if (jumlahBayarSisa) {
+        jumlahBayarSisa.addEventListener('input', function () {
+            let raw = this.value.replace(/\D/g, '');
+            this.value = raw === '' ? '' : 'Rp ' + Number(raw).toLocaleString('id-ID');
+        });
+    }
+    bindDropzone('bayar_sisa_bukti');
+});
 
 document.addEventListener('click', function (e) {
     if (!e.target.closest('.autocomplete-wrapper-inline')) {
@@ -408,9 +502,26 @@ document.addEventListener('click', function (e) {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('#tambahModal input[name="metode_pembayaran"]').forEach(radio => {
+    document.querySelectorAll('#tambah-form input[name="metode_pembayaran"]').forEach(radio => {
         radio.addEventListener('change', () => toggleBiayaAdmin('add'));
     });
+
+    document.querySelectorAll('#tambah-form input[name="status_pembayaran"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            toggleStatusPembayaran();
+            document.querySelectorAll('.status-radio-label').forEach(lbl => lbl.classList.remove('active'));
+            radio.closest('.status-radio-label')?.classList.add('active');
+        });
+    });
+
+    const jumlahDibayarInput = document.getElementById('add_jumlah_dibayar');
+    if (jumlahDibayarInput) {
+        jumlahDibayarInput.addEventListener('input', function () {
+            let raw = this.value.replace(/\D/g, '');
+            this.value = raw === '' ? '' : 'Rp ' + Number(raw).toLocaleString('id-ID');
+            updateSisaBayarHint();
+        });
+    }
 
     const addBiayaInput = document.getElementById('add_biaya_admin');
     if (addBiayaInput) {
@@ -461,6 +572,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rows.length === 0) {
                 Swal.fire({ icon: 'warning', title: 'Belum ada barang', text: 'Tambahkan minimal 1 barang sebelum menyimpan transaksi.', width: window.innerWidth < 768 ? '280px' : '400px' });
                 return;
+            }
+            const statusSelected = document.querySelector('input[name="status_pembayaran"]:checked');
+            if (statusSelected && statusSelected.value === 'sebagian') {
+                const dibayarRaw = (document.getElementById('add_jumlah_dibayar')?.value || '').replace(/\D/g, '');
+                if (!dibayarRaw || parseInt(dibayarRaw) <= 0) {
+                    Swal.fire({ icon: 'warning', title: 'Jumlah dibayar kosong', text: 'Isi jumlah yang dibayar sekarang, atau pilih status Lunas jika sudah dibayar penuh.', width: window.innerWidth < 768 ? '280px' : '400px' });
+                    return;
+                }
             }
             Swal.fire({
                 icon: 'info', title: 'Simpan Transaksi?',
@@ -516,7 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    ['add_nota_kamera', 'add_nota_file', 'nota_kamera_only', 'nota_file_only'].forEach(bindDropzone);
+    ['add_nota_kamera', 'add_nota_file', 'nota_kamera_only', 'nota_file_only', 'add_bukti_pembayaran'].forEach(bindDropzone);
 
     const hargaInput = document.getElementById('harga');
     if (hargaInput) {
