@@ -2,6 +2,7 @@
 // Dompet Belanja Harian SPPG
 session_start();
 $userRole = $_SESSION['role'] ?? 'admin';
+require_once '../database/auth.php';
 ?>
 <!DOCTYPE html>
 <html lang="id">

@@ -1,3 +1,4 @@
+<?php require_once '../database/auth.php';?>
 <!DOCTYPE html>
 <html lang="id">
 <head>

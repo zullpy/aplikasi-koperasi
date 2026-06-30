@@ -3,6 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
 include '../database/koneksi.php';
+require_once '../database/auth.php';
 $query = "SELECT
 b.id_barang,
 b.nama_barang,

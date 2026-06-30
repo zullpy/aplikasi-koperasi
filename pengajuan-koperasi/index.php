@@ -1,4 +1,7 @@
-<?php session_start(); ?>
+<?php 
+session_start();
+require_once '../database/auth.php';
+?>
 <!DOCTYPE html>
 <html lang="id">
 

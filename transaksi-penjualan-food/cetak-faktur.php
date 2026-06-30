@@ -4,6 +4,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 include '../database/koneksi.php';
+require_once '../database/auth.php';
 
 $id = $_GET['id'] ?? 0;
 

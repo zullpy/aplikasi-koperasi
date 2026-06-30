@@ -2,6 +2,7 @@
 // cetak-laporan-sppg.php - Preview & Cetak Laporan Belanja
 session_start();
 require_once '../database/koneksi.php';
+require_once '../database/auth.php';
 
 // Check jika tidak ada parameter ID
 if (!isset($_GET['id']) || empty($_GET['id'])) {
