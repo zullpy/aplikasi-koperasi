@@ -377,7 +377,12 @@ tbody td {
     color: #15803d;
 }
 
-.st-low {
+.st-menipis {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.st-rendah {
     background: #fef9c3;
     color: #a16207;
 }

@@ -15,13 +15,15 @@ async function loadData() {
 
 function getStatus(totalQty) {
   if (totalQty <= 0) return { cls: 'st-habis', label: 'Habis' };
-  if (totalQty <= 10) return { cls: 'st-low', label: 'Rendah' };
+  if (totalQty <= 10) return { cls: 'st-rendah', label: 'Rendah' };
+  if (totalQty <= 30) return { cls: 'st-menipis', label: 'Menipis' };
   return { cls: 'st-aman', label: 'Aman' };
 }
 
 function filtered() {
   const q = document.getElementById('search-input').value.toLowerCase();
   const gf = document.getElementById('filter-gudang').value;
+  const sf = document.getElementById('filter-status').value;
   return data.filter(d => {
     const matchQ = !q || d.nama.toLowerCase().includes(q);
     let matchG = true;
@@ -30,7 +32,9 @@ function filtered() {
     if (gf === 'sariwangi') matchG = d.sariwangi.stok > 0;
     if (gf === 'manonjaya') matchG = d.manonjaya.stok > 0;
     if (gf === 'habis') matchG = d.total_qty <= 0;
-    return matchQ && matchG;
+    let matchS = true;
+    if (sf) matchS = getStatus(d.total_qty).cls === sf;
+    return matchQ && matchG && matchS;
   });
 }
 
@@ -111,6 +115,7 @@ function goPage(p) { currentPage = p; draw(); }
 function resetFilter() {
   document.getElementById('search-input').value = '';
   document.getElementById('filter-gudang').value = '';
+  document.getElementById('filter-status').value = '';
   renderTable();
 }
 

@@ -1,6 +1,6 @@
 <?php
-require_once '../database/auth.php';
 $activePage = 'stok-barang';
+require_once '../database/auth.php';
 include '../components/navbar.php'; ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -60,6 +60,13 @@ include '../components/navbar.php'; ?>
         <option value="sariwangi">Ada di Sariwangi</option>
         <option value="manonjaya">Ada di Manonjaya</option>
         <option value="habis">Stok Habis (semua)</option>
+      </select>
+      <select id="filter-status" onchange="renderTable()">
+        <option value="">Semua status</option>
+        <option value="st-aman">Aman</option>
+        <option value="st-menipis">Menipis</option>
+        <option value="st-rendah">Rendah</option>
+        <option value="st-habis">Habis</option>
       </select>
       <button class="sb-btn sb-btn-outline" onclick="resetFilter()">Reset</button>
     </div>
