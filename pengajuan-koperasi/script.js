@@ -226,6 +226,63 @@ function selectStokItem(namaBarang, inputId) {
 }
 
 // ===== RENDER — GROUP PER TANGGAL =====
+// ===== ACTION DROPDOWN (kebab menu) =====
+function closeActionMenu() {
+    const m = document.getElementById('globalActionMenu');
+    if (m) m.remove();
+    document.removeEventListener('click', onDocClickCloseActionMenu);
+    window.removeEventListener('scroll', closeActionMenu, true);
+    window.removeEventListener('resize', closeActionMenu);
+}
+
+function onDocClickCloseActionMenu(e) {
+    const m = document.getElementById('globalActionMenu');
+    if (m && !m.contains(e.target) && !e.target.closest('.action-menu-btn')) {
+        closeActionMenu();
+    }
+}
+
+function toggleActionMenu(e, id) {
+    e.stopPropagation();
+    const already = document.getElementById('globalActionMenu');
+    const wasOpenForSameRow = already && String(already.dataset.id) === String(id);
+    closeActionMenu();
+    if (wasOpenForSameRow) return;
+
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+
+    const menu = document.createElement('div');
+    menu.id = 'globalActionMenu';
+    menu.className = 'action-dropdown';
+    menu.dataset.id = id;
+    menu.innerHTML = `
+        <button class="action-dropdown-item" onclick="closeActionMenu();openEdit(${id})"><i class="ti ti-edit"></i> Edit</button>
+        <button class="action-dropdown-item" onclick="closeActionMenu();exportPDF(${id})"><i class="ti ti-file-type-pdf" style="color:#c2410c"></i> Ekspor PDF</button>
+        <div class="action-dropdown-divider"></div>
+        <button class="action-dropdown-item danger" onclick="closeActionMenu();deleteItem(${id})"><i class="ti ti-trash"></i> Hapus</button>
+    `;
+    document.body.appendChild(menu);
+
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+    let left = rect.right - menuWidth;
+    if (left < 8) left = 8;
+    let top = rect.bottom + 6;
+    if (top + menuHeight > window.innerHeight - 8) {
+        top = rect.top - menuHeight - 6;
+    }
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.classList.add('open');
+
+    setTimeout(() => {
+        document.addEventListener('click', onDocClickCloseActionMenu);
+        window.addEventListener('scroll', closeActionMenu, true);
+        window.addEventListener('resize', closeActionMenu);
+    }, 0);
+}
+
 function render() {
     const from = document.getElementById('filterFrom').value;
     const to = document.getElementById('filterTo').value;
@@ -333,10 +390,8 @@ function renderRow(i, no = 1) {
         <td>
             <div class="actions" style="justify-content:center">
                 <button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>
-                <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"> <i class="ti ti-pencil" aria-hidden="true"></i> TTD </button>
-                <button class="btn sm" onclick="openEdit(${i.id})" title="Edit"><i class="ti ti-edit" aria-hidden="true"></i></button>
-                <button class="btn sm" style="background:#fef2e8;color:#c2410c;border-color:#fed7aa;" onclick="exportPDF(${i.id})" title="Ekspor PDF"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></button>
-                <button class="btn sm danger" onclick="deleteItem(${i.id})" title="Hapus"><i class="ti ti-trash" aria-hidden="true"></i></button>
+                <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"><i class="ti ti-pencil" aria-hidden="true"></i> TTD</button>
+                <button class="btn sm icon-only action-menu-btn" onclick="toggleActionMenu(event, ${i.id})" title="Aksi lainnya"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>
             </div>
         </td>
     </tr>`;
