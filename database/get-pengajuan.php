@@ -27,7 +27,7 @@ $placeholders = implode(',', array_fill(0, count($ids), '?'));
 $types        = str_repeat('i', count($ids));
 
 $stmtDp = $koneksi->prepare("
-    SELECT pengajuan_id, keterangan, qty, harga_satuan AS harga, subtotal
+    SELECT pengajuan_id, keterangan, qty, satuan, sisa_stok, harga_satuan AS harga, subtotal
     FROM detail_pengajuan
     WHERE pengajuan_id IN ($placeholders)
     ORDER BY id ASC
@@ -44,6 +44,8 @@ foreach ($allDetails as $d) {
     $detailMap[$d['pengajuan_id']][] = [
         'keterangan' => $d['keterangan'],
         'qty'        => (float)$d['qty'],
+        'satuan'     => $d['satuan'] ?? '',
+        'sisaStok'   => $d['sisa_stok'] ?? '',
         'harga'      => (float)$d['harga'],
         'subtotal'   => (float)$d['subtotal'],
     ];

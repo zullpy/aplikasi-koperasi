@@ -1,35 +1,6 @@
 <?php
-// cetak-laporan-sppg.php - Preview & Cetak Laporan Belanja
-session_start();
-require_once '../database/koneksi.php';
-
-// Check jika tidak ada parameter ID
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    die('ID pengajuan tidak ditemukan');
-}
-
-$id = intval($_GET['id']);
-
-// ── AMBIL TANDA TANGAN DARI DATABASE ─────────────────────────────
-$ttdData = [];
-try {
-    $stmt = $koneksi->prepare("
-        SELECT role_penanda, signature_data, timestamp
-        FROM tanda_tangan_digital
-        WHERE pengajuan_id = ?
-        AND role_penanda IN ('bendahara', 'ketua')
-        ORDER BY role_penanda ASC
-    ");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    while ($row = $result->fetch_assoc()) {
-        $ttdData[$row['role_penanda']] = $row;
-    }
-    $stmt->close();
-} catch (Exception $e) {
-    $ttdData = [];
-}
+require_once '../database/auth.php';
+$pengajuanId = isset($_GET['id']) ? $_GET['id'] : '';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -37,20 +8,26 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surat Pengajuan Rencana Anggaran Belanja - KBUS</title>
+    <title>Cetak Surat Pengajuan Anggaran</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <style>
+        :root {
+            --ink: #111;
+            --muted: #555;
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
         body {
-            font-family: Arial, sans-serif;
-            background: #f0f2f5;
-            min-height: 100vh;
+            font-family: Calibri, Arial, system-ui, sans-serif;
+            background: #eef0f3;
+            margin: 0;
+            padding: 0;
+            color: var(--ink);
         }
 
         .toolbar {
@@ -143,287 +120,281 @@ try {
             cursor: not-allowed;
         }
 
-        .preview-wrapper {
-            margin-top: 80px;
-            padding: 30px;
+        .page-area {
             display: flex;
             justify-content: center;
+            padding: 24px 16px 60px;
         }
 
-        .preview-container {
-            background: white;
-            width: 210mm;
-            min-height: 297mm;
-            padding: 15mm 20mm;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            border-radius: 8px;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .loading-overlay.active {
-            display: flex;
-        }
-
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(255, 255, 255, 0.3);
-            border-top-color: #10b981;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .loading-text {
-            color: white;
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        .error-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-
-        .error-icon {
-            font-size: 64px;
-            color: #ef4444;
-            margin-bottom: 20px;
-        }
-
-        .error-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #333;
-        }
-
-        .kop-surat {
-            display: flex;
-            align-items: center;
-            padding-bottom: 5px;
-        }
-
-        .kop-logo {
-            width: 90px;
-            margin-right: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .kop-logo img {
-            max-width: 80px;
-            max-height: 80px;
-            object-fit: contain;
-        }
-
-        .kop-text {
-            flex: 1;
-        }
-
-        .kop-text-title {
-            font-weight: bold;
-            font-size: 16px;
-            line-height: 1.2;
-        }
-
-        .kop-text-address {
-            font-size: 12px;
-            margin-top: 4px;
-            line-height: 1.3;
-        }
-
-        .garis-ganda {
-            border-top: 3px solid #000;
-            border-bottom: 1px solid #000;
-            height: 2px;
-            margin-bottom: 15px;
-        }
-
-        .judul-laporan {
-            text-align: center;
-            font-size: 20px;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-
-        .tabel-info,
-        .tabel-data {
+        .sheet {
+            background: #fff;
             width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-            color: #000;
-        }
-
-        .tabel-info td {
-            border: none;
-            padding: 4px 6px;
-        }
-
-        .tabel-data th,
-        .tabel-data td {
-            border: 1px solid #000;
-            padding: 6px;
-        }
-
-        .tabel-info {
-            margin-bottom: 10px;
-        }
-
-        .tabel-data th {
-            background-color: transparent;
-            font-weight: normal;
-            text-align: center;
-        }
-
-        .tabel-data td.center {
-            text-align: center;
-        }
-
-        .tabel-data td.right {
-            text-align: right;
-        }
-
-        .baris-kosong {
-            height: 25px;
-        }
-
-        .uang-text {
-            text-align: center;
-            font-size: 14px;
-            font-weight: bold;
-            margin: 12px 0;
-            letter-spacing: 0.5px;
-        }
-
-        .summary-box {
-            margin-top: 15px;
-            padding: 10px 15px;
-            border: 1px solid #000;
-            background: #fafafa;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
+            max-width: 760px;
+            min-height: 900px;
+            padding: 28px 36px 50px;
+            box-shadow: 0 1px 6px rgba(0, 0, 0, .08);
             font-size: 13px;
+            margin-top: 90px;
         }
 
-        .summary-row.total-pengajuan {
-            border-bottom: 1px dashed #999;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
-        }
-
-        .summary-row.total-disetujui {
-            font-weight: bold;
-        }
-
-        .summary-label {
-            color: #333;
-        }
-
-        .summary-value {
-            font-weight: bold;
-            color: #000;
-        }
-
-        .ttd-section {
-            margin-top: 50px;
-            display: flex;
-            justify-content: space-between;
-            gap: 40px;
-        }
-
-        .ttd-box {
-            flex: 1;
+        .loading,
+        .err-box {
             text-align: center;
+            padding: 60px 0;
+            color: #888;
+            font-size: 13px;
+            font-family: system-ui, sans-serif;
         }
 
-        .ttd-label {
-            font-size: 12px;
-            margin-bottom: 20px;
-            line-height: 1.6;
+        .err-box {
+            color: #b91c1c;
         }
 
-        .ttd-img-wrap {
-            height: 80px;
+        /* ===== KOP SURAT ===== */
+        .kop {
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-bottom: 5px;
+            gap: 14px;
+            padding-bottom: 8px;
         }
 
-        .ttd-img-wrap img {
-            max-height: 150px;
-            max-width: 300px;
+        .kop .logo-badge {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            flex-shrink: 0;
             object-fit: contain;
         }
 
-        .ttd-timestamp {
-            font-size: 9px;
-            color: #666;
-            margin-bottom: 8px;
+        .kop .org h1 {
+            font-size: 16px;
+            margin: 0 0 2px;
+            letter-spacing: .3px;
         }
 
-        .ttd-underline {
-            border-bottom: 1px solid #000;
-            margin: 0 20px 8px;
+        .kop .org p {
+            font-size: 11.5px;
+            color: var(--muted);
+            margin: 0;
+            line-height: 1.4;
         }
 
-        .ttd-name {
-            font-weight: bold;
-            font-size: 12px;
+        .kop-rule {
+            border: none;
+            border-top: 2px solid var(--ink);
+            margin: 6px 0 16px;
+        }
+
+        .doc-title {
+            text-align: center;
+            margin-bottom: 18px;
+        }
+
+        .doc-title h2 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.4;
             text-transform: uppercase;
         }
 
-        .ttd-placeholder {
-            color: #999;
+        /* ===== META INFO ===== */
+        .meta-info {
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+
+        .meta-info .row {
+            display: flex;
+            margin-bottom: 4px;
+        }
+
+        .meta-info .label {
+            width: 190px;
+            flex-shrink: 0;
+        }
+
+        .meta-info .colon {
+            width: 14px;
+            flex-shrink: 0;
+        }
+
+        .meta-info .value {
+            font-weight: 700;
+        }
+
+        /* ===== TABEL ===== */
+        table.items {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            margin-bottom: 0;
+        }
+
+        table.items th,
+        table.items td {
+            border: 1px solid var(--ink);
+            padding: 6px 7px;
+        }
+
+        table.items th {
+            background: #f5f6f8;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        table.items td {
+            height: 26px;
+        }
+
+        table.items td.num {
+            text-align: right;
+        }
+
+        table.items td.center {
+            text-align: center;
+        }
+
+        .total-row td {
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .total-row td.num {
+            text-align: right;
+        }
+
+        /* ===== OPERASIONAL (tanpa tabel item) ===== */
+        .ops-ket {
+            margin-top: 16px;
+            margin-bottom: 10px;
+        }
+
+        .ops-ket .label {
+            margin-bottom: 4px;
+        }
+
+        .ops-box {
+            border: 1px solid var(--ink);
+            min-height: 90px;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        /* ===== STATUS ===== */
+        .status-line {
+            margin-top: 14px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
             font-size: 11px;
-            font-style: italic;
+            font-weight: 600;
+        }
+
+        .badge.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge.approved {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge.rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* ===== TANDA TANGAN ===== */
+        .sign-area {
+            margin-top: 36px;
+            font-size: 13px;
+        }
+
+        .sign-head {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+
+        .sign-head .sign-head-left {
+            width: 32%;
+            text-align: center;
+        }
+
+        .sign-head .sign-head-right {
+            width: 64%;
+            text-align: center;
+        }
+
+        .sign-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .sign-area .col {
+            text-align: center;
+            width: 32%;
+        }
+
+        .sign-area .ttl {
+            margin-bottom: 2px;
+        }
+
+        .sign-area .role {
+            margin-bottom: 50px;
+        }
+
+        .sign-area .name {
+            font-weight: 700;
+            text-decoration: underline;
+        }
+
+        .sign-area .ttd-slot {
+            height: 60px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+
+        .sign-area .ttd-slot img {
+            max-height: 60px;
+            max-width: 100%;
+            object-fit: contain;
+        }
+
+        .sign-area .ttd-empty {
+            border-bottom: 1px solid var(--ink);
+            width: 80%;
+            height: 1px;
+            margin: 0 auto 4px;
         }
 
         @media print {
-
-            .toolbar,
-            .loading-overlay {
-                display: none !important;
+            .toolbar {
+                display: none;
             }
 
             body {
-                background: white;
+                background: #fff;
             }
 
-            .preview-wrapper {
-                margin-top: 0;
+            .page-area {
                 padding: 0;
             }
 
-            .preview-container {
+            .sheet {
                 box-shadow: none;
-                width: 100%;
+                max-width: 100%;
+                padding: 0;
+                min-height: auto;
             }
         }
     </style>
@@ -439,250 +410,291 @@ try {
             </div>
         </div>
         <div class="toolbar-buttons">
-            <button class="btn btn-back" onclick="window.history.back()">
+            <!-- <button class="btn btn-back" onclick="window.history.back()">
                 <i class="ph ph-arrow-left"></i> Kembali
-            </button>
+            </button> -->
             <button class="btn btn-download" id="downloadBtn" onclick="downloadPDF()">
                 <i class="ph ph-download-simple"></i> Download PDF
             </button>
         </div>
     </div>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <div class="loading-text">Sedang membuat PDF...</div>
-    </div>
-    <div class="preview-wrapper">
-        <div class="preview-container" id="pdfContent">
-            <div id="contentLoader" style="text-align: center; padding: 40px;">
-                <div class="spinner" style="margin: 0 auto 20px;"></div>
-                <div style="color: #666;">Memuat data...</div>
-            </div>
+
+    <div class="page-area">
+        <div class="sheet" id="sheet">
+            <div class="loading">Memuat data pengajuan...</div>
         </div>
     </div>
+
     <script>
-        const PENGATURAN_ID = <?php echo $id; ?>;
-        const TTD_DATA = <?php echo json_encode($ttdData); ?>;
+        const PENGAJUAN_ID = <?php echo json_encode($pengajuanId); ?>;
 
-        function formatRupiah(num) {
-            return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+        function fmtRupiah(n) {
+            return Number(n || 0).toLocaleString('id-ID');
         }
 
-        function formatDateShort(dateStr) {
-            if (!dateStr) return '';
-            return new Date(dateStr).toLocaleDateString('id-ID', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-            });
+        function fmtDate(d) {
+            if (!d) return '-';
+            const p = String(d).split('-');
+            if (p.length < 3) return d;
+            const bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            return p[2] + ' ' + bulan[parseInt(p[1]) - 1] + ' ' + p[0];
         }
 
-        function formatDateTime(dateStr) {
-            if (!dateStr) return '';
-            return new Date(dateStr).toLocaleString('id-ID', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        async function loadData() {
-            try {
-                const res = await fetch('../database/api-belanja.php?action=list');
-                const result = await res.json();
-                if (!result.success) throw new Error(result.message || 'Gagal memuat data');
-                const item = result.data.find(d => d.id == PENGATURAN_ID);
-                if (!item) throw new Error('Data tidak ditemukan');
-                renderContent(item);
-            } catch (err) {
-                showError(err.message);
+        function goBack() {
+            if (window.opener) {
+                window.close();
+            } else {
+                window.history.back();
             }
         }
 
-        function renderContent(item) {
-            const items = item.detail_items || item.items || [];
-            const totalBelanja = parseFloat(item.total_belanja) || 0;
-            const uangMasuk = parseFloat(item.uang_masuk) || 0;
-            const sisaUang = uangMasuk - totalBelanja;
-
-            let labelSisa = "SISA UANG";
-            let nominalSisa = sisaUang;
-            if (sisaUang < 0) {
-                labelSisa = "MINUS SISA UANG";
-                nominalSisa = Math.abs(sisaUang);
-            }
-
-            const textUangMasuk = uangMasuk > 0 ? formatRupiah(uangMasuk) : '.............';
-            const textSisaUang = (uangMasuk > 0 || totalBelanja > 0) ? formatRupiah(nominalSisa) : '.............';
-
-            let rowsHtml = '';
-            for (let i = 0; i < 10; i++) {
-                const it = items[i];
-                const subtotal = it ? (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0) : null;
-                rowsHtml += `<tr>
-            <td class="center baris-kosong">${i + 1}</td>
-            <td>${it ? it.nama_barang : ''}</td>
-            <td class="center">${it ? it.qty : ''}</td>
-            <td class="center">${it ? it.satuan : ''}</td>
-            <td class="right">${it ? formatRupiah(it.harga) : ''}</td>
-            <td class="right">${it && subtotal ? formatRupiah(subtotal) : ''}</td>
-        </tr>`;
-            }
-
-            const roleMapping = {
-                'bendahara': {
-                    label: 'Menyetujui,<br>Bendahara Koperasi',
-                    nama: 'NANCY FEBI YOLLA'
-                },
-                'ketua': {
-                    label: 'Mengetahui dan Menyetujui,<br>Ketua Koperasi',
-                    nama: 'YUDI HENDRIAN'
-                }
-            };
-
-            function renderTtdBox(roleKey) {
-                const mapping = roleMapping[roleKey];
-                const ttd = TTD_DATA[roleKey] || null;
-
-                const imgHtml = ttd ?
-                    `<div class="ttd-img-wrap"><img src="${ttd.signature_data}" alt="TTD ${mapping.nama}"></div>
-                    <div class="ttd-timestamp">${formatDateTime(ttd.timestamp)}</div>` :
-                    `<div class="ttd-placeholder">(Belum ditandatangani)</div>`;
-
-                return `
-            <div class="ttd-box">
-                <div class="ttd-label">${mapping.label}</div>
-                ${imgHtml}
-                <div class="ttd-underline"></div>
-                <div class="ttd-name">${mapping.nama}</div>
-            </div>
-        `;
-            }
-
-            const html = `
-        <div class="kop-surat">
-            <div class="kop-logo"><img src="../assets/logo.png" alt="Logo KBUS"></div>
-            <div class="kop-text">
-                <div class="kop-text-title">KOPERASI<br>BINA USAHA SAUYUNAN</div>
-                <div class="kop-text-address">Panyingkiran - Singaparna<br>Kab. Tasikmalaya<br>email : kop.binausahasauyunan@gmail.com</div>
-            </div>
-        </div>
-        <div class="garis-ganda"></div>
-        <div class="judul-laporan">SURAT PENGAJUAN</div>
-        <div class="judul-laporan">RENCANA ANGGARAN BELANJA PELAYANAN SPPG</div>
-        <table class="tabel-info">
-            <tr>
-                <td style="width: 12%;">Tanggal</td>
-                <td style="width: 2%; text-align: center;">:</td>
-                <td style="width: 46%;">${formatDateShort(item.tanggal)}</td>
-                <td style="width: 15%;">Jumlah Porsi</td>
-                <td style="width: 2%; text-align: center;">:</td>
-                <td style="width: 23%;">${item.jumlah_porsi || ''}</td>
-            </tr>
-            <tr>
-                <td>Menu</td>
-                <td style="text-align: center;">:</td>
-                <td colspan="4">${item.nama_menu || ''}</td>
-            </tr>
-        </table>
-        <table class="tabel-data">
-            <thead>
-                <tr>
-                    <th style="width: 6%;">No</th>
-                    <th style="width: 36%;">Nama Barang</th>
-                    <th style="width: 10%;">Qty</th>
-                    <th style="width: 13%;">Satuan</th>
-                    <th style="width: 17%;">Harga</th>
-                    <th style="width: 18%;">Sub Total</th>
-                </tr>
-            </thead>
-            <tbody>${rowsHtml}
-                <tr>
-                    <td colspan="4" style="border-right: 1px solid #000;"></td>
-                    <td class="center" style="font-weight: bold; vertical-align: middle;">Total<br>Belanja</td>
-                    <td class="right" style="vertical-align: middle;">${totalBelanja > 0 ? formatRupiah(totalBelanja) : ''}</td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="summary-box">
-            <div class="summary-row total-pengajuan">
-                <span class="summary-label">Total Pengajuan</span>
-                <span class="summary-value">${formatRupiah(totalBelanja)}</span>
-            </div>
-            <div class="summary-row total-disetujui">
-                <span class="summary-label">Total Pengajuan yang Disetujui</span>
-                <span class="summary-value">${uangMasuk > 0 ? formatRupiah(uangMasuk) : '-'}</span>
-            </div>
-        </div>
-        ${item.catatan_bendahara ? `<div style="font-size: 11px; margin-top: 10px; color: #444;">Catatan: ${item.catatan_bendahara}</div>` : ''}
-        <div class="ttd-section">
-            ${renderTtdBox('bendahara')}
-            ${renderTtdBox('ketua')}
-        </div>
-    `;
-
-            document.getElementById('pdfContent').innerHTML = html;
-            document.title = `Surat Pengajuan Rencana Anggaran Belanja - ${formatDateShort(item.tanggal)}`;
-        }
-
-        function showError(message) {
-            document.getElementById('pdfContent').innerHTML = `
-        <div class="error-state">
-            <i class="ph ph-warning-circle error-icon"></i>
-            <div class="error-title">Gagal Memuat Data</div>
-            <div>${message}</div>
-            <button class="btn btn-back" onclick="window.history.back()" style="margin-top: 20px; display: inline-flex;">
-                <i class="ph ph-arrow-left"></i> Kembali
-            </button>
-        </div>
-    `;
-        }
-
-        async function downloadPDF() {
+        function downloadPDF() {
             const btn = document.getElementById('downloadBtn');
-            const overlay = document.getElementById('loadingOverlay');
-            const content = document.getElementById('pdfContent');
+            const sheet = document.getElementById('sheet');
+            const originalLabel = btn.innerHTML;
             btn.disabled = true;
-            overlay.classList.add('active');
-            const opt = {
-                margin: [8, 8, 8, 8],
-                filename: `SPRAB-${PENGATURAN_ID}.pdf`,
+            btn.innerHTML = '<i class="ph ph-spinner"></i> Memproses...';
+
+            html2pdf().set({
+                margin: 0,
+                filename: 'pengajuan-' + PENGAJUAN_ID + '.pdf',
                 image: {
                     type: 'jpeg',
                     quality: 0.98
                 },
                 html2canvas: {
                     scale: 2,
-                    useCORS: true,
-                    letterRendering: true
+                    useCORS: true
                 },
                 jsPDF: {
                     unit: 'mm',
                     format: 'a4',
                     orientation: 'portrait'
                 }
-            };
-            try {
-                await html2pdf().set(opt).from(content).save();
-                setTimeout(() => {
-                    overlay.classList.remove('active');
-                    btn.disabled = false;
-                    const toast = document.createElement('div');
-                    toast.style.cssText = `position: fixed; bottom: 30px; right: 30px; background: #10b981; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; z-index: 3000;`;
-                    toast.innerHTML = '<i class="ph ph-check-circle"></i> PDF berhasil diunduh!';
-                    document.body.appendChild(toast);
-                    setTimeout(() => toast.remove(), 3000);
-                }, 1000);
-            } catch (err) {
-                console.error(err);
-                overlay.classList.remove('active');
+            }).from(sheet).save().finally(() => {
                 btn.disabled = false;
-                alert('Gagal membuat PDF: ' + err.message);
+                btn.innerHTML = originalLabel;
+            });
+        }
+
+        function extractArray(json) {
+            if (!json) return null;
+            if (Array.isArray(json)) return json;
+            if (Array.isArray(json.data)) return json.data;
+            if (Array.isArray(json.items)) return json.items;
+            if (Array.isArray(json.result)) return json.result;
+            for (const k of Object.keys(json)) {
+                if (Array.isArray(json[k])) return json[k];
+            }
+            return null;
+        }
+
+        function statusBadge(status) {
+            if (status === 'approved') return '<span class="badge approved">Disetujui</span>';
+            if (status === 'rejected') return '<span class="badge rejected">Ditolak</span>';
+            return '<span class="badge pending">Menunggu Persetujuan</span>';
+        }
+
+        // ===== KOP SURAT (sama untuk semua jenis) =====
+        function renderKop() {
+            return `
+                <div class="kop">
+                    <img src="../assets/logo.png" alt="Logo KBUS" class="logo-badge">
+                    <div class="org">
+                        <h1>KOPERASI<br>BINA USAHA SAUYUNAN</h1>
+                        <p>
+                            Panyingkiran - Singaparna<br>
+                            Kab. Tasikmalaya<br>
+                            email : kop.binausahasauyunan@gmail.com
+                        </p>
+                    </div>
+                </div>
+                <hr class="kop-rule">
+                <div class="doc-title">
+                    <h2>Surat Pengajuan<br>Anggaran Belanja Koperasi</h2>
+                </div>
+            `;
+        }
+
+        // ===== TANDA TANGAN (ambil dari kolom ttd_admin / ttd_bendahara / ttd_ketua) =====
+        function ttdSlot(ttdData) {
+            if (ttdData) {
+                return `<div class="ttd-slot"><img src="${ttdData}" alt="TTD"></div>`;
+            }
+            return `<div class="ttd-slot"><div class="ttd-empty"></div></div>`;
+        }
+
+        function renderSignature(i) {
+            return `
+                <div class="sign-area">
+                    <div class="sign-head">
+                        <div class="sign-head-left">Yang mengajukan,</div>
+                        <div class="sign-head-right">Mengetahui dan Menyetujui</div>
+                    </div>
+                    <div class="sign-row">
+                        <div class="col">
+                            <div class="role">Admin</div>
+                            ${ttdSlot(i.ttd_admin)}
+                            <div class="name">EVIN YENTIANA</div>
+                        </div>
+                        <div class="col">
+                            <div class="role">Bendahara</div>
+                            ${ttdSlot(i.ttd_bendahara)}
+                            <div class="name">NANCY FEBI YOLLA</div>
+                        </div>
+                        <div class="col">
+                            <div class="role">Ketua</div>
+                            ${ttdSlot(i.ttd_ketua)}
+                            <div class="name">YUDI HENDRIAN</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ===== FORMAT STOK (foto 1) =====
+        function renderStok(i) {
+            const items = (i.items || []).slice();
+            while (items.length < 10) items.push({});
+            const rows = items.map((it, idx) => `
+                <tr>
+                    <td class="center">${idx + 1}</td>
+                    <td>${it.keterangan || ''}</td>
+                    <td class="center">${it.sisaStok || ''}</td>
+                    <td class="center">${it.qty || ''}</td>
+                    <td class="center">${it.satuan || ''}</td>
+                    <td class="num">${it.harga ? fmtRupiah(it.harga) : ''}</td>
+                    <td class="num">${it.subtotal ? fmtRupiah(it.subtotal) : ''}</td>
+                </tr>`).join('');
+
+            return `
+                ${renderKop()}
+                <div class="meta-info">
+                    <div class="row"><div class="label">Tanggal</div><div class="colon">:</div><div class="value">${fmtDate(i.tanggal)}</div></div>
+                    <div class="row"><div class="label">Jumlah Anggaran yang diajukan</div><div class="colon">:</div><div class="value">Rp ${fmtRupiah(i.jumlah)}</div></div>
+                    <div class="row"><div class="label">Tujuan Anggaran</div><div class="colon">:</div><div class="value">Belanja stok barang${i.tujuan ? ' - ' + i.tujuan : ''}</div></div>
+                </div>
+                <table class="items">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" style="width:30px">No</th>
+                            <th rowspan="2">Nama Barang</th>
+                            <th rowspan="2" style="width:90px">Keterangan sisa stok di gudang (satuan)</th>
+                            <th colspan="4">Rencana Belanja</th>
+                        </tr>
+                        <tr>
+                            <th style="width:50px">Qty</th>
+                            <th style="width:60px">Satuan</th>
+                            <th style="width:95px">Estimasi Harga</th>
+                            <th style="width:100px">Sub Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                        <tr class="total-row">
+                            <td colspan="6">Total Ajuan Belanja</td>
+                            <td class="num">Rp ${fmtRupiah(i.jumlah)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="status-line">Status: ${statusBadge(i.status)}</div>
+                ${renderSignature(i)}
+            `;
+        }
+
+        // ===== FORMAT PERALATAN (foto 2) =====
+        function renderPeralatan(i) {
+            const items = (i.items || []).slice();
+            while (items.length < 10) items.push({});
+            const rows = items.map((it, idx) => `
+                <tr>
+                    <td class="center">${idx + 1}</td>
+                    <td>${it.keterangan || ''}</td>
+                    <td class="center">${it.qty || ''}</td>
+                    <td class="center">${it.satuan || ''}</td>
+                    <td class="num">${it.harga ? fmtRupiah(it.harga) : ''}</td>
+                    <td class="num">${it.subtotal ? fmtRupiah(it.subtotal) : ''}</td>
+                </tr>`).join('');
+
+            return `
+                ${renderKop()}
+                <div class="meta-info">
+                    <div class="row"><div class="label">Tanggal</div><div class="colon">:</div><div class="value">${fmtDate(i.tanggal)}</div></div>
+                    <div class="row"><div class="label">Jumlah Anggaran yang diajukan</div><div class="colon">:</div><div class="value">Rp ${fmtRupiah(i.jumlah)}</div></div>
+                    <div class="row"><div class="label">Tujuan Anggaran</div><div class="colon">:</div><div class="value">Belanja Peralatan${i.tujuan ? ' - ' + i.tujuan : ''}</div></div>
+                </div>
+                <table class="items">
+                    <thead>
+                        <tr>
+                            <th style="width:30px">No</th>
+                            <th>Nama Barang</th>
+                            <th style="width:55px">Qty</th>
+                            <th style="width:65px">Satuan</th>
+                            <th style="width:95px">Estimasi Harga</th>
+                            <th style="width:100px">Sub Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                        <tr class="total-row">
+                            <td colspan="5">Total Ajuan Belanja</td>
+                            <td class="num">Rp ${fmtRupiah(i.jumlah)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="status-line">Status: ${statusBadge(i.status)}</div>
+                ${renderSignature(i)}
+            `;
+        }
+
+        // ===== FORMAT OPERASIONAL (foto 3) =====
+        function renderOperasional(i) {
+            const keterangan = (i.items && i.items[0] && i.items[0].keterangan) || i.catatan || '';
+            return `
+                ${renderKop()}
+                <div class="meta-info">
+                    <div class="row"><div class="label">Tanggal</div><div class="colon">:</div><div class="value">${fmtDate(i.tanggal)}</div></div>
+                    <div class="row"><div class="label">Jumlah Anggaran yang diajukan</div><div class="colon">:</div><div class="value">Rp ${fmtRupiah(i.jumlah)}</div></div>
+                    <div class="row"><div class="label">Tujuan Anggaran</div><div class="colon">:</div><div class="value">${i.tujuan || '-'}</div></div>
+                </div>
+                <div class="ops-ket">
+                    <div class="label">Keterangan :</div>
+                    <div class="ops-box">${keterangan}</div>
+                </div>
+                <div class="status-line">Status: ${statusBadge(i.status)}</div>
+                ${renderSignature(i)}
+            `;
+        }
+
+        function renderSheet(i) {
+            let html;
+            if (i.jenis === 'stok') html = renderStok(i);
+            else if (i.jenis === 'peralatan') html = renderPeralatan(i);
+            else html = renderOperasional(i);
+            document.getElementById('sheet').innerHTML = html;
+        }
+
+        async function load() {
+            if (!PENGAJUAN_ID) {
+                document.getElementById('sheet').innerHTML = '<div class="err-box">ID pengajuan tidak ditemukan.</div>';
+                return;
+            }
+            try {
+                const res = await fetch('../database/get-pengajuan.php');
+                const json = await res.json();
+                const arr = extractArray(json) || [];
+                const found = arr.find(x => String(x.id) === String(PENGAJUAN_ID));
+                if (!found) {
+                    document.getElementById('sheet').innerHTML = '<div class="err-box">Data pengajuan tidak ditemukan.</div>';
+                    return;
+                }
+                renderSheet(found);
+            } catch (e) {
+                document.getElementById('sheet').innerHTML = '<div class="err-box">Gagal memuat data: ' + e.message + '</div>';
             }
         }
 
-        window.addEventListener('DOMContentLoaded', loadData);
+        load();
     </script>
 </body>
 

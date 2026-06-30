@@ -335,6 +335,7 @@ function renderRow(i, no = 1) {
                 <button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>
                 <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"> <i class="ti ti-pencil" aria-hidden="true"></i> TTD </button>
                 <button class="btn sm" onclick="openEdit(${i.id})" title="Edit"><i class="ti ti-edit" aria-hidden="true"></i></button>
+                <button class="btn sm" style="background:#fef2e8;color:#c2410c;border-color:#fed7aa;" onclick="exportPDF(${i.id})" title="Ekspor PDF"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></button>
                 <button class="btn sm danger" onclick="deleteItem(${i.id})" title="Hapus"><i class="ti ti-trash" aria-hidden="true"></i></button>
             </div>
         </td>
@@ -780,6 +781,11 @@ function openDetail(id) {
         </div>
     `;
     document.getElementById('modalDetail').style.display = 'flex';
+}
+
+// ===== EKSPOR PDF PER TUJUAN =====
+function exportPDF(id) {
+    window.open('cetak-ajuan.php?id=' + encodeURIComponent(id), '_blank');
 }
 
 // ===== MODAL APPROVAL =====

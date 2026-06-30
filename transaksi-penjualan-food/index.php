@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once '../database/auth.php';
 include '../database/koneksi.php';
 

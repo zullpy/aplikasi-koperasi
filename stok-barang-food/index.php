@@ -1,5 +1,4 @@
 <?php
-session_start();
 require_once '../database/auth.php';
 $activePage = 'stok-barang';
 include '../components/navbar.php'; ?>
