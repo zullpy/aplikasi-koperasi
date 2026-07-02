@@ -362,6 +362,152 @@ table.laporan td.mono {
     transform: scale(1.08);
 }
 
+/* ─── Tombol Nota (kolom tabel) ──────────────────────── */
+.btn-nota {
+    margin: 0 auto;
+}
+
+/* ─── Tombol aksi upload nota (Pilih File / Ambil Foto) ───────────────── */
+.nota-upload-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.nota-upload-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+}
+
+/* Sembunyikan input file asli (tetap ada di DOM & bisa di-trigger via JS) */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ─── Preview file nota sebelum upload (Modal Tambah Barang) ─────────── */
+.nota-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.nota-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px 5px 5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    max-width: 100%;
+}
+
+.nota-preview-item__remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.nota-preview-item__remove:hover {
+    background: #FEE2E2;
+    color: var(--minus, #DC2626);
+}
+
+.nota-preview-item img {
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.nota-preview-item__icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--navy);
+    color: #fff;
+    font-size: 7px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nota-preview-item__name {
+    font-size: 11.5px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+/* ─── Galeri Nota (Modal full preview) ───────────────── */
+.nota-galeri-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.nota-galeri-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+}
+
+.nota-galeri-item img {
+    width: 100%;
+    height: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    cursor: zoom-in;
+    display: block;
+}
+
+.nota-galeri-pdf {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 12px;
+    color: var(--navy);
+    text-decoration: none;
+    font-size: 12px;
+    text-align: center;
+}
+
+.nota-galeri-pdf:hover {
+    color: var(--accent);
+}
+
 /* ─── Action Buttons ─────────────────────────────────── */
 .actions {
     display: flex;
@@ -459,60 +605,6 @@ table.laporan td.mono {
     color: var(--muted);
     font-size: 13px;
     pointer-events: none;
-}
-
-/* ===================== STATUS TANDA TANGAN PERSETUJUAN ===================== */
-.ttd-status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
-}
-
-.ttd-status-item {
-    border: 1.5px dashed var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px;
-    background: var(--surface);
-    text-align: center;
-    transition: border-color .15s, background .15s;
-}
-
-.ttd-status-item--signed {
-    border-style: solid;
-    border-color: var(--plus);
-    background: #F0FDF4;
-}
-
-.ttd-status-item__role {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--navy);
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-}
-
-.ttd-status-item__img {
-    width: 100%;
-    height: 52px;
-    object-fit: contain;
-    background: #fff;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    cursor: pointer;
-}
-
-.ttd-status-item__meta {
-    font-size: 10.5px;
-    color: var(--muted);
-    margin-top: 6px;
-    line-height: 1.4;
-}
-
-.ttd-status-item__empty {
-    font-size: 11.5px;
-    color: var(--muted);
-    padding: 16px 0;
 }
 
 /* ─── Detail Row ─────────────────────────────────────── */
@@ -633,14 +725,44 @@ table.laporan tfoot td {
     pointer-events: all;
 }
 
+/* Modal zoom gambar (dibuka dari dalam modal galeri nota) harus selalu tampil
+   DI ATAS modal galeri, karena secara urutan pemakaian dia dibuka belakangan
+   (nested di atas galeri). Tanpa ini urutan DOM bikin galeri malah menutupi
+   modal zoom-nya. */
+#modalGambar {
+    z-index: 1001;
+}
+
 .modal {
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow-md);
     width: 100%;
     max-width: 460px;
+    /* dvh dipakai supaya di HP tinggi modal ngikutin viewport ASLI yang kelihatan
+       (bukan yang ke-hitung dari sebelum keyboard muncul). Fallback ke vh untuk
+       browser lama yang belum kenal dvh. */
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     transform: translateY(12px) scale(.98);
     transition: transform .2s;
+}
+
+/* PENTING: sebagian modal (Tambah Barang, Tambah Saldo, dll) membungkus
+   header/body/footer di dalam <form>. Tanpa aturan ini, <form> jadi satu-
+   satunya flex-child dari .modal (bukan header/body/footer langsung),
+   sehingga flex-shrink & min-height:0 di bawah tidak pernah "nyambung" ke
+   dalamnya — inilah yang bikin footer (Batal/Simpan) hilang/ke-clip.
+   Selector ini bikin <form> ikut jadi flex container column juga, supaya
+   header/body/footer di dalamnya tetap dianggap flex item oleh .modal. */
+.modal>form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .modal-overlay.open .modal {
@@ -657,6 +779,7 @@ table.laporan tfoot td {
     justify-content: space-between;
     padding: 18px 20px;
     border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .modal__title {
@@ -683,6 +806,13 @@ table.laporan tfoot td {
 
 .modal__body {
     padding: 20px;
+    overflow-y: auto;
+    /* flex-basis 0% (bukan "auto") dipakai supaya body SELALU dihitung sebagai
+       "sisa ruang" di antara header & footer secara pasti, bukan berdasarkan
+       ukuran konten dulu baru di-shrink. Ini pola paling reliable lintas
+       browser supaya header & footer ga pernah ke-clip / hilang. */
+    flex: 1 1 0%;
+    min-height: 0;
 }
 
 .modal__footer {
@@ -691,6 +821,7 @@ table.laporan tfoot td {
     gap: 8px;
     padding: 14px 20px;
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 /* ─── Form Elements ──────────────────────────────────── */
@@ -778,3 +909,4 @@ tr.detail-row.open {
         max-width: 100%;
     }
 }
+

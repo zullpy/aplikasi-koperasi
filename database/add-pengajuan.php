@@ -46,6 +46,69 @@ if (($input['action'] ?? '') === 'delete') {
     exit;
 }
 
+// ===== HANDLE APPROVAL (Setuju / Tidak Setuju) =====
+if (($input['action'] ?? '') === 'approval') {
+    $id     = (int)($input['id'] ?? 0);
+    $status = trim($input['status'] ?? '');
+
+    if (!$id) {
+        echo json_encode(['success' => false, 'message' => 'ID tidak valid.']);
+        exit;
+    }
+    if (!in_array($status, ['approved', 'rejected'], true)) {
+        echo json_encode(['success' => false, 'message' => 'Status keputusan tidak valid.']);
+        exit;
+    }
+
+    // Pastikan data memang ada
+    $check = $koneksi->prepare("SELECT id FROM pengajuan_anggaran WHERE id = ?");
+    $check->bind_param('i', $id);
+    $check->execute();
+    $exists = $check->get_result()->fetch_assoc();
+    $check->close();
+
+    if (!$exists) {
+        echo json_encode(['success' => false, 'message' => 'Data pengajuan tidak ditemukan.']);
+        exit;
+    }
+
+    // approved_by ambil dari session user yang login (sesuaikan key session-nya kalau beda)
+    $approvedBy = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+
+    try {
+        if ($status === 'approved') {
+            $saldo   = (float)($input['saldo'] ?? 0);
+            $catatan = trim($input['catatan'] ?? '');
+
+            $stmt = $koneksi->prepare("
+                UPDATE pengajuan_anggaran
+                SET status = ?, saldo = ?, catatan = ?, alasan = NULL,
+                    approved_at = CURDATE(), approved_by = ?
+                WHERE id = ?
+            ");
+            $stmt->bind_param('sdsii', $status, $saldo, $catatan, $approvedBy, $id);
+        } else {
+            $alasan = trim($input['alasan'] ?? '');
+
+            $stmt = $koneksi->prepare("
+                UPDATE pengajuan_anggaran
+                SET status = ?, alasan = ?, saldo = NULL, catatan = NULL,
+                    approved_at = CURDATE(), approved_by = ?
+                WHERE id = ?
+            ");
+            $stmt->bind_param('ssii', $status, $alasan, $approvedBy, $id);
+        }
+
+        $stmt->execute();
+        $stmt->close();
+
+        echo json_encode(['success' => true]);
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // ===== VALIDASI INPUT UTAMA =====
 $id      = isset($input['id']) && $input['id'] !== null ? (int)$input['id'] : null;
 $jenis   = trim($input['jenis'] ?? '');

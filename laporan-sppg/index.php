@@ -47,6 +47,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
         header('Location: index.php?status=ttd_gagal');
         exit;
     }
+
+    if ($_POST['aksi'] === 'hapus_ttd') {
+        $role_login   = $_SESSION['role'] ?? '';
+        $pengajuan_id = $_POST['pengajuan_id'] ?? 0;
+
+        if (!array_key_exists($role_login, daftarRoleTtdSppg())) {
+            header('Location: index.php?status=ttd_gagal');
+            exit;
+        }
+
+        $ok = hapusTandaTanganLaporan($koneksi, $pengajuan_id, $role_login);
+        header('Location: index.php?status=' . ($ok ? 'ttd_deleted' : 'ttd_gagal'));
+        exit;
+    }
 }
 
 include '../components/navbar.php';
@@ -54,6 +68,8 @@ include '../components/navbar.php';
 $rows  = getDataLaporan($koneksi);
 $total = getTotalRingkasan($rows);
 $role_login_saat_ini = $_SESSION['role'] ?? '';
+$daftarRoleTtd = daftarRoleTtdSppg();
+$bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -62,7 +78,7 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan SPPG | KBUS</title>
-    <link rel="icon" href="../assets/favicon.ico">
+    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -91,13 +107,14 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
         </div>
 
         <!-- Alert -->
-        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['success', 'harga_updated', 'barang_added', 'barang_deleted', 'ttd_saved', 'ttd_gagal'])):
+        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['success', 'harga_updated', 'barang_added', 'barang_deleted', 'ttd_saved', 'ttd_deleted', 'ttd_gagal'])):
             $pesan = [
                 'success'        => 'Saldo masuk berhasil diperbarui.',
                 'harga_updated'  => 'Harga barang berhasil diperbarui.',
                 'barang_added'   => 'Barang baru berhasil ditambahkan.',
                 'barang_deleted' => 'Barang berhasil dihapus.',
                 'ttd_saved'      => 'Tanda tangan berhasil disimpan.',
+                'ttd_deleted'    => 'Tanda tangan berhasil dihapus.',
                 'ttd_gagal'      => 'Gagal menyimpan tanda tangan, silakan coba lagi.',
             ][$_GET['status']];
             $isError = $_GET['status'] === 'ttd_gagal';
@@ -275,26 +292,20 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
                                                 </svg>
                                                 Saldo
                                             </button>
-                                            <?php if ($ttdSaya): ?>
-                                                <img src="<?= htmlspecialchars($ttdSaya['signature_data']) ?>"
-                                                    class="thumb" style="background:#fff"
-                                                    onclick="bukaGambar('<?= htmlspecialchars($ttdSaya['signature_data']) ?>', 'Tanda Tangan <?= htmlspecialchars(labelRole($role_login_saat_ini)) ?>')"
-                                                    alt="ttd tersimpan" title="Sudah ditandatangani — klik untuk lihat">
-                                                <button class="btn btn--outline" onclick="bukaTandaTangan(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>')">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                        <path d="M3 17l6-6 4 4 8-8" />
-                                                        <path d="M14 6l3-3 4 4-3 3" />
+                                            <?php if ($bisaTtd): ?>
+                                                <button type="button" class="btn <?= $ttdSaya ? 'btn--outline' : 'btn--ttd' ?>"
+                                                    onclick='bukaTandaTangan(<?= $row['id'] ?>, "<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>", "<?= htmlspecialchars($daftarRoleTtd[$role_login_saat_ini]) ?>", <?= $ttdSaya ? json_encode([
+                                                                                                                                                                                                                                'signature_data' => $ttdSaya['signature_data'],
+                                                                                                                                                                                                                                'signed_by'      => $daftarRoleTtd[$role_login_saat_ini] . (!empty($_SESSION['username']) ? ' (' . $_SESSION['username'] . ')' : ''),
+                                                                                                                                                                                                                                'signed_at'      => $ttdSaya['created_at'] ?? '',
+                                                                                                                                                                                                                            ]) : 'null' ?>)'>
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                                        <path d="M2 2l7.586 7.586" />
+                                                        <circle cx="11" cy="11" r="2" />
                                                     </svg>
-                                                    Ganti
-                                                </button>
-                                            <?php else: ?>
-                                                <button class="btn btn--ttd" onclick="bukaTandaTangan(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>')">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                        <path d="M3 17l6-6 4 4 8-8" />
-                                                        <path d="M14 6l3-3 4 4-3 3" />
-                                                        <path d="M2 21c2-1 3-1 5 0s3 1 5 0 3-1 5 0 3 1 5 0" />
-                                                    </svg>
-                                                    TTD
+                                                    <?= $ttdSaya ? 'Lihat TTD' : 'Tanda Tangan' ?>
                                                 </button>
                                             <?php endif; ?>
                                             <a class="btn btn--outline"
@@ -393,6 +404,34 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
                                                     </tbody>
                                                 </table>
                                             </div>
+
+                                            <!-- ─── Status Tanda Tangan Persetujuan (4 role) ─────────── -->
+                                            <div class="detail-inner__title" style="margin-top:18px">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                                </svg>
+                                                Status Tanda Tangan Persetujuan
+                                            </div>
+                                            <div class="ttd-status-grid">
+                                                <?php foreach ($daftarRoleTtd as $roleKey => $roleLabel):
+                                                    $ttdItem = $ttdMasuk[$roleKey] ?? null;
+                                                ?>
+                                                    <div class="ttd-status-item <?= $ttdItem ? 'ttd-status-item--signed' : '' ?>">
+                                                        <div class="ttd-status-item__role"><?= htmlspecialchars($roleLabel) ?></div>
+                                                        <?php if ($ttdItem): ?>
+                                                            <img src="<?= htmlspecialchars($ttdItem['signature_data']) ?>"
+                                                                alt="Tanda tangan <?= htmlspecialchars($roleLabel) ?>" class="ttd-status-item__img"
+                                                                onclick="bukaGambar('<?= htmlspecialchars($ttdItem['signature_data']) ?>', 'Tanda Tangan — <?= htmlspecialchars(addslashes($roleLabel)) ?>')">
+                                                            <div class="ttd-status-item__meta">
+                                                                <?= !empty($ttdItem['created_at']) ? date('d M Y, H:i', strtotime($ttdItem['created_at'])) : '' ?>
+                                                            </div>
+                                                        <?php else: ?>
+                                                            <div class="ttd-status-item__empty">Belum tanda tangan</div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -473,7 +512,7 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleTTD">
             <form method="POST" id="formTandaTangan" onsubmit="return submitTandaTangan(event)">
                 <div class="modal__header">
-                    <div class="modal__title" id="titleTTD">Tanda Tangan Digital</div>
+                    <div class="modal__title" id="titleTTD">Tanda Tangan</div>
                     <button type="button" class="modal__close" onclick="tutupModalById('modalTandaTangan')">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <line x1="18" y1="6" x2="6" y2="18" />
@@ -482,40 +521,66 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
                     </button>
                 </div>
                 <div class="modal__body">
-                    <input type="hidden" name="aksi" value="simpan_ttd">
-                    <input type="hidden" name="signature_data" id="inputSignatureData">
+                    <input type="hidden" name="aksi" value="simpan_ttd" id="ttdAksiInput">
                     <input type="hidden" name="pengajuan_id" id="ttdPengajuanId">
+                    <input type="hidden" name="signature_data" id="inputSignatureData">
 
                     <div class="form-group">
                         <label class="form-label">Laporan</label>
                         <input type="text" class="form-control" id="ttdNamaMenu" disabled>
                     </div>
-
                     <div class="form-group">
-                        <label class="form-label">Penanda Tangan</label>
-                        <input type="text" class="form-control" value="<?= htmlspecialchars(labelRole($_SESSION['role'] ?? '')) ?> (<?= htmlspecialchars($_SESSION['username'] ?? '') ?>)" disabled>
-                        <div class="form-hint">Otomatis sesuai akun yang sedang login.</div>
+                        <label class="form-label">Menandatangani Sebagai</label>
+                        <input type="text" class="form-control" id="ttdRoleLabel" disabled>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Gambar Tanda Tangan di Area Bawah</label>
-                        <div class="signature-pad-wrap">
-                            <canvas id="canvasTTD" width="400" height="180"></canvas>
-                            <div class="signature-pad-placeholder" id="signaturePlaceholder">Tanda tangan di sini</div>
+                    <!-- Mode LIHAT: tanda tangan untuk role ini sudah pernah tersimpan -->
+                    <div id="ttdViewMode" style="display:none">
+                        <div class="form-group">
+                            <label class="form-label">Tanda Tangan Tersimpan</label>
+                            <div class="signature-pad-wrap" style="display:flex;align-items:center;justify-content:center;height:180px">
+                                <img id="ttdExistingImg" src="" alt="Tanda tangan tersimpan"
+                                    style="max-height:170px;max-width:100%;object-fit:contain">
+                            </div>
+                            <div class="form-hint" id="ttdInfoText"></div>
                         </div>
-                        <div class="form-hint">Gunakan mouse, trackpad, atau jari (di perangkat sentuh). Jika role ini sudah pernah tanda tangan di laporan ini, menyimpan akan menggantikan tanda tangan yang lama.</div>
+                        <div class="actions">
+                            <button type="button" class="btn btn--outline" onclick="gantiTandaTangan()">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z" />
+                                </svg>
+                                Ganti Tanda Tangan
+                            </button>
+                            <button type="button" class="btn btn--outline" style="color:var(--minus);border-color:#FCA5A5"
+                                onclick="hapusTtdKlik()">
+                                Hapus Tanda Tangan
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mode GAMBAR: canvas kosong untuk tanda tangan baru / pengganti -->
+                    <div id="ttdDrawMode" style="display:none">
+                        <div class="form-group">
+                            <label class="form-label">Gambar Tanda Tangan</label>
+                            <div class="signature-pad-wrap">
+                                <canvas id="canvasTTD"></canvas>
+                                <div class="signature-pad-placeholder" id="signaturePlaceholder">Tanda tangan di sini</div>
+                            </div>
+                            <div class="form-hint">Gunakan jari (di HP) atau mouse untuk menandatangani di dalam kotak.</div>
+                        </div>
+                        <button type="button" class="btn btn--outline" onclick="hapusTandaTangan()">
+                            Hapus Coretan
+                        </button>
                     </div>
                 </div>
                 <div class="modal__footer">
-                    <button type="button" class="btn btn--secondary" onclick="hapusTandaTangan()">Hapus</button>
                     <button type="button" class="btn btn--secondary" onclick="tutupModalById('modalTandaTangan')">Batal</button>
-                    <button type="submit" class="btn btn--success">
+                    <button type="submit" class="btn btn--ttd" id="ttdSubmitBtn">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                            <polyline points="17 21 17 13 7 13 7 21" />
-                            <polyline points="7 3 7 8 15 8" />
+                            <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Simpan
+                        Simpan Tanda Tangan
                     </button>
                 </div>
             </form>
@@ -641,6 +706,7 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
 
         function tutupModalById(id) {
             document.getElementById(id).classList.remove('open');
+            if (id === 'modalTandaTangan') resetModalTtd();
             document.body.style.overflow = '';
         }
 
@@ -696,25 +762,120 @@ $role_login_saat_ini = $_SESSION['role'] ?? '';
                 'Rp ' + subtotal.toLocaleString('id-ID');
         }
 
-        /* ─── Tanda Tangan Modal ─────────────────────────────────────── */
-        function bukaTandaTangan(pengajuanId, namaMenu) {
+        /* ─── Modal Tanda Tangan (TTD) ─────────────────────────────────
+         * Canvas & event drawing (initCanvasTTD, hapusTandaTangan,
+         * ttdSudahMenggambar, dst) ada di script.js — di sini cuma
+         * mengatur alur buka/tutup modal + mode "lihat" vs "gambar".
+         *
+         * ttdExisting: null kalau role ini belum pernah tanda tangan
+         * laporan ini, atau { signature_data, signed_by, signed_at }
+         * kalau sudah.
+         * ──────────────────────────────────────────────────────────── */
+        function bukaTandaTangan(pengajuanId, namaMenu, roleLabel, ttdExisting) {
             document.getElementById('ttdPengajuanId').value = pengajuanId;
             document.getElementById('ttdNamaMenu').value = namaMenu || '';
-            hapusTandaTangan();
+            document.getElementById('ttdRoleLabel').value = roleLabel || '';
+            document.getElementById('inputSignatureData').value = '';
+            document.getElementById('ttdAksiInput').value = 'simpan_ttd';
+
+            if (ttdExisting && ttdExisting.signature_data) {
+                tampilkanTtdViewMode(ttdExisting);
+            } else {
+                tampilkanTtdDrawMode();
+            }
+
             bukaModal('modalTandaTangan');
-            // canvas baru bisa di-resize dengan benar setelah modal benar-benar terlihat
-            setTimeout(initCanvasTTD, 50);
+        }
+
+        function tampilkanTtdViewMode(ttdExisting) {
+            document.getElementById('ttdViewMode').style.display = 'block';
+            document.getElementById('ttdDrawMode').style.display = 'none';
+            document.getElementById('ttdSubmitBtn').style.display = 'none';
+
+            document.getElementById('ttdExistingImg').src = ttdExisting.signature_data;
+
+            let tglTampil = ttdExisting.signed_at || '';
+            try {
+                const tgl = new Date((ttdExisting.signed_at || '').replace(' ', 'T'));
+                if (!isNaN(tgl.getTime())) tglTampil = tgl.toLocaleString('id-ID');
+            } catch (e) {
+                /* biarkan tampilkan mentah kalau parsing gagal */ }
+
+            document.getElementById('ttdInfoText').textContent =
+                'Ditandatangani oleh ' + ttdExisting.signed_by + (tglTampil ? ' pada ' + tglTampil : '');
+        }
+
+        function tampilkanTtdDrawMode() {
+            document.getElementById('ttdViewMode').style.display = 'none';
+            document.getElementById('ttdDrawMode').style.display = 'block';
+            document.getElementById('ttdSubmitBtn').style.display = '';
+
+            // canvas baru bisa di-resize dengan benar setelah div-nya benar-benar terlihat
+            requestAnimationFrame(function() {
+                setTimeout(initCanvasTTD, 30);
+            });
+        }
+
+        /** Tombol "Ganti Tanda Tangan" di mode lihat -> pindah ke canvas kosong. */
+        function gantiTandaTangan() {
+            tampilkanTtdDrawMode();
+        }
+
+        /** Tombol "Hapus Tanda Tangan" di mode lihat -> submit form dengan aksi hapus_ttd. */
+        function hapusTtdKlik() {
+            const konfirmasi = window.Swal ?
+                Swal.fire({
+                    title: 'Hapus tanda tangan?',
+                    text: 'Tanda tangan ini akan dihapus permanen dan perlu ditandatangani ulang.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, hapus',
+                    cancelButtonText: 'Batal'
+                }).then(function(r) {
+                    if (r.isConfirmed) kirimHapusTtd();
+                }) :
+                (confirm('Hapus tanda tangan ini? Perlu ditandatangani ulang setelahnya.') ? kirimHapusTtd() : null);
+        }
+
+        function kirimHapusTtd() {
+            document.getElementById('ttdAksiInput').value = 'hapus_ttd';
+            document.getElementById('formTandaTangan').submit();
         }
 
         function submitTandaTangan(e) {
+            const aksi = document.getElementById('ttdAksiInput').value;
+
+            // Aksi hapus tidak perlu validasi canvas, langsung lanjut submit.
+            if (aksi === 'hapus_ttd') return true;
+
+            const drawModeAktif = document.getElementById('ttdDrawMode').style.display !== 'none';
+            if (!drawModeAktif) return false;
+
             if (!ttdSudahMenggambar) {
-                e.preventDefault();
                 alert('Silakan gambar tanda tangan terlebih dahulu sebelum menyimpan.');
                 return false;
             }
+
             const canvas = document.getElementById('canvasTTD');
             document.getElementById('inputSignatureData').value = canvas.toDataURL('image/png');
             return true;
+        }
+
+        function resetModalTtd() {
+            const aksiInput = document.getElementById('ttdAksiInput');
+            if (aksiInput) aksiInput.value = 'simpan_ttd';
+
+            const sigInput = document.getElementById('inputSignatureData');
+            if (sigInput) sigInput.value = '';
+
+            const submitBtn = document.getElementById('ttdSubmitBtn');
+            if (submitBtn) submitBtn.style.display = '';
+
+            const viewMode = document.getElementById('ttdViewMode');
+            if (viewMode) viewMode.style.display = 'none';
+
+            const drawMode = document.getElementById('ttdDrawMode');
+            if (drawMode) drawMode.style.display = 'none';
         }
     </script>
     <script src="script.js"></script>

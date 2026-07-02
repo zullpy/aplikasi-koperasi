@@ -268,3 +268,34 @@ function labelRole($role)
     ];
     return $map[$role] ?? ucfirst($role);
 }
+
+/**
+ * Daftar role yang boleh tanda tangan beserta labelnya, urutan tampil
+ * di grid status TTD. Key HARUS sama persis dengan $_SESSION['role'].
+ */
+function daftarRoleTtdSppg()
+{
+    return [
+        'admin'     => labelRole('admin'),
+        'purchase'  => labelRole('purchase'),
+        'ketua'     => labelRole('ketua'),
+        'bendahara' => labelRole('bendahara'),
+    ];
+}
+
+/**
+ * Hapus tanda tangan sebuah role untuk sebuah laporan.
+ * Dipakai tombol "Hapus Tanda Tangan" di modal (opsi selain "Ganti").
+ */
+function hapusTandaTanganLaporan($koneksi, $pengajuan_id, $role_penanda)
+{
+    $pengajuan_id = (int) $pengajuan_id;
+
+    $sql  = "DELETE FROM ttd_laporan_sppg WHERE pengajuan_id = ? AND role_penanda = ?";
+    $stmt = mysqli_prepare($koneksi, $sql);
+    mysqli_stmt_bind_param($stmt, 'is', $pengajuan_id, $role_penanda);
+    $ok = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    return $ok;
+}

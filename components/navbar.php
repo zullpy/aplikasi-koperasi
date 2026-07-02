@@ -32,7 +32,7 @@ $base_url = '';
             <ul class="nav-list">
 
                 <!-- GROUP: Transaksi (dropdown desktop, flat mobile) -->
-                <li class="nav-item <?= in_array($activePage, ['transaksi-pembelian', 'transaksi-penjualan', 'transaksi-penjualan-sppg-foodcost', 'transaksi-penjualan-sppg-addcost', 'transaksi-penjualan-umum']) ? 'active' : '' ?>" id="dd-transaksi">
+                <li class="nav-item <?= in_array($activePage, ['transaksi-pembelian', 'transaksi-penjualan', 'penjualan-sppg-foodcost', 'penjualan-sppg-addcost', 'transaksi-penjualan-umum']) ? 'active' : '' ?>" id="dd-transaksi">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-transaksi">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                             <circle cx="9" cy="20" r="1" />
@@ -77,7 +77,7 @@ $base_url = '';
                         </li>
 
                         <!-- SPPG nested dropdown -->
-                        <li class="dropdown-item-nested <?= in_array($activePage, ['transaksi-penjualan-sppg-foodcost', 'transaksi-penjualan-sppg-addcost']) ? 'active' : '' ?>" id="dd-sppg">
+                        <li class="dropdown-item-nested <?= in_array($activePage, ['penjualan-sppg-foodcost', 'penjualan-sppg-addcost']) ? 'active' : '' ?>" id="dd-sppg">
                             <a href="#" class="dropdown-item dd-sppg-trigger">
                                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                     <rect x="1" y="3" width="15" height="13" rx="1" />

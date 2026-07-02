@@ -131,6 +131,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
     <title>Laporan Belanja - <?= htmlspecialchars($data['nama_menu']) ?></title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
+    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <style>
         * {
             margin: 0;

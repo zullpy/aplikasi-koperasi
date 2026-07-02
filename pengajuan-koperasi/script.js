@@ -913,25 +913,53 @@ function previewBukti() {
     r.readAsDataURL(f);
 }
 
-function saveApproval() {
+async function saveApproval() {
     const id = parseInt(document.getElementById('approvalId').value);
     const i = data.find(x => x.id === id);
     if (!i) return;
     if (!currentKeputusan) { showToast('Pilih keputusan terlebih dahulu.', 'error'); return; }
-    i.status = currentKeputusan;
+
+    const payload = { action: 'approval', id, status: currentKeputusan };
     if (currentKeputusan === 'approved') {
-        i.saldo = parseHarga(document.getElementById('aSaldo').value);
-        i.bukti = tmpBukti || i.bukti || '';
-        i.buktiName = tmpBuktiName || i.buktiName || '';
-        i.catatan = document.getElementById('aCatatan').value;
-        i.approvedAt = today();
-        i.alasan = '';
+        payload.saldo = parseHarga(document.getElementById('aSaldo').value);
+        payload.catatan = document.getElementById('aCatatan').value;
     } else {
-        i.alasan = document.getElementById('aAlasan').value;
-        i.saldo = 0; i.bukti = ''; i.buktiName = '';
+        payload.alasan = document.getElementById('aAlasan').value;
     }
-    closeModal('modalApproval');
-    render();
+
+    try {
+        const res = await fetch('../database/add-pengajuan.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (!result.success) {
+            showToast(result.message || 'Gagal menyimpan keputusan.', 'error');
+            return;
+        }
+
+        // Sinkronkan state lokal HANYA setelah backend konfirmasi sukses
+        i.status = currentKeputusan;
+        if (currentKeputusan === 'approved') {
+            i.saldo = payload.saldo;
+            i.bukti = tmpBukti || i.bukti || '';
+            i.buktiName = tmpBuktiName || i.buktiName || '';
+            i.catatan = payload.catatan;
+            i.approvedAt = today();
+            i.alasan = '';
+        } else {
+            i.alasan = payload.alasan;
+            i.saldo = 0; i.bukti = ''; i.buktiName = '';
+        }
+
+        closeModal('modalApproval');
+        render();
+        showToast('Keputusan berhasil disimpan.');
+    } catch (err) {
+        showToast('Terjadi kesalahan saat menyimpan keputusan.', 'error');
+    }
 }
 
 // ===== MODAL LIHAT BUKTI TF =====

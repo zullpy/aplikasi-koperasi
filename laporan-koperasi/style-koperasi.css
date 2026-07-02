@@ -1,0 +1,83 @@
+/* ===================== TAMBAHAN — LAPORAN KOPERASI ===================== */
+/* File ini di-load SETELAH style.css, hanya berisi style tambahan yang
+   dibutuhkan modul Laporan Koperasi (badge jenis pengajuan). */
+
+.jenis-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+
+.jenis-badge--stok {
+    background: #DBEAFE;
+    color: #1D4ED8;
+}
+
+.jenis-badge--peralatan {
+    background: #EDE9FE;
+    color: #6D28D9;
+}
+
+.jenis-badge--operasional {
+    background: #FEF3C7;
+    color: #B45309;
+}
+
+/* ===================== STATUS TANDA TANGAN PERSETUJUAN ===================== */
+.ttd-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.ttd-status-item {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    background: var(--surface);
+    text-align: center;
+    transition: border-color .15s, background .15s;
+}
+
+.ttd-status-item--signed {
+    border-style: solid;
+    border-color: var(--plus);
+    background: #F0FDF4;
+}
+
+.ttd-status-item__role {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+}
+
+.ttd-status-item__img {
+    width: 100%;
+    height: 52px;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.ttd-status-item__meta {
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.ttd-status-item__empty {
+    font-size: 11.5px;
+    color: var(--muted);
+    padding: 16px 0;
+}
