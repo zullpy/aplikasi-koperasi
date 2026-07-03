@@ -197,6 +197,7 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
             </form>
         </div>
     </main>
+    <?php include '../components/made-by.php'; ?>
 </body>
 <script src="script.js"></script>
 <script>

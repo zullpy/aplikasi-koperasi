@@ -414,5 +414,6 @@ window.onload = function(){
 };
 </script>
 
+    <?php include '../components/made-by.php'; ?>
 </body>
 </html>

@@ -564,6 +564,7 @@ if (empty($items)) {
         };
     </script>
 
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

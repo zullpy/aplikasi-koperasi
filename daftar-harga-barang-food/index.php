@@ -287,6 +287,7 @@ if ($result) {
             </form>
         </div>
     </div>
+    <?php include '../components/made-by.php'; ?>
 </body>
 <script src="script.js"></script>
 

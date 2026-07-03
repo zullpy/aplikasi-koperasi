@@ -685,6 +685,7 @@ try {
 
         window.addEventListener('DOMContentLoaded', loadData);
     </script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

@@ -103,6 +103,7 @@ include '../components/navbar.php'; ?>
     </div>
   </div>
   <script src="script.js"></script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

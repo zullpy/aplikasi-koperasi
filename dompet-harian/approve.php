@@ -292,6 +292,7 @@
     <div id="pdfPreview" style="display:none;"></div>
 
     <script src="approve.js"></script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

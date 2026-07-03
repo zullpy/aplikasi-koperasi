@@ -880,6 +880,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
     </script>
     <script src="script.js"></script>
 
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

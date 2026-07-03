@@ -867,6 +867,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
     <script src="script.js"></script>
     <script src="script-koperasi.js"></script>
 
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

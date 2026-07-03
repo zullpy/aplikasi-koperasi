@@ -348,6 +348,7 @@ $total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
         </div>
     </div>
 
+    <?php include '../components/made-by.php'; ?>
 </body>
 <script src="script.js"></script>
 

@@ -374,6 +374,7 @@ foreach ($transaksi as $t) {
         </svg>
     </button>
     <script src="script.js" defer></script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

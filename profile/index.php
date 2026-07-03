@@ -326,6 +326,7 @@
   <p>© 2025 Koperasi KBUS. Seluruh hak dilindungi.</p>
 </footer>
 
+    <?php include '../components/made-by.php'; ?>
 </body>
 <script src="script.js"></script>
 </html>

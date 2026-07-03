@@ -277,6 +277,7 @@ require_once '../database/auth.php';
         const SESSION_ROLE = "<?php echo $_SESSION['role'] ?? ''; ?>";
     </script>
     <script src="script.js"></script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

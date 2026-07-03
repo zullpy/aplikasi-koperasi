@@ -102,5 +102,6 @@ require_once '../database/auth.php'; ?>
             type: 'supplier'
         });
     </script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 </html>

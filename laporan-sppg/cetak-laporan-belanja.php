@@ -638,6 +638,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             }
         }
     </script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

@@ -696,6 +696,7 @@ $pengajuanId = isset($_GET['id']) ? $_GET['id'] : '';
 
         load();
     </script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

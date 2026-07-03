@@ -100,5 +100,6 @@
             type: 'customer'
         });
     </script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 </html>

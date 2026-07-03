@@ -271,6 +271,7 @@ require_once '../database/auth.php';
         window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
     </script>
     <script src="script.js"></script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

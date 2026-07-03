@@ -136,7 +136,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         <?php unset($_SESSION['alert']); ?>
     <?php endif; ?>
     <?php $activePage = 'transaksi-pembelian';
-    include '../components/navbar.php'; ?>
+    include '../components/navbar.php';?>
     <main class="container">
         <div class="header-section">
             <div class="header-title">
@@ -599,6 +599,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
             </div>
         </div>
     </div>
+    <?php include '../components/made-by.php'; ?>
 </body>
 <script src="script.js"></script>
 

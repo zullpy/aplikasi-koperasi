@@ -195,6 +195,7 @@ include '../components/navbar.php';
     </div>
 
     <script src="script.js"></script>
+    <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>
