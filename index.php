@@ -18,7 +18,7 @@
         type="text/css"
         href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css"
     />
-    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,7 +30,7 @@
         <p class="teknologi">Teknologi report account system</p>
         <h4>Kelola Administrasi Neraca Guna & <br>Sistem Informasi Stok dan Transaksi</h4>
         <span class="panjang">Administrasi pencatatan dan akuntabilitas setiap transaksi. Mulai dari pembelian, penjualan, inventori stok barang, dan laporan keuangan </span>
-        <img src="../assets/logo.png" alt="logo" class="illustration">
+        <img src="assets/logo.png" alt="logo" class="illustration">
         <p class="slogan"> 
             <span class="text-yellow">
                 Bersama Membangun Usaha, 
@@ -43,7 +43,7 @@
 
     <!-- KANAN -->
     <div class="right">
-        <img src="../assets/logo.png" alt="Logo" class="mobile-logo">
+        <img src="assets/logo.png" alt="Logo" class="mobile-logo">
         <h2>Login</h2>
         <form action="database/process-login.php" method="post">
             <label>Username</label>

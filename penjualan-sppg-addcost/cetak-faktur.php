@@ -177,6 +177,7 @@ if (empty($items)) {
 <head>
     <meta charset="UTF-8">
     <title>Faktur <?= htmlspecialchars($displayNoFaktur) ?></title>
+    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <style>
         /* ===== PAGE SETUP A5 ===== */
         @page {
@@ -498,7 +499,6 @@ if (empty($items)) {
 
     <!-- ===== JUDUL ===== -->
     <div class="judul">FAKTUR PENJUALAN ADDCOST</div>
-    <!-- <div class="sub-judul">No. Pengambilan: <?= htmlspecialchars($trx['no_pengambilan']) ?></div> -->
 
     <!-- ===== TABEL BARANG ===== -->
     <table class="barang">
