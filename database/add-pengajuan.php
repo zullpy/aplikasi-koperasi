@@ -32,6 +32,16 @@ if (($input['action'] ?? '') === 'delete') {
         exit;
     }
 
+    // Ambil path bukti transfer dulu sebelum baris dihapus, supaya file fisiknya
+    // bisa ikut dibersihkan (biar folder ../uploads/bukti_approval_koperasi tidak
+    // penuh sama file-file yang datanya sudah tidak ada di database).
+    $rowBukti = $koneksi->prepare("SELECT bukti FROM pengajuan_anggaran WHERE id = ?");
+    $rowBukti->bind_param('i', $id);
+    $rowBukti->execute();
+    $buktiRow = $rowBukti->get_result()->fetch_assoc();
+    $rowBukti->close();
+    $buktiPathLama = $buktiRow['bukti'] ?? null;
+
     $koneksi->begin_transaction();
     try {
         $stmt = $koneksi->prepare("DELETE FROM detail_pengajuan WHERE pengajuan_id = ?");
@@ -45,7 +55,28 @@ if (($input['action'] ?? '') === 'delete') {
         $stmt->close();
 
         $koneksi->commit();
-        echo json_encode(['success' => true]);
+
+        // Baru hapus file fisik SETELAH transaksi DB berhasil commit, biar kalau
+        // proses DB-nya gagal file bukti transfer tidak ikut kehapus sia-sia.
+        $buktiDebug = null;
+        if (!empty($buktiPathLama)) {
+            $filePath = __DIR__ . '/../uploads/' . $buktiPathLama;
+            if (is_file($filePath)) {
+                $unlinkOk  = unlink($filePath);
+                $buktiDebug = [
+                    'path'   => $filePath,
+                    'exists' => true,
+                    'unlink' => $unlinkOk,
+                ];
+            } else {
+                $buktiDebug = [
+                    'path'   => $filePath,
+                    'exists' => false,
+                ];
+            }
+        }
+
+        echo json_encode(['success' => true, 'debugBukti' => $buktiDebug]);
     } catch (Throwable $e) {
         $koneksi->rollback();
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
@@ -141,12 +172,13 @@ if (($input['action'] ?? '') === 'approval') {
 }
 
 // ===== VALIDASI INPUT UTAMA =====
-$id      = isset($input['id']) && $input['id'] !== null ? (int)$input['id'] : null;
-$jenis   = trim($input['jenis'] ?? '');
-$tanggal = trim($input['tanggal'] ?? '');
-$tujuan  = trim($input['tujuan'] ?? '');
-$jumlah  = (float)($input['jumlah'] ?? 0);
-$items   = is_array($input['items'] ?? null) ? $input['items'] : [];
+$id         = isset($input['id']) && $input['id'] !== null ? (int)$input['id'] : null;
+$jenis      = trim($input['jenis'] ?? '');
+$tanggal    = trim($input['tanggal'] ?? '');
+$tujuan     = trim($input['tujuan'] ?? '');
+$keterangan = trim($input['keterangan'] ?? '');
+$jumlah     = (float)($input['jumlah'] ?? 0);
+$items      = is_array($input['items'] ?? null) ? $input['items'] : [];
 
 $jenisValid = ['stok', 'peralatan', 'operasional'];
 if (!in_array($jenis, $jenisValid, true)) {
@@ -187,10 +219,10 @@ try {
 
         $stmt = $koneksi->prepare("
             UPDATE pengajuan_anggaran
-            SET jenis = ?, tujuan = ?, tanggal = ?, jumlah = ?
+            SET jenis = ?, tujuan = ?, keterangan = ?, tanggal = ?, jumlah = ?
             WHERE id = ?
         ");
-        $stmt->bind_param('sssdi', $jenis, $tujuan, $tanggal, $jumlah, $id);
+        $stmt->bind_param('ssssdi', $jenis, $tujuan, $keterangan, $tanggal, $jumlah, $id);
         $stmt->execute();
         $stmt->close();
 
@@ -204,10 +236,10 @@ try {
     } else {
         // ===== INSERT BARU =====
         $stmt = $koneksi->prepare("
-            INSERT INTO pengajuan_anggaran (jenis, tujuan, tanggal, jumlah, status)
-            VALUES (?, ?, ?, ?, 'pending')
+            INSERT INTO pengajuan_anggaran (jenis, tujuan, keterangan, tanggal, jumlah, status)
+            VALUES (?, ?, ?, ?, ?, 'pending')
         ");
-        $stmt->bind_param('sssd', $jenis, $tujuan, $tanggal, $jumlah);
+        $stmt->bind_param('ssssd', $jenis, $tujuan, $keterangan, $tanggal, $jumlah);
         $stmt->execute();
         $pengajuanId = $stmt->insert_id;
         $stmt->close();

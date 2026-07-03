@@ -91,6 +91,10 @@ require_once '../database/auth.php';
                         <label>Anggaran yang Diajukan (Rp)</label>
                         <input type="text" id="fAnggaran" placeholder="0" inputmode="numeric" oninput="onAnggaranInput(this)" style="width:100%">
                     </div>
+                    <div class="field">
+                        <label>Keterangan</label>
+                        <textarea id="fKeterangan" placeholder="Keterangan tambahan (opsional)..." style="width:100%"></textarea>
+                    </div>
                     <div class="total-bar">
                         <span class="total-label">Total Pengajuan</span>
                         <span class="total-value" id="grandTotalOps">Rp 0</span>

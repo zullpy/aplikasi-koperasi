@@ -649,7 +649,7 @@ $pengajuanId = isset($_GET['id']) ? $_GET['id'] : '';
 
         // ===== FORMAT OPERASIONAL (foto 3) =====
         function renderOperasional(i) {
-            const keterangan = (i.items && i.items[0] && i.items[0].keterangan) || i.catatan || '';
+            const keterangan = i.keterangan || (i.items && i.items[0] && i.items[0].keterangan) || i.catatan || '';
             return `
                 ${renderKop()}
                 <div class="meta-info">

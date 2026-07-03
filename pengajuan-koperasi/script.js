@@ -648,6 +648,7 @@ function onAnggaranInput(el) {
     document.getElementById('grandTotalOps').textContent = fmt(num);
 }
 
+
 // ===== SALDO INPUT (approval) =====
 function onSaldoInput(el) {
     const raw = el.value.replace(/\./g, '').replace(/[^\d]/g, '');
@@ -661,6 +662,7 @@ function openAdd(jenis = 'stok') {
     document.getElementById('fTanggal').value = today();
     document.getElementById('fTujuan').value = '';
     document.getElementById('fAnggaran').value = '';
+    document.getElementById('fKeterangan').value = '';
     document.getElementById('grandTotalOps').textContent = fmt(0);
     clearItemRows();
     applyModalJenis(jenis);
@@ -687,6 +689,7 @@ function openEdit(id) {
     if (jenis === 'operasional') {
         const angNum = i.jumlah || 0;
         document.getElementById('fAnggaran').value = angNum ? Number(angNum).toLocaleString('id-ID') : '';
+        document.getElementById('fKeterangan').value = i.keterangan || '';
         document.getElementById('grandTotalOps').textContent = fmt(angNum);
     } else {
         clearItemRows();
@@ -711,10 +714,12 @@ async function saveItem() {
 
     let items = [];
     let jumlah = 0;
+    let keterangan = '';
 
     if (jenis === 'operasional') {
         jumlah = parseHarga(document.getElementById('fAnggaran').value);
         if (!jumlah) { showToast('Anggaran yang diajukan wajib diisi.', 'error'); return; }
+        keterangan = document.getElementById('fKeterangan').value.trim();
     } else {
         items = getItemsFromRows();
         if (!items.length || items.every(it => !it.keterangan)) {
@@ -726,7 +731,7 @@ async function saveItem() {
 
     const payload = {
         id: eid ? parseInt(eid) : null,
-        jenis, tanggal: tgl, tujuan, items, jumlah,
+        jenis, tanggal: tgl, tujuan, items, jumlah, keterangan,
     };
 
     try {
@@ -819,6 +824,7 @@ function openDetail(id) {
     </tr>`).join('');
     document.getElementById('detailContent').innerHTML = `
         ${i.tujuan ? `<p style="margin-bottom:10px;font-size:13px;color:var(--text-secondary)">Tujuan: <strong style="color:var(--text-primary)">${i.tujuan}</strong></p>` : ''}
+        ${i.keterangan ? `<p style="margin-bottom:10px;font-size:13px;color:var(--text-secondary)">Keterangan: <strong style="color:var(--text-primary)">${i.keterangan}</strong></p>` : ''}
         <table style="width:100%;border-collapse:collapse;font-size:13px">
             <thead>
                 <tr>

@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 require_once 'koneksi.php';
 
 $result = $koneksi->query("
-    SELECT id, jenis, tujuan, tanggal, jumlah, status,
+    SELECT id, jenis, tujuan, keterangan, tanggal, jumlah, status,
            saldo, catatan, approved_at, alasan, bukti, bukti_name
     FROM pengajuan_anggaran
     ORDER BY tanggal DESC, id DESC
@@ -57,6 +57,7 @@ foreach ($pengajuanList as $pa) {
         'id'         => (int)$pa['id'],
         'jenis'      => $pa['jenis'],
         'tujuan'     => $pa['tujuan'] ?? '',
+        'keterangan' => $pa['keterangan'] ?? '',
         'tanggal'    => $pa['tanggal'],
         'jumlah'     => (float)$pa['jumlah'],
         'status'     => $pa['status'],
