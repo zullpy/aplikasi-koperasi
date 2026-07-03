@@ -42,6 +42,69 @@ function formatQty($angka)
 }
 
 // ----------------------------------------------------------
+// PROSES SIMPAN PEMBAYARAN (POST) — cash / transfer, bisa cicilan
+// ----------------------------------------------------------
+$errorBayar = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['aksi'] === 'tambah_bayar') {
+    $idPengambilanBayar = isset($_POST['id_pengambilan']) ? (int) $_POST['id_pengambilan'] : 0;
+    $metodeBayar         = isset($_POST['metode_pembayaran']) ? $_POST['metode_pembayaran'] : '';
+    $jumlahBayarMentah   = isset($_POST['jumlah_dibayar']) ? $_POST['jumlah_dibayar'] : '0';
+    $jumlahBayar         = (float) preg_replace('/[^0-9]/', '', $jumlahBayarMentah);
+
+    if ($idPengambilanBayar <= 0 || !in_array($metodeBayar, ['cash', 'transfer'], true) || $jumlahBayar <= 0) {
+        $errorBayar = 'Data pembayaran tidak lengkap. Pastikan metode dan jumlah pembayaran sudah diisi.';
+    } else {
+        $buktiPath = null;
+
+        if ($metodeBayar === 'transfer') {
+            if (isset($_FILES['bukti_transfer']) && $_FILES['bukti_transfer']['error'] === UPLOAD_ERR_OK) {
+                $ext        = strtolower(pathinfo($_FILES['bukti_transfer']['name'], PATHINFO_EXTENSION));
+                $allowedExt = ['jpg', 'jpeg', 'png', 'pdf'];
+
+                if (!in_array($ext, $allowedExt, true)) {
+                    $errorBayar = 'Format bukti transfer tidak didukung. Gunakan JPG, PNG, atau PDF.';
+                } else {
+                    $folderUpload = __DIR__ . '/uploads/bukti-transfer/';
+                    if (!is_dir($folderUpload)) {
+                        mkdir($folderUpload, 0755, true);
+                    }
+                    $namaFile = 'bukti_' . $idPengambilanBayar . '_' . time() . '_' . mt_rand(1000, 9999) . '.' . $ext;
+                    if (move_uploaded_file($_FILES['bukti_transfer']['tmp_name'], $folderUpload . $namaFile)) {
+                        $buktiPath = 'uploads/bukti-transfer/' . $namaFile;
+                    } else {
+                        $errorBayar = 'Gagal mengunggah bukti transfer. Silakan coba lagi.';
+                    }
+                }
+            } else {
+                $errorBayar = 'Bukti transfer wajib diunggah untuk metode transfer.';
+            }
+        }
+
+        if ($errorBayar === '') {
+            $sqlInsertBayar  = "INSERT INTO pembayaran (id_pengambilan, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar) VALUES (?, ?, ?, ?, NOW())";
+            $stmtInsertBayar = $koneksi2->prepare($sqlInsertBayar);
+
+            if ($stmtInsertBayar === false) {
+                $errorBayar = 'Gagal menyiapkan penyimpanan pembayaran: ' . $koneksi2->error;
+            } else {
+                $stmtInsertBayar->bind_param('isds', $idPengambilanBayar, $metodeBayar, $jumlahBayar, $buktiPath);
+                $stmtInsertBayar->execute();
+                $stmtInsertBayar->close();
+
+                // redirect (Post/Redirect/Get) supaya form tidak submit ulang saat refresh,
+                // sambil mempertahankan filter tanggal/keyword yang sedang aktif
+                $queryStringSaatIni = $_SERVER['QUERY_STRING'] ?? '';
+                $urlRedirect = 'index.php' . ($queryStringSaatIni !== '' ? '?' . $queryStringSaatIni : '');
+                $urlRedirect .= (strpos($urlRedirect, '?') !== false ? '&' : '?') . 'bayar_sukses=1#trx-' . $idPengambilanBayar;
+                header('Location: ' . $urlRedirect);
+                exit;
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------
 // FILTER (opsional): tanggal awal, tanggal akhir, keyword
 // ----------------------------------------------------------
 $tanggalAwal  = isset($_GET['tanggal_awal']) ? $_GET['tanggal_awal'] : '';
@@ -153,10 +216,77 @@ while ($row = $result->fetch_assoc()) {
 
 $stmt->close();
 
-$grandTotal = 0;
-foreach ($transaksi as $t) {
-    $grandTotal += $t['total'];
+// ----------------------------------------------------------
+// AMBIL DATA PEMBAYARAN UNTUK SETIAP TRANSAKSI (bisa cicilan / >1 baris)
+// ----------------------------------------------------------
+$idPengambilanList = array_keys($transaksi);
+
+if (!empty($idPengambilanList)) {
+    $placeholder = implode(',', array_fill(0, count($idPengambilanList), '?'));
+    $typesBayar  = str_repeat('i', count($idPengambilanList));
+
+    $sqlBayar = "
+        SELECT id_pembayaran, id_pengambilan, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar
+        FROM pembayaran
+        WHERE id_pengambilan IN ($placeholder)
+        ORDER BY tanggal_bayar ASC, id_pembayaran ASC
+    ";
+    $stmtBayar = $koneksi2->prepare($sqlBayar);
+
+    if ($stmtBayar !== false) {
+        $stmtBayar->bind_param($typesBayar, ...$idPengambilanList);
+        $stmtBayar->execute();
+        $resultBayar = $stmtBayar->get_result();
+
+        while ($rowBayar = $resultBayar->fetch_assoc()) {
+            $transaksi[$rowBayar['id_pengambilan']]['pembayaran'][] = $rowBayar;
+        }
+        $stmtBayar->close();
+    }
 }
+
+// ----------------------------------------------------------
+// HITUNG TOTAL DIBAYAR, SISA, STATUS & BADGE METODE PER TRANSAKSI
+// ----------------------------------------------------------
+foreach ($transaksi as $idT => &$t) {
+    if (!isset($t['pembayaran'])) {
+        $t['pembayaran'] = [];
+    }
+
+    $totalDibayar = 0;
+    $metodeDipakai = [];
+
+    foreach ($t['pembayaran'] as $p) {
+        $totalDibayar += (float) $p['jumlah_dibayar'];
+        $metodeDipakai[$p['metode_pembayaran']] = true;
+    }
+
+    $t['total_dibayar'] = $totalDibayar;
+    $t['sisa_bayar']    = max($t['total'] - $totalDibayar, 0);
+
+    if ($t['total'] > 0 && $totalDibayar >= $t['total']) {
+        $t['status_bayar'] = 'lunas';
+    } elseif ($totalDibayar > 0) {
+        $t['status_bayar'] = 'cicilan';
+    } else {
+        $t['status_bayar'] = 'belum_bayar';
+    }
+
+    $labelMetode = array_map(function ($m) {
+        return $m === 'cash' ? 'Cash' : 'Transfer';
+    }, array_keys($metodeDipakai));
+
+    $t['metode_badge'] = empty($labelMetode) ? '-' : implode(' + ', $labelMetode);
+}
+unset($t);
+
+$grandTotal = 0;
+$grandDibayar = 0;
+foreach ($transaksi as $t) {
+    $grandTotal   += $t['total'];
+    $grandDibayar += $t['total_dibayar'];
+}
+$grandSisa = max($grandTotal - $grandDibayar, 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -263,7 +393,7 @@ foreach ($transaksi as $t) {
             </div>
         <?php else: ?>
             <?php foreach ($transaksi as $idPengambilan => $t): ?>
-                <div class="fc-card">
+                <div class="fc-card" id="trx-<?= (int) $idPengambilan ?>">
                     <div class="fc-card-head" data-toggle="collapse">
                         <div class="fc-card-head-main">
                             <svg class="fc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -285,10 +415,49 @@ foreach ($transaksi as $t) {
                             <div class="fc-tanggal">
                                 <b><?= htmlspecialchars($t['tanggal_pengambilan']) ?></b> &middot; <?= htmlspecialchars($t['jam_pengambilan']) ?>
                             </div>
+                            <div class="fc-pill-row">
+                                <?php if ($t['status'] === 'verified'): ?>
+                                    <span class="fc-pill fc-pill-verified">Verified</span>
+                                <?php else: ?>
+                                    <span class="fc-pill fc-pill-pending">Pending</span>
+                                <?php endif; ?>
+
+                                <?php if ($t['status_bayar'] === 'lunas'): ?>
+                                    <span class="fc-pill fc-pill-lunas">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M20 6L9 17l-5-5" />
+                                        </svg>
+                                        Lunas
+                                    </span>
+                                <?php elseif ($t['status_bayar'] === 'cicilan'): ?>
+                                    <span class="fc-pill fc-pill-cicilan">Cicilan &middot; Belum Lunas</span>
+                                <?php else: ?>
+                                    <span class="fc-pill fc-pill-belum-bayar">Belum Lunas</span>
+                                <?php endif; ?>
+
+                                <?php if ($t['metode_badge'] !== '-'): ?>
+                                    <span class="fc-pill fc-pill-metode">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="2" y="5" width="20" height="14" rx="2" />
+                                            <path d="M2 10h20" />
+                                        </svg>
+                                        <?= htmlspecialchars($t['metode_badge']) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
                             <?php if ($t['status'] === 'verified'): ?>
-                                <span class="fc-pill fc-pill-verified">Verified</span>
-                            <?php else: ?>
-                                <span class="fc-pill fc-pill-pending">Pending</span>
+                                <a href="cetak-faktur.php?id=<?= (int) $idPengambilan ?>"
+                                    target="_blank"
+                                    class="fc-btn-cetak"
+                                    title="Cetak Faktur">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M6 9V2h12v7" />
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                                        <path d="M6 14h12v8H6z" />
+                                    </svg>
+                                    Cetak Faktur
+                                </a>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -333,9 +502,65 @@ foreach ($transaksi as $t) {
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="fc-pay-section">
+                                <div class="fc-pay-section-head">
+                                    <span class="fc-pay-section-title">Riwayat Pembayaran</span>
+                                    <?php if ($t['sisa_bayar'] > 0): ?>
+                                        <button type="button" class="fc-btn-bayar"
+                                            data-id="<?= (int) $idPengambilan ?>"
+                                            data-no="<?= htmlspecialchars($t['no_pengambilan']) ?>"
+                                            data-sisa="<?= (int) $t['sisa_bayar'] ?>"
+                                            data-sisa-format="<?= htmlspecialchars(formatRupiah($t['sisa_bayar'])) ?>">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M12 5v14M5 12h14" />
+                                            </svg>
+                                            Tambah Pembayaran
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php if (empty($t['pembayaran'])): ?>
+                                    <div class="fc-pay-empty">Belum ada pembayaran untuk transaksi ini.</div>
+                                <?php else: ?>
+                                    <div class="fc-pay-list">
+                                        <?php foreach ($t['pembayaran'] as $p): ?>
+                                            <div class="fc-pay-item">
+                                                <div class="fc-pay-item-left">
+                                                    <span class="fc-pill fc-pill-metode fc-pill-metode-sm">
+                                                        <?= $p['metode_pembayaran'] === 'cash' ? 'Cash' : 'Transfer' ?>
+                                                    </span>
+                                                    <span class="fc-pay-item-date"><?= htmlspecialchars(date('d M Y, H:i', strtotime($p['tanggal_bayar']))) ?></span>
+                                                </div>
+                                                <div class="fc-pay-item-right">
+                                                    <?php if (!empty($p['bukti_transfer'])): ?>
+                                                        <a href="../<?= htmlspecialchars($p['bukti_transfer']) ?>" target="_blank" class="fc-pay-bukti-link" title="Lihat Bukti Transfer">
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                                <path d="M7 10l5 5 5-5M12 15V3" />
+                                                            </svg>
+                                                            Bukti
+                                                        </a>
+                                                    <?php endif; ?>
+                                                    <span class="fc-pay-item-amount"><?= formatRupiah($p['jumlah_dibayar']) ?></span>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                             <div class="fc-card-foot">
-                                <span class="label">Total Transaksi Ini</span>
-                                <span class="value"><?= formatRupiah($t['total']) ?></span>
+                                <div class="fc-card-foot-row">
+                                    <span class="label">Total Transaksi Ini</span>
+                                    <span class="value"><?= formatRupiah($t['total']) ?></span>
+                                </div>
+                                <div class="fc-card-foot-row">
+                                    <span class="label label-sm">Sudah Dibayar</span>
+                                    <span class="value value-sm value-hijau"><?= formatRupiah($t['total_dibayar']) ?></span>
+                                </div>
+                                <div class="fc-card-foot-row">
+                                    <span class="label label-sm">Sisa / Hutang</span>
+                                    <span class="value value-sm <?= $t['sisa_bayar'] > 0 ? 'value-merah' : 'value-hijau' ?>"><?= formatRupiah($t['sisa_bayar']) ?></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -351,9 +576,19 @@ foreach ($transaksi as $t) {
                     <div>
                         <div class="fc-gt-label">Grand Total Keseluruhan</div>
                         <div class="fc-gt-value"><?= formatRupiah($grandTotal) ?></div>
+                        <div class="fc-gt-note"><?= count($transaksi) ?> transaksi dalam tampilan ini</div>
                     </div>
                 </div>
-                <div class="fc-gt-note"><?= count($transaksi) ?> transaksi dalam tampilan ini</div>
+                <div class="fc-gt-right">
+                    <div class="fc-gt-mini">
+                        <span class="fc-gt-mini-label">Sudah Dibayar</span>
+                        <span class="fc-gt-mini-value"><?= formatRupiah($grandDibayar) ?></span>
+                    </div>
+                    <div class="fc-gt-mini">
+                        <span class="fc-gt-mini-label">Sisa / Hutang</span>
+                        <span class="fc-gt-mini-value"><?= formatRupiah($grandSisa) ?></span>
+                    </div>
+                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -362,6 +597,108 @@ foreach ($transaksi as $t) {
             <path d="M12 19V5M5 12l7-7 7 7" />
         </svg>
     </button>
+
+    <?php if (isset($_GET['bayar_sukses'])): ?>
+        <div class="fc-toast" id="fcToastSukses">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5" />
+            </svg>
+            Pembayaran berhasil disimpan.
+        </div>
+    <?php endif; ?>
+
+    <!-- MODAL TAMBAH PEMBAYARAN -->
+    <div class="fc-modal-overlay<?= $errorBayar !== '' ? ' is-open' : '' ?>" id="fcPayModalOverlay">
+        <div class="fc-modal">
+            <div class="fc-modal-head">
+                <div class="fc-modal-head-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                    </svg>
+                </div>
+                <div class="fc-modal-head-text">
+                    <h5>Tambah Pembayaran</h5>
+                    <p>Catat pembayaran cash atau transfer</p>
+                </div>
+                <button type="button" class="fc-modal-close" id="fcPayModalClose" aria-label="Tutup">&times;</button>
+            </div>
+            <form method="POST" action="index.php<?= isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== '' ? '?' . htmlspecialchars($_SERVER['QUERY_STRING']) : '' ?>" enctype="multipart/form-data" id="fcPayForm">
+                <input type="hidden" name="aksi" value="tambah_bayar">
+                <input type="hidden" name="id_pengambilan" id="fcPayIdPengambilan" value="<?= $errorBayar !== '' ? (int) $idPengambilanBayar : '' ?>">
+                <div class="fc-modal-body">
+                    <div class="fc-modal-info">
+                        <div>
+                            <span>No. Transaksi</span>
+                            <b id="fcPayNoTrx"><?= $errorBayar !== '' && isset($transaksi[$idPengambilanBayar]) ? htmlspecialchars($transaksi[$idPengambilanBayar]['no_pengambilan']) : '-' ?></b>
+                        </div>
+                        <div>
+                            <span>Sisa Tagihan</span>
+                            <b id="fcPaySisa"><?= $errorBayar !== '' && isset($transaksi[$idPengambilanBayar]) ? formatRupiah($transaksi[$idPengambilanBayar]['sisa_bayar']) : 'Rp 0' ?></b>
+                        </div>
+                    </div>
+
+                    <div class="fc-field">
+                        <label>Metode Pembayaran</label>
+                        <div class="fc-metode-toggle">
+                            <label class="fc-metode-opt">
+                                <input type="radio" name="metode_pembayaran" value="cash" <?= $errorBayar === '' || $metodeBayar === 'cash' ? 'checked' : '' ?>>
+                                <span>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="6" width="20" height="12" rx="2" />
+                                        <circle cx="12" cy="12" r="2" />
+                                    </svg>
+                                    Cash
+                                </span>
+                            </label>
+                            <label class="fc-metode-opt">
+                                <input type="radio" name="metode_pembayaran" value="transfer" <?= $errorBayar !== '' && $metodeBayar === 'transfer' ? 'checked' : '' ?>>
+                                <span>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 2l4 4-4 4" />
+                                        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                                        <path d="M7 22l-4-4 4-4" />
+                                        <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                                    </svg>
+                                    Transfer
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="fc-field">
+                        <label>Jumlah Dibayar</label>
+                        <div class="fc-input-wrap fc-input-rp">
+                            <input type="text" name="jumlah_dibayar" id="fcPayJumlah" class="form-control" placeholder="0" inputmode="numeric" autocomplete="off" value="<?= $errorBayar !== '' && $jumlahBayar > 0 ? number_format($jumlahBayar, 0, ',', '.') : '' ?>">
+                        </div>
+                        <div class="fc-field-hint" id="fcPayHint"></div>
+                    </div>
+
+                    <div class="fc-field" id="fcPayBuktiWrap" style="display:<?= $errorBayar !== '' && $metodeBayar === 'transfer' ? 'block' : 'none' ?>">
+                        <label>Bukti Transfer (JPG / PNG / PDF)</label>
+                        <input type="file" name="bukti_transfer" id="fcPayBukti" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                    </div>
+
+                    <?php if ($errorBayar !== ''): ?>
+                        <div class="fc-pay-error">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" style="flex-shrink:0">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 8v5M12 16h.01" />
+                            </svg>
+                            <span><?= htmlspecialchars($errorBayar) ?></span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="fc-modal-foot">
+                    <button type="button" class="fc-btn fc-btn-reset" id="fcPayCancel">Batal</button>
+                    <button type="submit" class="fc-btn fc-btn-filter" id="fcPaySubmit">
+                        <span class="fc-spinner"></span>
+                        <span class="fc-btn-label">Simpan Pembayaran</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="script.js" defer></script>
     <?php include '../components/made-by.php'; ?>
 </body>

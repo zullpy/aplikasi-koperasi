@@ -668,6 +668,614 @@ table.fc-table tbody tr:last-child td {
     height: 20px;
 }
 
+/* ---------- BADGE STATUS PEMBAYARAN & METODE ---------- */
+.fc-pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+}
+
+.fc-pill-lunas {
+    background: var(--hijau-bg);
+    color: var(--hijau);
+}
+
+.fc-pill-lunas svg {
+    width: 11px;
+    height: 11px;
+}
+
+.fc-pill-lunas::before {
+    display: none;
+}
+
+.fc-pill-cicilan {
+    background: var(--kuning-bg);
+    color: var(--kuning);
+}
+
+.fc-pill-belum-bayar {
+    background: var(--merah-bg);
+    color: var(--merah);
+}
+
+.fc-pill-metode {
+    background: rgba(255, 255, 255, 0.18);
+    color: var(--putih);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.fc-pill-metode svg {
+    width: 12px;
+    height: 12px;
+}
+
+.fc-pill-metode::before {
+    display: none;
+}
+
+.fc-pill-metode-sm {
+    background: var(--biru-muda);
+    color: var(--biru-tua);
+    border: 1px solid var(--biru-garis);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.72rem;
+    padding: 4px 10px;
+}
+
+/* ---------- RIWAYAT PEMBAYARAN ---------- */
+.fc-pay-section {
+    padding: 4px 20px 18px;
+    border-top: 1px dashed var(--biru-garis);
+    margin-top: 4px;
+}
+
+.fc-pay-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 14px 0 12px;
+}
+
+.fc-pay-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--teks-lembut);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.fc-btn-bayar {
+    border: none;
+    background: var(--hijau);
+    color: var(--putih);
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding: 8px 14px;
+    border-radius: var(--radius-kecil);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(47, 174, 114, 0.25);
+    transition: background var(--transisi), transform .1s ease;
+}
+
+.fc-btn-bayar svg {
+    width: 14px;
+    height: 14px;
+}
+
+.fc-btn-bayar:hover {
+    background: #268f5e;
+}
+
+.fc-btn-bayar:active {
+    transform: scale(0.97);
+}
+
+.fc-pay-empty {
+    font-size: 0.85rem;
+    color: var(--teks-halus);
+    font-style: italic;
+    padding: 8px 2px 2px;
+}
+
+.fc-pay-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fc-pay-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--biru-muda-2);
+    border: 1px solid var(--biru-garis);
+    border-radius: var(--radius-kecil);
+    padding: 9px 14px;
+}
+
+.fc-pay-item-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.fc-pay-item-date {
+    font-size: 0.8rem;
+    color: var(--teks-lembut);
+}
+
+.fc-pay-item-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.fc-pay-item-amount {
+    font-weight: 700;
+    color: var(--biru-tua);
+    font-size: 0.9rem;
+}
+
+.fc-pay-bukti-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--biru-utama);
+    text-decoration: none;
+    border: 1px solid var(--biru-garis);
+    padding: 4px 10px;
+    border-radius: 999px;
+    transition: background var(--transisi), color var(--transisi);
+}
+
+.fc-pay-bukti-link svg {
+    width: 12px;
+    height: 12px;
+}
+
+.fc-pay-bukti-link:hover {
+    background: var(--biru-utama);
+    color: var(--putih);
+}
+
+/* ---------- CARD FOOT (multi-baris: total, dibayar, sisa) ---------- */
+.fc-card-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 16px 22px;
+}
+
+.fc-card-foot-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fc-card-foot-row .label-sm {
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.fc-card-foot-row .value-sm {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.value-hijau {
+    color: var(--hijau) !important;
+}
+
+.value-merah {
+    color: var(--merah) !important;
+}
+
+/* ---------- GRAND TOTAL: kolom kanan ringkasan bayar ---------- */
+.fc-grand-total {
+    align-items: flex-start;
+}
+
+.fc-gt-right {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+}
+
+.fc-gt-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.fc-gt-mini-label {
+    font-size: 0.74rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+
+.fc-gt-mini-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+/* ---------- MODAL TAMBAH PEMBAYARAN ---------- */
+.fc-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 34, 58, 0.55);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transisi), visibility var(--transisi);
+    z-index: 9999;
+}
+
+.fc-modal-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.fc-modal {
+    background: var(--putih);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 24px 60px rgba(15, 46, 77, 0.28);
+    transform: translateY(14px) scale(0.98);
+    transition: transform .22s cubic-bezier(.2, .8, .3, 1.1), opacity .18s ease;
+    opacity: 0;
+    max-height: 90vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.fc-modal-overlay.is-open .fc-modal {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+.fc-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 22px;
+    background: linear-gradient(135deg, var(--biru-900) 0%, var(--biru-tua) 55%, var(--biru-utama) 100%);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.fc-modal-head-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.16);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--putih);
+    flex-shrink: 0;
+}
+
+.fc-modal-head-icon svg {
+    width: 19px;
+    height: 19px;
+}
+
+.fc-modal-head-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.fc-modal-head h5 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--putih);
+}
+
+.fc-modal-head p {
+    margin: 2px 0 0;
+    font-size: 0.76rem;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.fc-modal-close {
+    border: none;
+    background: rgba(255, 255, 255, 0.16);
+    color: var(--putih);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background var(--transisi), transform .1s ease;
+}
+
+.fc-modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.fc-modal-body {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.fc-modal-info {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    background: linear-gradient(135deg, var(--biru-muda) 0%, var(--biru-muda-2) 100%);
+    border: 1px solid var(--biru-garis);
+    border-radius: var(--radius-sedang);
+    padding: 13px 16px;
+}
+
+.fc-modal-info div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fc-modal-info span {
+    font-size: 0.7rem;
+    color: var(--teks-lembut);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.fc-modal-info b {
+    font-size: 0.95rem;
+    color: var(--biru-900);
+    font-weight: 700;
+}
+
+.fc-modal-info div:last-child {
+    align-items: flex-end;
+}
+
+.fc-modal-info div:last-child b {
+    color: var(--biru-tua);
+}
+
+.fc-field label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--teks-lembut);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* input & file field di dalam modal (form-control umum, bukan hanya .fc-filter) */
+.fc-modal .form-control {
+    width: 100%;
+    border: 1.5px solid var(--biru-garis);
+    border-radius: var(--radius-kecil);
+    padding: 11px 13px;
+    font-size: 0.95rem;
+    color: var(--teks-utama);
+    background: #FBFDFF;
+    transition: border-color var(--transisi), box-shadow var(--transisi), background var(--transisi);
+}
+
+.fc-modal .form-control:focus {
+    outline: none;
+    border-color: var(--biru-utama);
+    box-shadow: 0 0 0 3px rgba(59, 130, 196, 0.15);
+    background: var(--putih);
+}
+
+.fc-modal .form-control::placeholder {
+    color: var(--teks-halus);
+}
+
+.fc-input-wrap.fc-input-rp {
+    position: relative;
+}
+
+.fc-input-wrap.fc-input-rp::before {
+    content: "Rp";
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--biru-sedang);
+    pointer-events: none;
+}
+
+.fc-input-wrap.fc-input-rp input {
+    padding-left: 38px !important;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+}
+
+.fc-modal input[type="file"].form-control {
+    padding: 9px 13px;
+    cursor: pointer;
+}
+
+.fc-modal input[type="file"].form-control::file-selector-button {
+    border: none;
+    background: var(--biru-utama);
+    color: var(--putih);
+    font-weight: 600;
+    font-size: 0.8rem;
+    border-radius: 7px;
+    padding: 7px 12px;
+    margin-right: 10px;
+    cursor: pointer;
+    transition: background var(--transisi);
+}
+
+.fc-modal input[type="file"].form-control::file-selector-button:hover {
+    background: var(--biru-tua);
+}
+
+.fc-metode-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* gap: 10px; */
+}
+
+.fc-metode-opt {
+    position: relative;
+    cursor: pointer;
+}
+
+.fc-metode-opt input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.fc-metode-opt span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1.5px solid var(--biru-garis);
+    border-radius: var(--radius-kecil);
+    padding: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--teks-lembut);
+    background: #FBFDFF;
+    transition: border-color var(--transisi), background var(--transisi), color var(--transisi), box-shadow var(--transisi);
+}
+
+.fc-metode-opt:hover span {
+    border-color: var(--biru-sedang);
+}
+
+.fc-metode-opt span svg {
+    width: 17px;
+    height: 17px;
+}
+
+.fc-metode-opt input:checked+span {
+    border-color: var(--biru-utama);
+    background: var(--biru-muda);
+    color: var(--biru-tua);
+    box-shadow: 0 0 0 3px rgba(59, 130, 196, 0.12);
+}
+
+.fc-field-hint {
+    font-size: 0.78rem;
+    color: var(--teks-halus);
+    margin-top: 6px;
+    min-height: 1em;
+}
+
+.fc-field-hint.is-error {
+    color: var(--merah);
+    font-weight: 600;
+}
+
+.fc-pay-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--merah-bg);
+    color: var(--merah);
+    border-radius: var(--radius-kecil);
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.fc-modal-foot {
+    display: flex;
+    gap: 10px;
+    padding: 16px 22px 22px;
+    border-top: 1px solid var(--biru-garis);
+    background: var(--putih);
+    position: sticky;
+    bottom: 0;
+}
+
+.fc-modal-foot .fc-btn {
+    flex: 1;
+}
+
+/* ---------- TOAST SUKSES ---------- */
+.fc-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%);
+    background: var(--biru-900);
+    color: var(--putih);
+    padding: 13px 22px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--bayangan-lg);
+    z-index: 90;
+    animation: fc-toast-in .25s ease;
+}
+
+.fc-toast svg {
+    width: 16px;
+    height: 16px;
+    color: var(--hijau);
+}
+
+.fc-toast.is-hide {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+    transition: opacity .35s ease, transform .35s ease;
+}
+
+@keyframes fc-toast-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%);
+    }
+}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 900px) {
     .fc-filter-grid {
@@ -705,5 +1313,38 @@ table.fc-table tbody tr:last-child td {
     .fc-scroll-top {
         right: 16px;
         bottom: 16px;
+    }
+
+    .fc-pill-row {
+        justify-content: flex-start;
+    }
+
+    .fc-pay-section-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .fc-btn-bayar {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .fc-pay-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .fc-gt-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .fc-modal-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .fc-modal-info div:last-child {
+        align-items: flex-start;
     }
 }
