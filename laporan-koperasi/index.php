@@ -9,13 +9,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
 
     if ($_POST['aksi'] === 'edit_harga_item') {
         $ok = updateHargaItemKoperasi($koneksi, $_POST['item_id'], str_replace(['.', ','], '', $_POST['harga_baru']));
-        header('Location: index-koperasi.php?status=' . ($ok ? 'harga_updated' : 'gagal'));
+        header('Location: index.php?status=' . ($ok ? 'harga_updated' : 'gagal'));
         exit;
     }
 
     if ($_POST['aksi'] === 'edit_jumlah_pengajuan') {
         $ok = updateJumlahPengajuanKoperasi($koneksi, $_POST['pengajuan_id'], str_replace(['.', ','], '', $_POST['jumlah_baru']));
-        header('Location: index-koperasi.php?status=' . ($ok ? 'harga_updated' : 'gagal'));
+        header('Location: index.php?status=' . ($ok ? 'harga_updated' : 'gagal'));
         exit;
     }
 
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
 
     if ($_POST['aksi'] === 'hapus_barang') {
         $ok = hapusBarangItemKoperasi($koneksi, $_POST['item_id']);
-        header('Location: index-koperasi.php?status=' . ($ok ? 'barang_deleted' : 'gagal'));
+        header('Location: index.php?status=' . ($ok ? 'barang_deleted' : 'gagal'));
         exit;
     }
 
@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
             date('Y-m-d'),
             $_POST['keterangan_saldo'] ?? null
         );
-        header('Location: index-koperasi.php?status=' . ($res['success'] ? 'saldo_added' : 'gagal'));
+        header('Location: index.php?status=' . ($res['success'] ? 'saldo_added' : 'gagal'));
         exit;
     }
 
