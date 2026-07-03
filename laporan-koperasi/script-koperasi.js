@@ -86,6 +86,31 @@ function validasiUploadNota() {
     return true;
 }
 
+/* ─── Modal Upload Kwitansi/Nota (level pengajuan — jenis Peralatan & Operasional) ───
+ * Dipakai untuk pengajuan yang jenisnya BUKAN 'stok' (tidak ada tombol Cetak + Tanda
+ * Tangan). Memakai mekanisme multi-upload yang sama dengan nota barang (context
+ * 'uploadKwitansi' sudah didaftarkan di notaContextConfig).
+ */
+function bukaUploadKwitansi(pengajuanId, namaPengajuan) {
+    document.getElementById('uploadKwitansiPengajuanId').value = pengajuanId;
+    document.getElementById('uploadKwitansiNama').value = namaPengajuan;
+
+    resetNotaContext('uploadKwitansi');
+    bukaModal('modalUploadKwitansi');
+}
+
+function validasiUploadKwitansi() {
+    if (notaFileLists.uploadKwitansi.length === 0) {
+        if (window.Swal) {
+            Swal.fire('Belum ada file', 'Pilih atau ambil foto kwitansi/nota dulu sebelum simpan.', 'warning');
+        } else {
+            alert('Pilih atau ambil foto kwitansi/nota dulu sebelum simpan.');
+        }
+        return false;
+    }
+    return true;
+}
+
 /* ─── Upload Nota: bisa lebih dari 1 file, dari file manager ATAU kamera ─── *
  * Dipakai di 2 tempat: modal "Tambah Barang" (context: tambahBarang) dan
  * modal "Upload Nota" untuk barang yang sudah ada (context: uploadNota).
@@ -100,9 +125,10 @@ function validasiUploadNota() {
  */
 const notaContextConfig = {
     tambahBarang: { submitInputId: 'tambahBarangNotaSubmit', previewListId: 'tambahBarangNotaPreview' },
-    uploadNota: { submitInputId: 'uploadNotaSubmit', previewListId: 'uploadNotaPreview' }
+    uploadNota: { submitInputId: 'uploadNotaSubmit', previewListId: 'uploadNotaPreview' },
+    uploadKwitansi: { submitInputId: 'uploadKwitansiSubmit', previewListId: 'uploadKwitansiPreview' }
 };
-const notaFileLists = { tambahBarang: [], uploadNota: [] };
+const notaFileLists = { tambahBarang: [], uploadNota: [], uploadKwitansi: [] };
 
 function resetNotaContext(context) {
     const cfg = notaContextConfig[context];

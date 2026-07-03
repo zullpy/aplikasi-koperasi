@@ -877,6 +877,8 @@ function openApproval(id) {
         const img = document.getElementById('aBuktiImg');
         if (i.bukti && i.bukti.startsWith('data:image')) {
             img.src = i.bukti; img.style.display = 'block';
+        } else if (i.bukti) {
+            img.src = resolveBuktiUrl(i.bukti); img.style.display = 'block';
         } else { img.style.display = 'none'; }
     } else {
         buktiExist.style.display = 'none';
@@ -896,8 +898,8 @@ function pilihKeputusan(v) {
     document.getElementById('btnSimpanApproval').style.display = 'inline-flex';
 }
 
-function previewBukti() {
-    const f = document.getElementById('aBuktiFile').files[0];
+function previewBukti(inputEl) {
+    const f = inputEl.files[0];
     if (!f) return;
     tmpBuktiName = f.name;
     document.getElementById('buktiLabel').textContent = f.name;
@@ -913,6 +915,14 @@ function previewBukti() {
     r.readAsDataURL(f);
 }
 
+// Bukti bisa berupa data URL base64 (baru dipilih user, belum tersimpan)
+// atau path relatif dari server (sudah tersimpan, misal "bukti_approval_koperasi/xxx.jpg").
+function resolveBuktiUrl(bukti) {
+    if (!bukti) return '';
+    if (bukti.startsWith('data:image')) return bukti;
+    return '../uploads/' + bukti;
+}
+
 async function saveApproval() {
     const id = parseInt(document.getElementById('approvalId').value);
     const i = data.find(x => x.id === id);
@@ -923,6 +933,10 @@ async function saveApproval() {
     if (currentKeputusan === 'approved') {
         payload.saldo = parseHarga(document.getElementById('aSaldo').value);
         payload.catatan = document.getElementById('aCatatan').value;
+        // Bukti transfer wajib diikutkan di payload — sebelumnya tmpBukti
+        // cuma dipakai buat update tampilan lokal, jadi server ga pernah nerima datanya.
+        payload.bukti = tmpBukti || '';
+        payload.buktiName = tmpBuktiName || '';
     } else {
         payload.alasan = document.getElementById('aAlasan').value;
     }
@@ -970,9 +984,9 @@ function viewBuktiSingle(id) {
     document.getElementById('viewTgl').textContent = fmtDate(i.approvedAt || i.tanggal);
     const img = document.getElementById('viewBuktiImg');
     const note = document.getElementById('viewBuktiNote');
-    if (i.bukti && i.bukti.startsWith('data:image')) {
-        img.src = i.bukti; img.style.display = 'block';
-        note.textContent = i.buktiName;
+    if (i.bukti) {
+        img.src = resolveBuktiUrl(i.bukti); img.style.display = 'block';
+        note.textContent = i.buktiName || '';
     } else if (i.buktiName) {
         img.style.display = 'none';
         note.textContent = 'File: ' + i.buktiName;

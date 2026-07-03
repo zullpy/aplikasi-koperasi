@@ -1,4 +1,4 @@
-<?php 
+<?php
 require_once '../database/auth.php';
 ?>
 <!DOCTYPE html>
@@ -146,14 +146,14 @@ require_once '../database/auth.php';
                             <img id="aBuktiImg" class="img-preview" style="display:none">
                             <label class="btn sm" style="margin-top:8px">
                                 <i class="ti ti-upload"></i> Ganti bukti TF
-                                <input type="file" id="aBuktiFile" accept="image/*" onchange="previewBukti()" style="display:none">
+                                <input type="file" id="aBuktiFileExist" accept="image/*" onchange="previewBukti(this)" style="display:none">
                             </label>
                         </div>
                         <div id="aBuktiEmpty" style="display:block">
                             <label class="upload-area" style="display:block">
                                 <i class="ti ti-upload" style="font-size:24px;color:var(--text-muted)"></i>
                                 <p id="buktiLabel">Klik untuk upload bukti transfer</p>
-                                <input type="file" id="aBuktiFile" accept="image/*" onchange="previewBukti()" style="display:none">
+                                <input type="file" id="aBuktiFileEmpty" accept="image/*" onchange="previewBukti(this)" style="display:none">
                             </label>
                         </div>
                     </div>

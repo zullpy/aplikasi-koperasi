@@ -347,7 +347,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             font-size: 22px;
             font-weight: bold;
             letter-spacing: .5px;
-            padding: 10px 0;
+            /* padding: 10px 0; */
             background: #fff;
         }
 
@@ -527,6 +527,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             <div class="garis-ganda"></div>
 
             <div class="judul-laporan-belanja">LAPORAN BELANJA</div>
+            <div class="judul-laporan-belanja">PELAYANAN SPPG</div>
 
             <table class="tabel-info">
                 <tr>

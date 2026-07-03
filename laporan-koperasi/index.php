@@ -49,6 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
         exit;
     }
 
+    // ── Upload Kwitansi/Nota — level pengajuan (jenis selain 'stok') ──
+    if ($_POST['aksi'] === 'tambah_kwitansi') {
+        $res = tambahKwitansiKoperasi(
+            $koneksi,
+            $_POST['pengajuan_id_kwitansi'],
+            $_FILES['kwitansi'] ?? null
+        );
+        header('Location: index.php?status=' . ($res['success'] ? 'kwitansi_added' : 'gagal'));
+        exit;
+    }
+
     if ($_POST['aksi'] === 'tambah_saldo') {
         $res = tambahSaldoKoperasi(
             $koneksi,
@@ -149,13 +160,14 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
         </div>
 
         <!-- Alert -->
-        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['harga_updated', 'barang_added', 'barang_deleted', 'saldo_added', 'nota_added', 'ttd_saved', 'ttd_deleted', 'gagal'])):
+        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['harga_updated', 'barang_added', 'barang_deleted', 'saldo_added', 'nota_added', 'kwitansi_added', 'ttd_saved', 'ttd_deleted', 'gagal'])):
             $pesan = [
                 'harga_updated'  => 'Harga / nominal berhasil diperbarui.',
                 'barang_added'   => 'Barang baru berhasil ditambahkan.',
                 'barang_deleted' => 'Barang berhasil dihapus.',
                 'saldo_added'    => 'Saldo berhasil ditambahkan.',
                 'nota_added'     => 'Nota berhasil ditambahkan.',
+                'kwitansi_added' => 'Kwitansi/nota berhasil ditambahkan.',
                 'ttd_saved'      => 'Tanda tangan berhasil disimpan.',
                 'ttd_deleted'    => 'Tanda tangan berhasil dihapus.',
                 'gagal'          => 'Terjadi kesalahan, silakan coba lagi.',
@@ -266,6 +278,9 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                             <?php foreach ($rows as $no => $row):
                                 $sisa       = (float) $row['sisa_saldo'];
                                 $punyaItem  = $row['jenis'] !== 'operasional';
+                                // Cetak PDF + Tanda Tangan cuma untuk jenis 'stok'.
+                                // Jenis lain (peralatan/operasional) pakai upload kwitansi/nota manual.
+                                $jenisStok  = $row['jenis'] === 'stok';
                             ?>
                                 <tr class="data-row">
                                     <td><span class="no-badge"><?= $no + 1 ?></span></td>
@@ -319,35 +334,58 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                 </svg>
                                                 Saldo
                                             </button>
-                                            <?php if ($bisaTtd):
-                                                $ttdRoleIni = $ttdSemua[$row['id']][$roleLoginSaatIni] ?? null;
-                                            ?>
-                                                <button type="button" class="btn <?= $ttdRoleIni ? 'btn--outline' : 'btn--ttd' ?>"
-                                                    onclick='bukaTtdKoperasi(<?= $row['id'] ?>, "<?= htmlspecialchars(addslashes($row['tujuan'])) ?>", "<?= htmlspecialchars($daftarRoleTtd[$roleLoginSaatIni]) ?>", <?= $ttdRoleIni ? json_encode([
-                                                                                                                                                                                                                            'signature_path' => $ttdRoleIni['signature_path'],
-                                                                                                                                                                                                                            'signed_by'      => $ttdRoleIni['signed_by'],
-                                                                                                                                                                                                                            'signed_at'      => $ttdRoleIni['signed_at'],
-                                                                                                                                                                                                                        ]) : 'null' ?>)'>
+                                            <?php if ($jenisStok): ?>
+                                                <?php if ($bisaTtd):
+                                                    $ttdRoleIni = $ttdSemua[$row['id']][$roleLoginSaatIni] ?? null;
+                                                ?>
+                                                    <button type="button" class="btn <?= $ttdRoleIni ? 'btn--outline' : 'btn--ttd' ?>"
+                                                        onclick='bukaTtdKoperasi(<?= $row['id'] ?>, "<?= htmlspecialchars(addslashes($row['tujuan'])) ?>", "<?= htmlspecialchars($daftarRoleTtd[$roleLoginSaatIni]) ?>", <?= $ttdRoleIni ? json_encode([
+                                                                                                                                                                                                                                'signature_path' => $ttdRoleIni['signature_path'],
+                                                                                                                                                                                                                                'signed_by'      => $ttdRoleIni['signed_by'],
+                                                                                                                                                                                                                                'signed_at'      => $ttdRoleIni['signed_at'],
+                                                                                                                                                                                                                            ]) : 'null' ?>)'>
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                                            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                                            <path d="M2 2l7.586 7.586" />
+                                                            <circle cx="11" cy="11" r="2" />
+                                                        </svg>
+                                                        <?= $ttdRoleIni ? 'Lihat TTD' : 'Tanda Tangan' ?>
+                                                    </button>
+                                                <?php endif; ?>
+                                                <a class="btn btn--outline"
+                                                    href="cetak-laporan-koperasi.php?id=<?= $row['id'] ?>"
+                                                    target="_blank" title="Ekspor / Cetak PDF Laporan Belanja">
                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                                                        <path d="M2 2l7.586 7.586" />
-                                                        <circle cx="11" cy="11" r="2" />
+                                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                        <polyline points="14 2 14 8 20 8" />
+                                                        <line x1="9" y1="15" x2="15" y2="15" />
+                                                        <line x1="9" y1="11" x2="12" y2="11" />
                                                     </svg>
-                                                    <?= $ttdRoleIni ? 'Lihat TTD' : 'Tanda Tangan' ?>
+                                                    Cetak
+                                                </a>
+                                            <?php else: ?>
+                                                <?php if (!empty($row['kwitansi'])): ?>
+                                                    <button type="button" class="btn btn--outline btn-nota"
+                                                        onclick='bukaGaleriNota(<?= json_encode(array_values($row['kwitansi'])) ?>, "Kwitansi/Nota — <?= htmlspecialchars(addslashes($row['tujuan'])) ?>")'>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                            <circle cx="12" cy="12" r="3" />
+                                                        </svg>
+                                                        Lihat Kwitansi<?= count($row['kwitansi']) > 1 ? ' (' . count($row['kwitansi']) . ')' : '' ?>
+                                                    </button>
+                                                <?php endif; ?>
+                                                <button type="button" class="btn btn--outline"
+                                                    onclick="bukaUploadKwitansi(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>')"
+                                                    title="Upload Kwitansi / Nota Belanja">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                        <polyline points="17 8 12 3 7 8" />
+                                                        <line x1="12" y1="3" x2="12" y2="15" />
+                                                    </svg>
+                                                    <?= empty($row['kwitansi']) ? 'Upload Kwitansi/Nota' : '+ Kwitansi/Nota' ?>
                                                 </button>
                                             <?php endif; ?>
-                                            <a class="btn btn--outline"
-                                                href="cetak-laporan-koperasi.php?id=<?= $row['id'] ?>"
-                                                target="_blank" title="Ekspor / Cetak PDF Laporan Belanja">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                                    <polyline points="14 2 14 8 20 8" />
-                                                    <line x1="9" y1="15" x2="15" y2="15" />
-                                                    <line x1="9" y1="11" x2="12" y2="11" />
-                                                </svg>
-                                                Cetak
-                                            </a>
                                             <?php if (!$punyaItem): ?>
                                                 <button class="btn btn--outline"
                                                     onclick="bukaEditHarga('pengajuan', <?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>', <?= (float) $row['jumlah'] ?>)">
@@ -476,34 +514,82 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                 </div>
                                             <?php endif; ?>
 
-                                            <!-- ─── Status Tanda Tangan Persetujuan (4 role) ─────────── -->
-                                            <div class="detail-inner__title" style="margin-top:18px">
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                    <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                                                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                                                </svg>
-                                                Status Tanda Tangan
-                                            </div>
-                                            <div class="ttd-status-grid">
-                                                <?php foreach ($daftarRoleTtd as $roleKey => $roleLabel):
-                                                    $ttdItem = $ttdSemua[$row['id']][$roleKey] ?? null;
-                                                ?>
-                                                    <div class="ttd-status-item <?= $ttdItem ? 'ttd-status-item--signed' : '' ?>">
-                                                        <div class="ttd-status-item__role"><?= htmlspecialchars($roleLabel) ?></div>
-                                                        <?php if ($ttdItem): ?>
-                                                            <img src="../uploads/<?= htmlspecialchars($ttdItem['signature_path']) ?>"
-                                                                alt="Tanda tangan <?= htmlspecialchars($roleLabel) ?>" class="ttd-status-item__img"
-                                                                onclick="bukaGambar(this.src, 'Tanda Tangan — <?= htmlspecialchars(addslashes($roleLabel)) ?>')">
-                                                            <div class="ttd-status-item__meta">
-                                                                <?= htmlspecialchars($ttdItem['signed_by']) ?><br>
-                                                                <?= date('d M Y, H:i', strtotime($ttdItem['signed_at'])) ?>
-                                                            </div>
-                                                        <?php else: ?>
-                                                            <div class="ttd-status-item__empty">Belum tanda tangan</div>
-                                                        <?php endif; ?>
+                                            <?php if ($jenisStok): ?>
+                                                <!-- ─── Status Tanda Tangan Persetujuan (4 role) — hanya jenis Stok ─── -->
+                                                <div class="detail-inner__title" style="margin-top:18px">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                                                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                                                    </svg>
+                                                    Status Tanda Tangan
+                                                </div>
+                                                <div class="ttd-status-grid">
+                                                    <?php foreach ($daftarRoleTtd as $roleKey => $roleLabel):
+                                                        $ttdItem = $ttdSemua[$row['id']][$roleKey] ?? null;
+                                                    ?>
+                                                        <div class="ttd-status-item <?= $ttdItem ? 'ttd-status-item--signed' : '' ?>">
+                                                            <div class="ttd-status-item__role"><?= htmlspecialchars($roleLabel) ?></div>
+                                                            <?php if ($ttdItem): ?>
+                                                                <img src="../uploads/<?= htmlspecialchars($ttdItem['signature_path']) ?>"
+                                                                    alt="Tanda tangan <?= htmlspecialchars($roleLabel) ?>" class="ttd-status-item__img"
+                                                                    onclick="bukaGambar(this.src, 'Tanda Tangan — <?= htmlspecialchars(addslashes($roleLabel)) ?>')">
+                                                                <div class="ttd-status-item__meta">
+                                                                    <?= htmlspecialchars($ttdItem['signed_by']) ?><br>
+                                                                    <?= date('d M Y, H:i', strtotime($ttdItem['signed_at'])) ?>
+                                                                </div>
+                                                            <?php else: ?>
+                                                                <div class="ttd-status-item__empty">Belum tanda tangan</div>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php else: ?>
+                                                <!-- ─── Kwitansi / Nota — jenis Peralatan & Operasional ─────── -->
+                                                <div class="detail-inner__title" style="margin-top:18px;justify-content:space-between">
+                                                    <span style="display:flex;align-items:center;gap:6px">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5">
+                                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                            <polyline points="14 2 14 8 20 8" />
+                                                        </svg>
+                                                        Kwitansi / Nota Belanja
+                                                    </span>
+                                                    <button type="button" class="btn btn--success"
+                                                        onclick="bukaUploadKwitansi(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>')">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                                            <circle cx="12" cy="12" r="10" />
+                                                            <line x1="12" y1="8" x2="12" y2="16" />
+                                                            <line x1="8" y1="12" x2="16" y2="12" />
+                                                        </svg>
+                                                        Tambah Kwitansi/Nota
+                                                    </button>
+                                                </div>
+                                                <?php if (empty($row['kwitansi'])): ?>
+                                                    <div class="detail-inner__title" style="color:var(--muted);font-weight:400">
+                                                        Belum ada kwitansi/nota yang diunggah.
                                                     </div>
-                                                <?php endforeach; ?>
-                                            </div>
+                                                <?php else: ?>
+                                                    <div class="nota-galeri-grid">
+                                                        <?php foreach ($row['kwitansi'] as $idx => $kwitansiPath):
+                                                            $isPdf = preg_match('/\.pdf(\?.*)?$/i', $kwitansiPath);
+                                                        ?>
+                                                            <div class="nota-galeri-item">
+                                                                <?php if ($isPdf): ?>
+                                                                    <a href="../uploads/<?= htmlspecialchars($kwitansiPath) ?>" target="_blank" rel="noopener" class="nota-galeri-pdf">
+                                                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                                                            <polyline points="14 2 14 8 20 8" />
+                                                                        </svg>
+                                                                        <span>Kwitansi <?= $idx + 1 ?> (PDF) — buka di tab baru</span>
+                                                                    </a>
+                                                                <?php else: ?>
+                                                                    <img src="../uploads/<?= htmlspecialchars($kwitansiPath) ?>" alt="Kwitansi <?= $idx + 1 ?>" loading="lazy" title="Klik untuk perbesar"
+                                                                        onclick="bukaGambar('../uploads/<?= htmlspecialchars($kwitansiPath) ?>', 'Kwitansi/Nota — <?= htmlspecialchars(addslashes($row['tujuan'])) ?> (<?= $idx + 1 ?>)')">
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -788,6 +874,71 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                 </div>
                 <div class="modal__footer">
                     <button type="button" class="btn btn--secondary" onclick="tutupModalById('modalUploadNota')">Batal</button>
+                    <button type="submit" class="btn btn--success">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ─── Modal Upload Kwitansi/Nota (level pengajuan — jenis Peralatan & Operasional) ─── -->
+    <div class="modal-overlay" id="modalUploadKwitansi" onclick="tutupModal('modalUploadKwitansi', event)">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleUploadKwitansi">
+            <form method="POST" enctype="multipart/form-data" onsubmit="return validasiUploadKwitansi()">
+                <div class="modal__header">
+                    <div class="modal__title" id="titleUploadKwitansi">Upload Kwitansi / Nota</div>
+                    <button type="button" class="modal__close" onclick="tutupModalById('modalUploadKwitansi')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal__body">
+                    <input type="hidden" name="aksi" value="tambah_kwitansi">
+                    <input type="hidden" name="pengajuan_id_kwitansi" id="uploadKwitansiPengajuanId">
+
+                    <div class="form-group">
+                        <label class="form-label">Pengajuan</label>
+                        <input type="text" class="form-control" id="uploadKwitansiNama" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Foto Kwitansi / Nota</label>
+
+                        <div class="nota-upload-actions">
+                            <button type="button" class="btn btn--outline" onclick="document.getElementById('uploadKwitansiFileInput').click()">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                Pilih File
+                            </button>
+                            <button type="button" class="btn btn--outline" onclick="document.getElementById('uploadKwitansiCameraInput').click()">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                    <circle cx="12" cy="13" r="4" />
+                                </svg>
+                                Ambil Foto
+                            </button>
+                        </div>
+
+                        <input type="file" id="uploadKwitansiFileInput" class="visually-hidden"
+                            accept="image/jpeg,image/png,application/pdf" multiple
+                            onchange="handleNotaFilesAdded('uploadKwitansi', this.files); this.value='';">
+
+                        <input type="file" id="uploadKwitansiCameraInput" class="visually-hidden"
+                            accept="image/*" capture="environment"
+                            onchange="handleNotaFilesAdded('uploadKwitansi', this.files); this.value='';">
+
+                        <input type="file" name="kwitansi[]" id="uploadKwitansiSubmit" class="visually-hidden" multiple>
+
+                        <div class="form-hint">Bisa pilih lebih dari 1 file dari galeri, atau ambil langsung dari kamera HP (JPG, PNG, atau PDF). Maksimal 5MB per file. Kwitansi lama tidak akan hilang — file baru cuma ditambahkan.</div>
+                        <div class="nota-preview-list" id="uploadKwitansiPreview"></div>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" onclick="tutupModalById('modalUploadKwitansi')">Batal</button>
                     <button type="submit" class="btn btn--success">Simpan</button>
                 </div>
             </form>

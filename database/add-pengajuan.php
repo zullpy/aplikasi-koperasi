@@ -1,6 +1,13 @@
 <?php
+// ===== DEBUG SEMENTARA — HAPUS SETELAH KETEMU MASALAHNYA =====
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+// ===============================================================
+
 header('Content-Type: application/json');
 require_once 'koneksi.php';
+require_once __DIR__ . '/laporan-koperasi-func.php';
 
 // Hanya terima method POST — mencegah request GET (reload/prefetch) ikut nge-trigger insert
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -77,16 +84,40 @@ if (($input['action'] ?? '') === 'approval') {
 
     try {
         if ($status === 'approved') {
-            $saldo   = (float)($input['saldo'] ?? 0);
-            $catatan = trim($input['catatan'] ?? '');
+            $saldo      = (float)($input['saldo'] ?? 0);
+            $catatan    = trim($input['catatan'] ?? '');
+            $buktiInput = $input['bukti'] ?? '';
+            $buktiName  = trim($input['buktiName'] ?? '');
+
+            // Ambil bukti lama dulu, biar kalau user gak upload ulang (tetap pakai bukti
+            // yang sudah ada sebelumnya), kolomnya gak ketiban NULL / kosong.
+            $rowLama = $koneksi->prepare("SELECT bukti FROM pengajuan_anggaran WHERE id = ?");
+            $rowLama->bind_param('i', $id);
+            $rowLama->execute();
+            $existing  = $rowLama->get_result()->fetch_assoc();
+            $rowLama->close();
+            $buktiPath = $existing['bukti'] ?? null;
+
+            if (!empty($buktiInput) && strpos($buktiInput, 'base64,') !== false) {
+                // Upload baru (data URL base64 dari FileReader di browser)
+                $saved = simpanBuktiTransferApprovalKoperasi($buktiInput);
+                if ($saved === false) {
+                    throw new Exception('Upload bukti transfer gagal. Pastikan file berupa JPG/PNG dan tidak rusak, maksimal 5MB.');
+                }
+                $buktiPath = $saved;
+            } elseif (!empty($buktiInput)) {
+                // Bukan base64 baru, berarti path lama yang dikirim balik dari frontend
+                $buktiPath = $buktiInput;
+            }
 
             $stmt = $koneksi->prepare("
                 UPDATE pengajuan_anggaran
                 SET status = ?, saldo = ?, catatan = ?, alasan = NULL,
+                    bukti = ?, bukti_name = ?,
                     approved_at = CURDATE(), approved_by = ?
                 WHERE id = ?
             ");
-            $stmt->bind_param('sdsii', $status, $saldo, $catatan, $approvedBy, $id);
+            $stmt->bind_param('sdsssii', $status, $saldo, $catatan, $buktiPath, $buktiName, $approvedBy, $id);
         } else {
             $alasan = trim($input['alasan'] ?? '');
 

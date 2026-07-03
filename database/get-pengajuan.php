@@ -4,7 +4,7 @@ require_once 'koneksi.php';
 
 $result = $koneksi->query("
     SELECT id, jenis, tujuan, tanggal, jumlah, status,
-           saldo, catatan, approved_at, alasan
+           saldo, catatan, approved_at, alasan, bukti, bukti_name
     FROM pengajuan_anggaran
     ORDER BY tanggal DESC, id DESC
 ");
@@ -63,8 +63,8 @@ foreach ($pengajuanList as $pa) {
         'saldo'      => (float)($pa['saldo'] ?? 0),
         'approvedAt' => $pa['approved_at'] ?? '',
         'alasan'     => $pa['alasan'] ?? '',
-        'bukti'      => '',
-        'buktiName'  => '',
+        'bukti'      => $pa['bukti'] ?? '',
+        'buktiName'  => $pa['bukti_name'] ?? '',
         'catatan'    => $pa['catatan'] ?? '',
         'items'      => $detailMap[$pa['id']] ?? [],
     ];

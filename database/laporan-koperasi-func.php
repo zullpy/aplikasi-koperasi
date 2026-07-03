@@ -38,6 +38,11 @@ function getDataLaporanKoperasi($koneksi)
         $r['saldo_masuk']   = hitungSaldoMasukKoperasi($koneksi, $r['id'], $nominalDisetujui);
         $r['total_belanja'] = hitungTotalBelanjaKoperasi($koneksi, $r['id'], $r['jenis'], $nominalDisetujui);
         $r['sisa_saldo']    = $r['saldo_masuk'] - $r['total_belanja'];
+
+        // Kwitansi/nota level-pengajuan (dipakai untuk jenis selain 'stok', yang tidak
+        // punya tombol Cetak + Tanda Tangan — diganti upload kwitansi/nota manual).
+        $r['kwitansi'] = decodeNotaPathKoperasi($r['kwitansi_path'] ?? null);
+
         $rows[] = $r;
     }
     return $rows;
@@ -254,6 +259,53 @@ function tambahNotaItemKoperasi($koneksi, $itemId, $filesNota)
 
     return ['success' => $ok];
 }
+
+// ===== TAMBAH KWITANSI/NOTA — LEVEL PENGAJUAN (jenis selain 'stok') =====
+// Dipakai untuk pengajuan 'peralatan' & 'operasional' yang tidak punya tombol
+// Cetak + Tanda Tangan. Sebagai gantinya, purchase/admin cukup upload foto
+// kwitansi/nota belanja langsung ke pengajuan-nya (bukan per-barang).
+// File baru DITAMBAHKAN ke kwitansi_path yang sudah ada (append, bukan replace),
+// mengikuti pola yang sama seperti tambahNotaItemKoperasi().
+function tambahKwitansiKoperasi($koneksi, $pengajuanId, $filesKwitansi)
+{
+    $pengajuanId = (int) $pengajuanId;
+
+    $adaFileDikirim = !empty($filesKwitansi) && !empty(array_filter(
+        (array) ($filesKwitansi['name'] ?? []),
+        fn($n) => $n !== null && $n !== ''
+    ));
+    if (!$adaFileDikirim) {
+        return ['success' => false, 'message' => 'Belum ada file kwitansi/nota yang dipilih.'];
+    }
+
+    $stmt = $koneksi->prepare("SELECT kwitansi_path FROM pengajuan_anggaran WHERE id = ?");
+    $stmt->bind_param('i', $pengajuanId);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$row) {
+        return ['success' => false, 'message' => 'Pengajuan tidak ditemukan.'];
+    }
+
+    $kwitansiLama = decodeNotaPathKoperasi($row['kwitansi_path']);
+    $kwitansiBaru = uploadMultiNotaKoperasi($filesKwitansi, 'kwitansi_koperasi', 'kwitansi');
+
+    if (empty($kwitansiBaru)) {
+        return ['success' => false, 'message' => 'Upload kwitansi/nota gagal. Pastikan format JPG/PNG/PDF dan ukuran maksimal 5MB.'];
+    }
+
+    $gabungan         = array_values(array_merge($kwitansiLama, $kwitansiBaru));
+    $kwitansiPathJson = json_encode($gabungan);
+
+    $stmt = $koneksi->prepare("UPDATE pengajuan_anggaran SET kwitansi_path = ? WHERE id = ?");
+    $stmt->bind_param('si', $kwitansiPathJson, $pengajuanId);
+    $ok = $stmt->execute();
+    $stmt->close();
+
+    return ['success' => $ok];
+}
+
 function hapusBarangItemKoperasi($koneksi, $itemId)
 {
     $itemId = (int) $itemId;
@@ -549,4 +601,50 @@ function simpanFileTtdKoperasi($base64Image)
     }
 
     return 'ttd_koperasi/' . $namaFile;
+}
+
+/**
+ * Decode data URL base64 bukti transfer (hasil FileReader di browser, bisa JPG/PNG)
+ * lalu simpan sebagai file fisik di ../uploads/bukti_approval_koperasi/.
+ * Return path relatif (disimpan di DB), atau false kalau data kosong/tidak valid.
+ */
+function simpanBuktiTransferApprovalKoperasi($base64Image)
+{
+    if (empty($base64Image) || strpos($base64Image, 'base64,') === false) {
+        return false;
+    }
+
+    // Ambil mime type dari header data URL, misal "data:image/jpeg;base64,...."
+    $ext = 'png';
+    if (preg_match('/^data:image\/(png|jpe?g);base64,/i', $base64Image, $m)) {
+        $ext = strtolower($m[1]) === 'jpg' ? 'jpg' : strtolower($m[1]);
+    } else {
+        return false; // bukan gambar yang didukung
+    }
+
+    [, $data] = explode('base64,', $base64Image, 2);
+    $data = base64_decode(str_replace(' ', '+', $data));
+
+    if ($data === false || strlen($data) < 100) {
+        return false;
+    }
+
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if (strlen($data) > $maxSize) {
+        return false;
+    }
+
+    $targetDir = __DIR__ . '/../uploads/bukti_approval_koperasi/';
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0755, true);
+    }
+
+    $namaFile = 'bukti_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    $target   = $targetDir . $namaFile;
+
+    if (file_put_contents($target, $data) === false) {
+        return false;
+    }
+
+    return 'bukti_approval_koperasi/' . $namaFile;
 }

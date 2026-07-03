@@ -57,7 +57,7 @@ $yearLabel   = ($startYear && (int)$startYear < (int)$currentYear)
             <polyline points="16 18 22 12 16 6"></polyline>
             <polyline points="8 6 2 12 8 18"></polyline>
         </svg>
-        Dikembangkan oleh
+        Created By
         <?php if (!empty($developerUrl)): ?>
             <a href="<?= htmlspecialchars($developerUrl) ?>" target="_blank" rel="noopener noreferrer">
                 <?= htmlspecialchars($developerName) ?>
@@ -82,7 +82,7 @@ $yearLabel   = ($startYear && (int)$startYear < (int)$currentYear)
         padding: 6px 16px;
         box-sizing: border-box;
         text-align: center;
-        position: sticky;
+        /* position: sticky; */
         bottom: 0;
         z-index: 10;
     }
