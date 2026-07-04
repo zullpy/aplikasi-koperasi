@@ -9,9 +9,16 @@ $kategori      = $_POST['kategori'] ?? [];
 $keterangan    = $_POST['keterangan'];
 $harga         = $_POST['harga'];
 $harga_eceran  = $_POST['harga_eceran'] ?? [];
-$keuntungan    = $_POST['keuntungan'] ?? [];
+// FIX: sebelumnya backend baca $_POST['keuntungan'] padahal field form bernama
+// keuntungan_dus[] & keuntungan_eceran[] -> markup harga jual selalu 0. Dipisah & diperbaiki.
+$keuntungan_dus    = $_POST['keuntungan_dus'] ?? [];
+$keuntungan_eceran = $_POST['keuntungan_eceran'] ?? [];
 $volume        = $_POST['volume'];
 $satuan        = $_POST['satuan'];
+
+// ✅ BARU: input manual untuk isi per satuan & satuan eceran (dari form)
+$isi_per_satuan_manual = $_POST['isi_per_satuan'] ?? [];
+$satuan_eceran_manual  = $_POST['satuan_eceran'] ?? [];
 
 // FIX: tanggal bisa array atau string
 $tanggal_pembelian = is_array($_POST['tanggal_pembelian'])
@@ -32,6 +39,7 @@ $kode_transaksi = 'TRX' . date('YmdHis');
 // Track barang baru yang dibuat otomatis (untuk notifikasi)
 $new_barangs_created = [];
 $total_tagihan = 0;
+$ada_penambahan_stok_eceran = false; // ✅ BARU: flag untuk notifikasi stok eceran
 
 /*
 |--------------------------------------------------------------------------
@@ -133,7 +141,10 @@ if (!is_array($nama_barang)) {
     $kategori     = [$kategori];
     $harga        = [$harga];
     $harga_eceran = [$harga_eceran];
-    $keuntungan   = [$keuntungan];
+    $keuntungan_dus        = [$keuntungan_dus];
+    $keuntungan_eceran     = [$keuntungan_eceran];
+    $isi_per_satuan_manual = [$isi_per_satuan_manual];
+    $satuan_eceran_manual  = [$satuan_eceran_manual];
     $volume       = [$volume];
     $satuan       = [$satuan];
     $keterangan   = [$keterangan];
@@ -142,25 +153,39 @@ if (!is_array($nama_barang)) {
 foreach ($nama_barang as $i => $barang_nama) {
     $harga_item          = preg_replace('/[^0-9]/', '', $harga[$i] ?? '0');
     $harga_eceran_item   = preg_replace('/[^0-9]/', '', $harga_eceran[$i] ?? '0');
-    $keuntungan_item     = preg_replace('/[^0-9]/', '', $keuntungan[$i] ?? '0');
+    $keuntungan_dus_item    = preg_replace('/[^0-9]/', '', $keuntungan_dus[$i] ?? '0');
+    $keuntungan_eceran_item = preg_replace('/[^0-9]/', '', $keuntungan_eceran[$i] ?? '0');
     $volume_item         = $volume[$i];
     $satuan_item         = $satuan[$i];
     $keterangan_item     = $keterangan[$i];
     $kategori_item       = trim($kategori[$i] ?? '');
 
-    // ✅ Hitung harga jual per dus di server
+    // ✅ Hitung harga jual per dus di server (deteksi otomatis dari kolom "Isi")
     $jumlah_isi = 0;
+    $satuan_eceran_terdeteksi = null;
     if (preg_match('/isi\s*(\d+)/i', $keterangan_item, $matches)) {
         $jumlah_isi = (int) $matches[1];
-    } elseif (preg_match('/(\d+)\s*(?:pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i', $keterangan_item, $matches)) {
+    } elseif (preg_match('/(\d+)\s*(pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i', $keterangan_item, $matches)) {
         $jumlah_isi = (int) $matches[1];
+        $satuan_eceran_terdeteksi = strtoupper($matches[2]);
     }
 
-    $harga_jual_item = $jumlah_isi > 0
-        ? $harga_item + ($keuntungan_item * $jumlah_isi)
-        : $harga_item + $keuntungan_item;
+    // ✅ BARU: isi per satuan & satuan eceran — input manual (dari form) diprioritaskan,
+    // kalau kosong baru fallback ke hasil deteksi otomatis dari kolom "Isi".
+    $isi_manual_raw = preg_replace('/[^0-9]/', '', $isi_per_satuan_manual[$i] ?? '');
+    $isi_manual_item = ($isi_manual_raw === '') ? 0 : (int) $isi_manual_raw;
+    $jumlah_isi_final = $isi_manual_item > 0 ? $isi_manual_item : $jumlah_isi;
 
-    $harga_jual_eceran_item = $harga_eceran_item + $keuntungan_item;
+    $satuan_eceran_manual_item = trim($satuan_eceran_manual[$i] ?? '');
+    $satuan_eceran_final = $satuan_eceran_manual_item !== ''
+        ? strtoupper($satuan_eceran_manual_item)
+        : $satuan_eceran_terdeteksi;
+
+    $harga_jual_item = $jumlah_isi_final > 0
+        ? $harga_item + ($keuntungan_dus_item * $jumlah_isi_final)
+        : $harga_item + $keuntungan_dus_item;
+
+    $harga_jual_eceran_item = $harga_eceran_item + $keuntungan_eceran_item;
 
     // ✅ ESCAPE VARIABEL DI AWAL (dipindah ke atas supaya bisa dipakai di INSERT barang baru)
     $kode_transaksi_esc    = mysqli_real_escape_string($koneksi, $kode_transaksi);
@@ -179,9 +204,20 @@ foreach ($nama_barang as $i => $barang_nama) {
     $biaya_admin_item      = ($i == 0) ? $biaya_admin : 0;
     $biaya_admin_esc       = (int) $biaya_admin_item;
 
+    // Konversi grosir->eceran (manual diutamakan, fallback ke hasil deteksi dari keterangan)
+    $isi_per_satuan_sql = $jumlah_isi_final > 0 ? (int) $jumlah_isi_final : null;
+    $satuan_eceran_esc  = ($satuan_eceran_final !== null && $satuan_eceran_final !== '')
+        ? mysqli_real_escape_string($koneksi, $satuan_eceran_final)
+        : null;
+
     // ✅ CEK BARANG + AUTO-REGISTER JIKA BELUM ADA
     $cari = mysqli_query($koneksi, "SELECT * FROM barang WHERE nama_barang='$barang_nama_esc'");
     $barang = mysqli_fetch_assoc($cari);
+
+    // ✅ BARU: hitung penambahan stok eceran = volume dus/satuan yang dibeli x isi per satuan
+    $tambahan_stok_eceran = $isi_per_satuan_sql !== null ? ($volume_esc * $isi_per_satuan_sql) : 0;
+    $stok_eceran_lama = $barang ? (int) ($barang['stok_eceran'] ?? 0) : 0;
+    $stok_eceran_baru = $stok_eceran_lama + $tambahan_stok_eceran;
 
     if (!$barang) {
         // 🆕 AUTO-CREATE: barang belum terdaftar → daftarkan otomatis ke tabel barang
@@ -190,7 +226,8 @@ foreach ($nama_barang as $i => $barang_nama) {
         $insert_barang = mysqli_query($koneksi, "
             INSERT INTO barang (
                 nama_barang, kategori, stok_akhir, harga_beli, harga_eceran,
-                harga_jual, harga_jual_eceran, satuan, tanggal_terupdate_baru
+                harga_jual, harga_jual_eceran, satuan, satuan_eceran, isi_per_satuan, stok_eceran,
+                tanggal_terupdate_baru
             ) VALUES (
                 '$barang_nama_esc',
                 " . ($kategori_esc !== '' ? "'$kategori_esc'" : "NULL") . ",
@@ -200,6 +237,9 @@ foreach ($nama_barang as $i => $barang_nama) {
                 '$harga_jual_esc',
                 '$harga_jual_eceran_esc',
                 '$satuan_default',
+                " . ($satuan_eceran_esc !== null ? "'$satuan_eceran_esc'" : "NULL") . ",
+                " . ($isi_per_satuan_sql !== null ? $isi_per_satuan_sql : "NULL") . ",
+                $stok_eceran_baru,
                 '$tanggal_esc'
             )
         ") or die('INSERT barang Error: ' . mysqli_error($koneksi));
@@ -246,10 +286,23 @@ foreach ($nama_barang as $i => $barang_nama) {
 
     // ✅ UPDATE TABEL BARANG
     $kategori_set_sql = ($kategori_esc !== '') ? "kategori='$kategori_esc'," : "";
+
+    // ✅ BARU: simpan/refresh konversi grosir->eceran setiap kali ada nilai baru (manual atau deteksi otomatis),
+    // supaya isi per satuan & satuan eceran bisa dikoreksi user kapan saja, bukan cuma sekali di awal.
+    $konversi_set_sql = "";
+    if ($isi_per_satuan_sql !== null) {
+        $konversi_set_sql .= "isi_per_satuan=$isi_per_satuan_sql,";
+    }
+    if ($satuan_eceran_esc !== null) {
+        $konversi_set_sql .= "satuan_eceran='$satuan_eceran_esc',";
+    }
+
     mysqli_query($koneksi, "
         UPDATE barang
         SET $kategori_set_sql
+            $konversi_set_sql
             stok_akhir='$stok_baru',
+            stok_eceran='$stok_eceran_baru',
             harga_beli='$harga_esc',
             harga_eceran='$harga_eceran_esc',
             harga_jual='$harga_jual_esc',
@@ -258,14 +311,22 @@ foreach ($nama_barang as $i => $barang_nama) {
         WHERE id_barang='$id_barang'
     ");
 
-    // ✅ MUTASI STOK
+    // ✅ MUTASI STOK (+ catatan stok eceran kalau ada penambahan)
+    $ket_mutasi = 'Pembelian';
+    if ($tambahan_stok_eceran > 0) {
+        $satuan_eceran_label = $satuan_eceran_final ?: 'eceran';
+        $ket_mutasi .= " (stok eceran +{$tambahan_stok_eceran} {$satuan_eceran_label}: {$stok_eceran_lama} -> {$stok_eceran_baru})";
+        $ada_penambahan_stok_eceran = true;
+    }
+    $ket_mutasi_esc = mysqli_real_escape_string($koneksi, $ket_mutasi);
+
     mysqli_query($koneksi, "
         INSERT INTO mutasi_stok(
             id_pembelian, id_barang, tanggal, jenis, qty,
             stok_sebelum, stok_sesudah, keterangan
         ) VALUES(
             '$id_pembelian', '$id_barang', NOW(), 'masuk', '$volume_esc',
-            '$stok_lama', '$stok_baru', 'Pembelian'
+            '$stok_lama', '$stok_baru', '$ket_mutasi_esc'
         )
     ");
 
@@ -320,6 +381,9 @@ if (!empty($new_barangs_created)) {
     $alert_text .= " 🆕 Barang baru otomatis didaftarkan: " . $list_barang;
 }
 $alert_text .= " Harga beli, harga eceran, harga jual & tanggal otomatis terupdate ke tabel barang.";
+if ($ada_penambahan_stok_eceran) {
+    $alert_text .= " 📦 Stok eceran otomatis bertambah sesuai isi per satuan.";
+}
 if ($status_final === 'lunas') {
     $alert_text .= " 💰 Status: LUNAS.";
 } elseif ($status_final === 'sebagian') {

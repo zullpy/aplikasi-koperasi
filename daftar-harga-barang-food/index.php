@@ -11,7 +11,6 @@ b.harga_beli,
 b.harga_jual,
 b.suplier,
 b.satuan,
-b.alamat,
 b.tanggal_terupdate_baru,
 COALESCE(MIN(r.harga_beli), b.harga_beli) AS harga_min,
 COALESCE(MAX(r.harga_beli), b.harga_beli) AS harga_max
@@ -26,7 +25,6 @@ b.harga_beli,
 b.harga_jual,
 b.suplier,
 b.satuan,
-b.alamat,
 b.tanggal_terupdate_baru";
 $result = mysqli_query($koneksi, $query);
 $barang_list = [];
@@ -80,10 +78,10 @@ if ($result) {
                     <i class="ph ph-magnifying-glass"></i>
                 </div>
             </div>
-            <button class="add-btn" onclick="openAddModal()">
+            <!-- <button class="add-btn" onclick="openAddModal()">
                 <i class="ph ph-plus-circle"></i>
                 Tambah Barang Baru
-            </button>
+            </button> -->
         </div>
         <div class="table-wrapper">
             <table class="modern-table">

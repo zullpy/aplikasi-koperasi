@@ -4,14 +4,22 @@ ini_set('display_errors', 1);
 
 include 'koneksi.php';
 
-$nama_barang = $_GET['nama_barang'];
+// ✅ FIX: escape input GET supaya tidak rawan SQL injection
+$nama_barang = mysqli_real_escape_string($koneksi, $_GET['nama_barang'] ?? '');
 
-$query = mysqli_query($koneksi,"
+$query = mysqli_query($koneksi, "
     SELECT
         b.nama_barang,
+        b.kategori,
         b.harga_beli,
+        b.harga_eceran,
+        b.harga_jual,
+        b.harga_jual_eceran,
         b.stok_akhir,
+        b.stok_eceran,
         b.satuan,
+        b.satuan_eceran,
+        b.isi_per_satuan,
         b.tanggal_terupdate_baru,
         COALESCE(MIN(r.harga_beli), b.harga_beli) AS harga_min,
         COALESCE(MAX(r.harga_beli), b.harga_beli) AS harga_max
@@ -22,31 +30,43 @@ $query = mysqli_query($koneksi,"
     GROUP BY
         b.id_barang,
         b.nama_barang,
+        b.kategori,
         b.harga_beli,
+        b.harga_eceran,
+        b.harga_jual,
+        b.harga_jual_eceran,
         b.stok_akhir,
+        b.stok_eceran,
         b.satuan,
+        b.satuan_eceran,
+        b.isi_per_satuan,
         b.tanggal_terupdate_baru
 ");
 
-if(mysqli_num_rows($query) > 0){
+if ($query && mysqli_num_rows($query) > 0) {
 
     $data = mysqli_fetch_assoc($query);
 
     echo json_encode([
-        'status' => 'ada',
-        'harga' => $data['harga_beli'],
-        'harga_min' => $data['harga_min'],
-        'harga_max' => $data['harga_max'],
-        'stok' => $data['stok_akhir'],
-        'satuan' => $data['satuan'],
+        'status'                 => 'ada',
+        'kategori'               => $data['kategori'],
+        'harga'                  => $data['harga_beli'],
+        'harga_min'              => $data['harga_min'],
+        'harga_max'              => $data['harga_max'],
+        'harga_eceran'           => $data['harga_eceran'],
+        'harga_jual'             => $data['harga_jual'],
+        'harga_jual_eceran'      => $data['harga_jual_eceran'],
+        'stok'                   => $data['stok_akhir'],
+        // ✅ BARU: dipakai script.js untuk autofill & preview stok eceran
+        'stok_eceran'            => $data['stok_eceran'],
+        'satuan'                 => $data['satuan'],
+        'satuan_eceran'          => $data['satuan_eceran'],
+        'isi_per_satuan'         => $data['isi_per_satuan'],
         'tanggal_terupdate_baru' => $data['tanggal_terupdate_baru']
     ]);
-
-}else{
+} else {
 
     echo json_encode([
         'status' => 'tidak_ada'
     ]);
-
 }
-

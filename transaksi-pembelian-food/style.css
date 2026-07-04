@@ -1395,6 +1395,22 @@ STATUS PEMBAYARAN — badge & tombol bayar sisa
     text-overflow: ellipsis;
 }
 
+/* ✅ BARU: preview penambahan stok eceran (Isi per Satuan x Volume) */
+.item-stok-eceran-display {
+    color: #15803d;
+    background: rgba(21, 128, 61, 0.08);
+}
+
+.item-satuan-eceran-input {
+    background: #ecfdf5 !important;
+    border-color: #a7f3d0 !important;
+}
+
+.item-satuan-eceran-input:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+    border-color: #10b981 !important;
+}
+
 .hapus-item-btn {
     display: flex;
     align-items: center;
