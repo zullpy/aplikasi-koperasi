@@ -95,6 +95,41 @@
     background: #e8f0fc;
 }
 
+/* Toggle Mode Grosir / Eceran */
+.sb-mode-toggle {
+    display: flex;
+    background: #eef4fc;
+    border: 1px solid #c8ddf4;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.sb-mode-btn {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sb-mode-btn:hover {
+    color: #2563a8;
+}
+
+.sb-mode-btn.active {
+    background: #2563a8;
+    color: #fff;
+}
+
 /* Summary Cards */
 .sb-cards {
     display: grid;

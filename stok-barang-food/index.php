@@ -70,6 +70,14 @@ include '../components/navbar.php'; ?>
         <option value="st-habis">Habis</option>
       </select>
       <button class="sb-btn sb-btn-outline" onclick="resetFilter()">Reset</button>
+      <div class="sb-mode-toggle">
+        <button type="button" class="sb-mode-btn active" data-mode="grosir" onclick="setMode('grosir')">
+          <i class="ti ti-box"></i> Grosir
+        </button>
+        <button type="button" class="sb-mode-btn" data-mode="eceran" onclick="setMode('eceran')">
+          <i class="ti ti-package"></i> Eceran
+        </button>
+      </div>
     </div>
 
     <!-- TABLE -->
@@ -103,7 +111,7 @@ include '../components/navbar.php'; ?>
     </div>
   </div>
   <script src="script.js"></script>
-    <?php include '../components/made-by.php'; ?>
+  <?php include '../components/made-by.php'; ?>
 </body>
 
 </html>

@@ -1,8 +1,15 @@
 const PAGE_SIZE = 10;
 let currentPage = 1;
 let data = [];
+let mode = 'grosir'; // 'grosir' | 'eceran'
 
 function rupiah(n) { return 'Rp ' + (n || 0).toLocaleString('id-ID'); }
+
+function fmtQty(n) {
+  n = n || 0;
+  // Kalau bulat, tampilkan tanpa desimal. Kalau ada pecahan, tampilkan max 2 desimal.
+  return Number.isInteger(n) ? n.toLocaleString('id-ID') : n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
+}
 
 async function loadData() {
   try {
@@ -11,6 +18,36 @@ async function loadData() {
     data = (json.status === 'success') ? json.data : [];
   } catch (e) { console.error(e); data = []; }
   draw();
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.sb-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === m);
+  });
+  renderTable();
+}
+
+// Helper ambil stok satu gudang sesuai mode aktif
+function stokOf(g) {
+  if (!g) return 0;
+  return mode === 'eceran' ? (g.stok_eceran || 0) : (g.stok_grosir || 0);
+}
+
+function satuanOf(d) {
+  return mode === 'eceran' ? d.satuan_eceran : d.satuan;
+}
+
+function hargaOf(d) {
+  return mode === 'eceran' ? d.harga_eceran : d.harga_beli;
+}
+
+function totalQtyOf(d) {
+  return mode === 'eceran' ? d.total_qty_eceran : d.total_qty_grosir;
+}
+
+function totalNilaiOf(d) {
+  return mode === 'eceran' ? d.total_nilai_eceran : d.total_nilai_grosir;
 }
 
 function getStatus(totalQty) {
@@ -27,13 +64,13 @@ function filtered() {
   return data.filter(d => {
     const matchQ = !q || d.nama.toLowerCase().includes(q);
     let matchG = true;
-    if (gf === 'pusat') matchG = d.pusat.stok > 0;
-    if (gf === 'sodong') matchG = d.sodong.stok > 0;
-    if (gf === 'sariwangi') matchG = d.sariwangi.stok > 0;
-    if (gf === 'manonjaya') matchG = d.manonjaya.stok > 0;
-    if (gf === 'habis') matchG = d.total_qty <= 0;
+    if (gf === 'pusat') matchG = stokOf(d.pusat) > 0;
+    if (gf === 'sodong') matchG = stokOf(d.sodong) > 0;
+    if (gf === 'sariwangi') matchG = stokOf(d.sariwangi) > 0;
+    if (gf === 'manonjaya') matchG = stokOf(d.manonjaya) > 0;
+    if (gf === 'habis') matchG = totalQtyOf(d) <= 0;
     let matchS = true;
-    if (sf) matchS = getStatus(d.total_qty).cls === sf;
+    if (sf) matchS = getStatus(totalQtyOf(d)).cls === sf;
     return matchQ && matchG && matchS;
   });
 }
@@ -41,20 +78,22 @@ function filtered() {
 function updateCards(rows) {
   let pusat = 0, cabang = 0, totalQty = 0;
   rows.forEach(d => {
-    pusat += d.pusat.stok * d.harga_beli;
-    cabang += (d.sodong.stok + d.sariwangi.stok + d.manonjaya.stok) * d.harga_beli;
-    totalQty += d.total_qty;
+    const harga = hargaOf(d);
+    pusat += stokOf(d.pusat) * harga;
+    cabang += (stokOf(d.sodong) + stokOf(d.sariwangi) + stokOf(d.manonjaya)) * harga;
+    totalQty += totalQtyOf(d);
   });
   document.getElementById('sum-pusat').textContent = rupiah(pusat);
-  document.getElementById('sub-pusat').textContent = rows.filter(d => d.pusat.stok > 0).length + ' item aktif';
+  document.getElementById('sub-pusat').textContent = rows.filter(d => stokOf(d.pusat) > 0).length + ' item aktif';
   document.getElementById('sum-cabang').textContent = rupiah(cabang);
   document.getElementById('sum-total').textContent = rupiah(pusat + cabang);
-  document.getElementById('sub-total').textContent = rows.length + ' barang · ' + totalQty.toLocaleString('id-ID') + ' unit';
+  document.getElementById('sub-total').textContent = rows.length + ' barang · ' + fmtQty(totalQty) + ' unit';
 }
 
 function cellGudang(g, cls) {
-  if (!g || g.stok <= 0) return `<td class="center"><span class="num-zero">0</span></td>`;
-  return `<td class="center"><span class="num-stok ${cls}">${g.stok.toLocaleString('id-ID')}</span></td>`;
+  const stok = stokOf(g);
+  if (!g || stok <= 0) return `<td class="center"><span class="num-zero">0</span></td>`;
+  return `<td class="center"><span class="num-stok ${cls}">${fmtQty(stok)}</span></td>`;
 }
 
 function renderTable() { currentPage = 1; draw(); }
@@ -77,22 +116,23 @@ function draw() {
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:#64748b;">Tidak ada data barang</td></tr>`;
   } else {
     tbody.innerHTML = slice.map((d, i) => {
-      const st = getStatus(d.total_qty);
+      const tQty = totalQtyOf(d);
+      const st = getStatus(tQty);
       const no = (currentPage - 1) * PAGE_SIZE + i + 1;
       return `
             <tr>
                 <td><span class="sb-no">${no}</span></td>
                 <td>
                     <div class="sb-nama">${d.nama}</div>
-                    <div class="sb-satuan">${d.satuan} · <span class="sb-status ${st.cls}">${st.label}</span></div>
+                    <div class="sb-satuan">${satuanOf(d)} · <span class="sb-status ${st.cls}">${st.label}</span></div>
                 </td>
-                <td class="center"><span class="num-harga">${rupiah(d.harga_beli)}</span></td>
+                <td class="center"><span class="num-harga">${rupiah(hargaOf(d))}</span></td>
                 ${cellGudang(d.pusat, 'c-pusat')}
                 ${cellGudang(d.sodong, 'c-sodong')}
                 ${cellGudang(d.sariwangi, 'c-sariwangi')}
                 ${cellGudang(d.manonjaya, 'c-manonjaya')}
-                <td class="center"><span class="num-total-qty">${d.total_qty.toLocaleString('id-ID')}</span></td>
-                <td class="center"><span class="num-total-nilai">${rupiah(d.total_nilai)}</span></td>
+                <td class="center"><span class="num-total-qty">${fmtQty(tQty)}</span></td>
+                <td class="center"><span class="num-total-nilai">${rupiah(totalNilaiOf(d))}</span></td>
             </tr>`;
     }).join('');
   }

@@ -11,10 +11,17 @@ header('Content-Type: application/json');
  *       STOK   = MASUK - KELUAR
  *  - HARGA BELI       : dari db_draft_barang.barang.harga_beli
  *  - MATCHING         : LOWER(TRIM(nama_barang))
+ *
+ *  - MODE GROSIR/ECERAN:
+ *       stok_grosir  = jumlah dalam satuan besar (DUS, KARUNG, dll) -> nilai asli
+ *       stok_eceran  = stok_grosir * isi_per_satuan (+ sisa stok_eceran khusus pusat)
+ *       Jika barang tidak punya isi_per_satuan (satuan tunggal, cth KG),
+ *       maka stok_eceran = stok_grosir (tidak ada konversi).
  */
 
 // ===== 1. MASTER BARANG + HARGA BELI + STOK PUSAT =====
-$sqlMaster = "SELECT id_barang, nama_barang, satuan, harga_beli, stok_akhir 
+$sqlMaster = "SELECT id_barang, nama_barang, satuan, satuan_eceran, isi_per_satuan,
+                     harga_beli, harga_eceran, stok_akhir, stok_eceran
               FROM barang ORDER BY nama_barang ASC";
 $resMaster = mysqli_query($koneksi, $sqlMaster);
 if (!$resMaster) {
@@ -24,17 +31,47 @@ if (!$resMaster) {
 
 $items = [];
 while ($r = mysqli_fetch_assoc($resMaster)) {
-  $id = (int)$r['id_barang'];
+  $id  = (int)$r['id_barang'];
+  $isi = (isset($r['isi_per_satuan']) && (float)$r['isi_per_satuan'] > 0) ? (float)$r['isi_per_satuan'] : null;
+
+  $hargaBeli      = (float)($r['harga_beli'] ?? 0);
+  $hargaEceranRaw = (float)($r['harga_eceran'] ?? 0);
+
+  // Tentukan harga eceran final
+  if ($hargaEceranRaw > 0) {
+    $hargaEceran = $hargaEceranRaw;
+  } elseif ($isi) {
+    $hargaEceran = $hargaBeli / $isi;
+  } else {
+    $hargaEceran = $hargaBeli;
+  }
+
+  $satuanGrosir  = trim($r['satuan'] ?? '') ?: '-';
+  $satuanEceran  = trim($r['satuan_eceran'] ?? '') ?: $satuanGrosir;
+
+  // Stok pusat
+  // PENTING: kolom `stok_eceran` di DB sudah menyimpan TOTAL stok dalam satuan eceran
+  // (misal 2 DUS x isi 24 = 48 PCS, langsung tersimpan 48 di stok_eceran).
+  // Jadi TIDAK boleh dijumlah lagi dengan stok_akhir * isi_per_satuan (bakal dobel).
+  $stokGrosirPusat = (int)$r['stok_akhir'];
+  $nilaiStokEceranDb = (float)($r['stok_eceran'] ?? 0);
+  $stokEceranPusat = $isi
+    ? $nilaiStokEceranDb
+    : $stokGrosirPusat;
+
   $items[$id] = [
-    'id_barang'  => $id,
-    'nama'       => $r['nama_barang'],
-    'nama_key'   => strtolower(trim($r['nama_barang'])),
-    'satuan'     => $r['satuan'] ?? '-',
-    'harga_beli' => (float)($r['harga_beli'] ?? 0),
-    'pusat'      => ['stok' => (int)$r['stok_akhir']],
-    'sodong'     => ['masuk' => 0, 'keluar' => 0, 'stok' => 0],
-    'sariwangi'  => ['masuk' => 0, 'keluar' => 0, 'stok' => 0],
-    'manonjaya'  => ['masuk' => 0, 'keluar' => 0, 'stok' => 0],
+    'id_barang'      => $id,
+    'nama'           => $r['nama_barang'],
+    'nama_key'       => strtolower(trim($r['nama_barang'])),
+    'satuan'         => $satuanGrosir,
+    'satuan_eceran'  => $satuanEceran,
+    'isi_per_satuan' => $isi,
+    'harga_beli'     => $hargaBeli,
+    'harga_eceran'   => $hargaEceran,
+    'pusat'          => ['stok_grosir' => $stokGrosirPusat, 'stok_eceran' => $stokEceranPusat],
+    'sodong'         => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0, 'stok_eceran' => 0],
+    'sariwangi'      => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0, 'stok_eceran' => 0],
+    'manonjaya'      => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0, 'stok_eceran' => 0],
   ];
 }
 
@@ -95,33 +132,52 @@ foreach ($gudangList as $gudang) {
     $key = $it['nama_key'];
     $m = $masukMap[$key] ?? 0;
     $k = $keluarMap[$key] ?? 0;
-    $it[$gudang]['masuk']  = $m;
-    $it[$gudang]['keluar'] = $k;
-    $it[$gudang]['stok']   = $m - $k;
+
+    $stokGrosirCabang = $m - $k;
+    $stokEceranCabang = $it['isi_per_satuan']
+      ? round($stokGrosirCabang * $it['isi_per_satuan'], 2)
+      : $stokGrosirCabang;
+
+    $it[$gudang]['masuk']       = $m;
+    $it[$gudang]['keluar']      = $k;
+    $it[$gudang]['stok_grosir'] = $stokGrosirCabang;
+    $it[$gudang]['stok_eceran'] = $stokEceranCabang;
   }
   unset($it);
 }
 
-// ===== 3. HITUNG TOTAL & NILAI =====
+// ===== 3. HITUNG TOTAL & NILAI (GROSIR & ECERAN) =====
 $rows = [];
 foreach ($items as $it) {
-  $totalQty = $it['pusat']['stok']
-    + $it['sodong']['stok']
-    + $it['sariwangi']['stok']
-    + $it['manonjaya']['stok'];
-  $totalNilai = $totalQty * $it['harga_beli'];
+  $totalQtyGrosir = $it['pusat']['stok_grosir']
+    + $it['sodong']['stok_grosir']
+    + $it['sariwangi']['stok_grosir']
+    + $it['manonjaya']['stok_grosir'];
+
+  $totalQtyEceran = $it['pusat']['stok_eceran']
+    + $it['sodong']['stok_eceran']
+    + $it['sariwangi']['stok_eceran']
+    + $it['manonjaya']['stok_eceran'];
+
+  $totalNilaiGrosir = $totalQtyGrosir * $it['harga_beli'];
+  $totalNilaiEceran = $totalQtyEceran * $it['harga_eceran'];
 
   $rows[] = [
-    'id_barang'   => $it['id_barang'],
-    'nama'        => $it['nama'],
-    'satuan'      => $it['satuan'],
-    'harga_beli'  => $it['harga_beli'],
-    'pusat'       => $it['pusat'],
-    'sodong'      => $it['sodong'],
-    'sariwangi'   => $it['sariwangi'],
-    'manonjaya'   => $it['manonjaya'],
-    'total_qty'   => $totalQty,
-    'total_nilai' => $totalNilai,
+    'id_barang'          => $it['id_barang'],
+    'nama'               => $it['nama'],
+    'satuan'             => $it['satuan'],
+    'satuan_eceran'      => $it['satuan_eceran'],
+    'isi_per_satuan'     => $it['isi_per_satuan'],
+    'harga_beli'         => $it['harga_beli'],
+    'harga_eceran'       => $it['harga_eceran'],
+    'pusat'              => $it['pusat'],
+    'sodong'             => $it['sodong'],
+    'sariwangi'          => $it['sariwangi'],
+    'manonjaya'          => $it['manonjaya'],
+    'total_qty_grosir'   => $totalQtyGrosir,
+    'total_qty_eceran'   => $totalQtyEceran,
+    'total_nilai_grosir' => $totalNilaiGrosir,
+    'total_nilai_eceran' => $totalNilaiEceran,
   ];
 }
 
