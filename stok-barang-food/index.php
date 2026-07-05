@@ -84,7 +84,6 @@ include '../components/navbar.php'; ?>
     <div class="sb-table-wrap">
       <div class="sb-table-head">
         <span><i class="ti ti-list-details"></i> Detail Stok per Barang (4 Gudang)</span>
-        <span class="sb-table-info">Harga beli dari db_draft_barang · Stok cabang dari db_mbg</span>
       </div>
       <div class="sb-table-scroll">
         <table>
