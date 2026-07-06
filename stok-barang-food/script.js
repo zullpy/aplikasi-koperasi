@@ -1,7 +1,6 @@
 const PAGE_SIZE = 10;
 let currentPage = 1;
 let data = [];
-let mode = 'grosir'; // 'grosir' | 'eceran'
 
 function rupiah(n) { return 'Rp ' + (n || 0).toLocaleString('id-ID'); }
 
@@ -20,34 +19,47 @@ async function loadData() {
   draw();
 }
 
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll('.sb-mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === m);
-  });
-  renderTable();
-}
-
-// Helper ambil stok satu gudang sesuai mode aktif
+// Ambil total stok (dalam satuan eceran / satuan terkecil) untuk satu gudang
 function stokOf(g) {
   if (!g) return 0;
-  return mode === 'eceran' ? (g.stok_eceran || 0) : (g.stok_grosir || 0);
+  return g.stok_eceran || 0;
 }
 
-function satuanOf(d) {
-  return mode === 'eceran' ? d.satuan_eceran : d.satuan;
+// Title Case buat label satuan, cth: "dus" -> "Dus", "pcs" -> "Pcs"
+function ucSatuan(s) {
+  if (!s) return '';
+  return s.toString().trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function hargaOf(d) {
-  return mode === 'eceran' ? d.harga_eceran : d.harga_beli;
+// Format stok jadi gabungan satuan besar + sisa satuan eceran.
+// Contoh: isi_per_satuan = 24, stok_eceran = 47  ->  "1 Dus 23 Pcs"
+// Kalau barang tidak punya isi_per_satuan (satuan tunggal), tampil polos: "47 Kg"
+function fmtStok(d, g) {
+  const stokEceran = stokOf(g);
+  if (stokEceran <= 0) return null; // ditangani di caller (tampilkan 0)
+
+  const isi = d.isi_per_satuan;
+  if (!isi || isi <= 0) {
+    return `${fmtQty(stokEceran)} ${ucSatuan(d.satuan_eceran || d.satuan)}`;
+  }
+
+  const besar = Math.floor(stokEceran / isi);
+  let sisa = stokEceran - (besar * isi);
+  sisa = Math.round(sisa * 100) / 100;
+
+  const parts = [];
+  if (besar > 0) parts.push(`${fmtQty(besar)} ${ucSatuan(d.satuan)}`);
+  if (sisa > 0) parts.push(`${fmtQty(sisa)} ${ucSatuan(d.satuan_eceran)}`);
+  if (parts.length === 0) return null;
+  return parts.join(' ');
 }
 
 function totalQtyOf(d) {
-  return mode === 'eceran' ? d.total_qty_eceran : d.total_qty_grosir;
+  return d.total_qty_eceran || 0;
 }
 
 function totalNilaiOf(d) {
-  return mode === 'eceran' ? d.total_nilai_eceran : d.total_nilai_grosir;
+  return d.total_nilai_eceran || 0;
 }
 
 function getStatus(totalQty) {
@@ -78,7 +90,7 @@ function filtered() {
 function updateCards(rows) {
   let pusat = 0, cabang = 0, totalQty = 0;
   rows.forEach(d => {
-    const harga = hargaOf(d);
+    const harga = d.harga_eceran;
     pusat += stokOf(d.pusat) * harga;
     cabang += (stokOf(d.sodong) + stokOf(d.sariwangi) + stokOf(d.manonjaya)) * harga;
     totalQty += totalQtyOf(d);
@@ -90,10 +102,10 @@ function updateCards(rows) {
   document.getElementById('sub-total').textContent = rows.length + ' barang · ' + fmtQty(totalQty) + ' unit';
 }
 
-function cellGudang(g, cls) {
-  const stok = stokOf(g);
-  if (!g || stok <= 0) return `<td class="center"><span class="num-zero">0</span></td>`;
-  return `<td class="center"><span class="num-stok ${cls}">${fmtQty(stok)}</span></td>`;
+function cellGudang(d, g, cls) {
+  const label = fmtStok(d, g);
+  if (!label) return `<td class="center"><span class="num-zero">0</span></td>`;
+  return `<td class="center"><span class="num-stok ${cls}">${label}</span></td>`;
 }
 
 function renderTable() { currentPage = 1; draw(); }
@@ -124,14 +136,14 @@ function draw() {
                 <td><span class="sb-no">${no}</span></td>
                 <td>
                     <div class="sb-nama">${d.nama}</div>
-                    <div class="sb-satuan">${satuanOf(d)} · <span class="sb-status ${st.cls}">${st.label}</span></div>
+                    <div class="sb-satuan">${ucSatuan(d.satuan_eceran)} · <span class="sb-status ${st.cls}">${st.label}</span></div>
                 </td>
-                <td class="center"><span class="num-harga">${rupiah(hargaOf(d))}</span></td>
-                ${cellGudang(d.pusat, 'c-pusat')}
-                ${cellGudang(d.sodong, 'c-sodong')}
-                ${cellGudang(d.sariwangi, 'c-sariwangi')}
-                ${cellGudang(d.manonjaya, 'c-manonjaya')}
-                <td class="center"><span class="num-total-qty">${fmtQty(tQty)}</span></td>
+                <td class="center"><span class="num-harga">${rupiah(d.harga_eceran)}</span></td>
+                ${cellGudang(d, d.pusat, 'c-pusat')}
+                ${cellGudang(d, d.sodong, 'c-sodong')}
+                ${cellGudang(d, d.sariwangi, 'c-sariwangi')}
+                ${cellGudang(d, d.manonjaya, 'c-manonjaya')}
+                <td class="center"><span class="num-total-qty">${fmtQty(tQty)} ${ucSatuan(d.satuan_eceran)}</span></td>
                 <td class="center"><span class="num-total-nilai">${rupiah(totalNilaiOf(d))}</span></td>
             </tr>`;
     }).join('');

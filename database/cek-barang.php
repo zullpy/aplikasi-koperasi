@@ -16,7 +16,6 @@ $query = mysqli_query($koneksi, "
         b.harga_jual,
         b.harga_jual_eceran,
         b.stok_akhir,
-        b.stok_eceran,
         b.satuan,
         b.satuan_eceran,
         b.isi_per_satuan,
@@ -36,7 +35,6 @@ $query = mysqli_query($koneksi, "
         b.harga_jual,
         b.harga_jual_eceran,
         b.stok_akhir,
-        b.stok_eceran,
         b.satuan,
         b.satuan_eceran,
         b.isi_per_satuan,
@@ -58,7 +56,6 @@ if ($query && mysqli_num_rows($query) > 0) {
         'harga_jual_eceran'      => $data['harga_jual_eceran'],
         'stok'                   => $data['stok_akhir'],
         // ✅ BARU: dipakai script.js untuk autofill & preview stok eceran
-        'stok_eceran'            => $data['stok_eceran'],
         'satuan'                 => $data['satuan'],
         'satuan_eceran'          => $data['satuan_eceran'],
         'isi_per_satuan'         => $data['isi_per_satuan'],

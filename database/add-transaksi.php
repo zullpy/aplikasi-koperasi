@@ -39,7 +39,6 @@ $kode_transaksi = 'TRX' . date('YmdHis');
 // Track barang baru yang dibuat otomatis (untuk notifikasi)
 $new_barangs_created = [];
 $total_tagihan = 0;
-$ada_penambahan_stok_eceran = false; // ✅ BARU: flag untuk notifikasi stok eceran
 
 /*
 |--------------------------------------------------------------------------
@@ -214,11 +213,6 @@ foreach ($nama_barang as $i => $barang_nama) {
     $cari = mysqli_query($koneksi, "SELECT * FROM barang WHERE nama_barang='$barang_nama_esc'");
     $barang = mysqli_fetch_assoc($cari);
 
-    // ✅ BARU: hitung penambahan stok eceran = volume dus/satuan yang dibeli x isi per satuan
-    $tambahan_stok_eceran = $isi_per_satuan_sql !== null ? ($volume_esc * $isi_per_satuan_sql) : 0;
-    $stok_eceran_lama = $barang ? (int) ($barang['stok_eceran'] ?? 0) : 0;
-    $stok_eceran_baru = $stok_eceran_lama + $tambahan_stok_eceran;
-
     if (!$barang) {
         // 🆕 AUTO-CREATE: barang belum terdaftar → daftarkan otomatis ke tabel barang
         $satuan_default = !empty($satuan_item) ? $satuan_esc : 'Pcs';
@@ -226,7 +220,7 @@ foreach ($nama_barang as $i => $barang_nama) {
         $insert_barang = mysqli_query($koneksi, "
             INSERT INTO barang (
                 nama_barang, kategori, stok_akhir, harga_beli, harga_eceran,
-                harga_jual, harga_jual_eceran, satuan, satuan_eceran, isi_per_satuan, stok_eceran,
+                harga_jual, harga_jual_eceran, satuan, satuan_eceran, isi_per_satuan,
                 tanggal_terupdate_baru
             ) VALUES (
                 '$barang_nama_esc',
@@ -239,7 +233,6 @@ foreach ($nama_barang as $i => $barang_nama) {
                 '$satuan_default',
                 " . ($satuan_eceran_esc !== null ? "'$satuan_eceran_esc'" : "NULL") . ",
                 " . ($isi_per_satuan_sql !== null ? $isi_per_satuan_sql : "NULL") . ",
-                $stok_eceran_baru,
                 '$tanggal_esc'
             )
         ") or die('INSERT barang Error: ' . mysqli_error($koneksi));
@@ -302,7 +295,6 @@ foreach ($nama_barang as $i => $barang_nama) {
         SET $kategori_set_sql
             $konversi_set_sql
             stok_akhir='$stok_baru',
-            stok_eceran='$stok_eceran_baru',
             harga_beli='$harga_esc',
             harga_eceran='$harga_eceran_esc',
             harga_jual='$harga_jual_esc',
@@ -311,13 +303,8 @@ foreach ($nama_barang as $i => $barang_nama) {
         WHERE id_barang='$id_barang'
     ");
 
-    // ✅ MUTASI STOK (+ catatan stok eceran kalau ada penambahan)
+    // ✅ MUTASI STOK
     $ket_mutasi = 'Pembelian';
-    if ($tambahan_stok_eceran > 0) {
-        $satuan_eceran_label = $satuan_eceran_final ?: 'eceran';
-        $ket_mutasi .= " (stok eceran +{$tambahan_stok_eceran} {$satuan_eceran_label}: {$stok_eceran_lama} -> {$stok_eceran_baru})";
-        $ada_penambahan_stok_eceran = true;
-    }
     $ket_mutasi_esc = mysqli_real_escape_string($koneksi, $ket_mutasi);
 
     mysqli_query($koneksi, "
@@ -381,9 +368,6 @@ if (!empty($new_barangs_created)) {
     $alert_text .= " 🆕 Barang baru otomatis didaftarkan: " . $list_barang;
 }
 $alert_text .= " Harga beli, harga eceran, harga jual & tanggal otomatis terupdate ke tabel barang.";
-if ($ada_penambahan_stok_eceran) {
-    $alert_text .= " 📦 Stok eceran otomatis bertambah sesuai isi per satuan.";
-}
 if ($status_final === 'lunas') {
     $alert_text .= " 💰 Status: LUNAS.";
 } elseif ($status_final === 'sebagian') {

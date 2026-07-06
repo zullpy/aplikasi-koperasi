@@ -12,16 +12,14 @@ header('Content-Type: application/json');
  *  - HARGA BELI       : dari db_draft_barang.barang.harga_beli
  *  - MATCHING         : LOWER(TRIM(nama_barang))
  *
- *  - MODE GROSIR/ECERAN:
- *       stok_grosir  = jumlah dalam satuan besar (DUS, KARUNG, dll) -> nilai asli
- *       stok_eceran  = stok_grosir * isi_per_satuan (+ sisa stok_eceran khusus pusat)
- *       Jika barang tidak punya isi_per_satuan (satuan tunggal, cth KG),
- *       maka stok_eceran = stok_grosir (tidak ada konversi).
+ *  - Satuan besar (DUS, KARUNG, dll) dipakai apa adanya sebagai stok_grosir.
+ *    isi_per_satuan & satuan_eceran hanya dipakai untuk info konversi,
+ *    tidak lagi dihitung jadi stok eceran terpisah.
  */
 
 // ===== 1. MASTER BARANG + HARGA BELI + STOK PUSAT =====
 $sqlMaster = "SELECT id_barang, nama_barang, satuan, satuan_eceran, isi_per_satuan,
-                     harga_beli, harga_eceran, stok_akhir, stok_eceran
+                     harga_beli, harga_eceran, stok_akhir
               FROM barang ORDER BY nama_barang ASC";
 $resMaster = mysqli_query($koneksi, $sqlMaster);
 if (!$resMaster) {
@@ -50,14 +48,7 @@ while ($r = mysqli_fetch_assoc($resMaster)) {
   $satuanEceran  = trim($r['satuan_eceran'] ?? '') ?: $satuanGrosir;
 
   // Stok pusat
-  // PENTING: kolom `stok_eceran` di DB sudah menyimpan TOTAL stok dalam satuan eceran
-  // (misal 2 DUS x isi 24 = 48 PCS, langsung tersimpan 48 di stok_eceran).
-  // Jadi TIDAK boleh dijumlah lagi dengan stok_akhir * isi_per_satuan (bakal dobel).
   $stokGrosirPusat = (int)$r['stok_akhir'];
-  $nilaiStokEceranDb = (float)($r['stok_eceran'] ?? 0);
-  $stokEceranPusat = $isi
-    ? $nilaiStokEceranDb
-    : $stokGrosirPusat;
 
   $items[$id] = [
     'id_barang'      => $id,
@@ -68,10 +59,10 @@ while ($r = mysqli_fetch_assoc($resMaster)) {
     'isi_per_satuan' => $isi,
     'harga_beli'     => $hargaBeli,
     'harga_eceran'   => $hargaEceran,
-    'pusat'          => ['stok_grosir' => $stokGrosirPusat, 'stok_eceran' => $stokEceranPusat],
-    'sodong'         => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0, 'stok_eceran' => 0],
-    'sariwangi'      => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0, 'stok_eceran' => 0],
-    'manonjaya'      => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0, 'stok_eceran' => 0],
+    'pusat'          => ['stok_grosir' => $stokGrosirPusat],
+    'sodong'         => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0],
+    'sariwangi'      => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0],
+    'manonjaya'      => ['masuk' => 0, 'keluar' => 0, 'stok_grosir' => 0],
   ];
 }
 
@@ -134,19 +125,15 @@ foreach ($gudangList as $gudang) {
     $k = $keluarMap[$key] ?? 0;
 
     $stokGrosirCabang = $m - $k;
-    $stokEceranCabang = $it['isi_per_satuan']
-      ? round($stokGrosirCabang * $it['isi_per_satuan'], 2)
-      : $stokGrosirCabang;
 
     $it[$gudang]['masuk']       = $m;
     $it[$gudang]['keluar']      = $k;
     $it[$gudang]['stok_grosir'] = $stokGrosirCabang;
-    $it[$gudang]['stok_eceran'] = $stokEceranCabang;
   }
   unset($it);
 }
 
-// ===== 3. HITUNG TOTAL & NILAI (GROSIR & ECERAN) =====
+// ===== 3. HITUNG TOTAL & NILAI (GROSIR) =====
 $rows = [];
 foreach ($items as $it) {
   $totalQtyGrosir = $it['pusat']['stok_grosir']
@@ -154,13 +141,7 @@ foreach ($items as $it) {
     + $it['sariwangi']['stok_grosir']
     + $it['manonjaya']['stok_grosir'];
 
-  $totalQtyEceran = $it['pusat']['stok_eceran']
-    + $it['sodong']['stok_eceran']
-    + $it['sariwangi']['stok_eceran']
-    + $it['manonjaya']['stok_eceran'];
-
   $totalNilaiGrosir = $totalQtyGrosir * $it['harga_beli'];
-  $totalNilaiEceran = $totalQtyEceran * $it['harga_eceran'];
 
   $rows[] = [
     'id_barang'          => $it['id_barang'],
@@ -175,9 +156,7 @@ foreach ($items as $it) {
     'sariwangi'          => $it['sariwangi'],
     'manonjaya'          => $it['manonjaya'],
     'total_qty_grosir'   => $totalQtyGrosir,
-    'total_qty_eceran'   => $totalQtyEceran,
     'total_nilai_grosir' => $totalNilaiGrosir,
-    'total_nilai_eceran' => $totalNilaiEceran,
   ];
 }
 

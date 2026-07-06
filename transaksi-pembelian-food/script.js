@@ -62,23 +62,6 @@ function autoFillIsiPerSatuan(idx) {
         const satuanDeteksi = extractSatuanEceran(ketInput.value);
         if (satuanDeteksi) satuanEceranInput.value = satuanDeteksi;
     }
-    hitungStokEceran(idx);
-}
-
-// ✅ BARU: hitung preview penambahan stok eceran = volume x isi per satuan
-function hitungStokEceran(idx) {
-    const row = document.querySelector(`.item-input-row[data-idx="${idx}"]`);
-    if (!row) return;
-    const volumeInput = row.querySelector('.item-volume-input');
-    const isiInput = row.querySelector('.item-isi-per-satuan-input');
-    const display = row.querySelector(`#stok-eceran-${idx}`);
-    if (!display) return;
-
-    const volume = parseInt(volumeInput?.value, 10) || 0;
-    const isiPerSatuan = parseInt(isiInput?.value, 10) || 0;
-    const tambahan = volume * isiPerSatuan;
-
-    display.textContent = tambahan > 0 ? '+' + tambahan.toLocaleString('id-ID') : '0';
 }
 
 function hitungHargaEceran(idx) {
@@ -205,10 +188,6 @@ function addItemRow() {
                 <label class="item-field-label">Satuan Eceran</label>
                 <input type="text" name="satuan_eceran[]" class="item-satuan-eceran-input" placeholder="cth. Pcs / Botol" data-idx="${idx}">
             </div>
-            <div class="item-input-field field-stok-eceran">
-                <label class="item-field-label">Stok Eceran (+)</label>
-                <div class="subtotal-display item-stok-eceran-display" id="stok-eceran-${idx}">0</div>
-            </div>
             <!-- Isi per satuan dihitung otomatis dari kolom "Isi" di atas, tidak perlu diinput ulang -->
             <input type="hidden" name="isi_per_satuan[]" class="item-isi-per-satuan-input" data-idx="${idx}">
         </div>
@@ -268,7 +247,6 @@ function addItemRow() {
 
     volumeInput.addEventListener('input', function () {
         recalcSubtotal(idx);
-        hitungStokEceran(idx);
     });
 
     if (satuanEceranInput) {
@@ -332,11 +310,6 @@ function buildToastAda(data) {
         html += `<br>Min: ${rp(min)}&nbsp;|&nbsp;Max: ${rp(max)}`;
     }
     html += `<br>Stok: <strong>${data.stok} ${data.satuan}</strong>`;
-    // ✅ BARU: tampilkan stok eceran kalau barang sudah punya konversi
-    if (data.isi_per_satuan && Number(data.isi_per_satuan) > 0) {
-        const satuanEceranLabel = data.satuan_eceran || 'eceran';
-        html += `<br>Stok eceran: <strong>${Math.round(Number(data.stok_eceran) || 0).toLocaleString('id-ID')} ${satuanEceranLabel}</strong> (isi ${Math.round(Number(data.isi_per_satuan))}/${data.satuan})`;
-    }
     return html;
 }
 
@@ -401,7 +374,6 @@ function pilihBarangInline(nama, idx) {
                 hitungHargaEceran(idx);
                 hitungHargaJualEceran(idx);
                 recalcSubtotal(idx);
-                hitungStokEceran(idx);
 
                 showItemToast(buildToastAda(data), 'success');
             } else {
