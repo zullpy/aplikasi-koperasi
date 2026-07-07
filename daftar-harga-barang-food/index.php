@@ -25,7 +25,8 @@ b.harga_beli,
 b.harga_jual,
 b.suplier,
 b.satuan,
-b.tanggal_terupdate_baru";
+b.tanggal_terupdate_baru
+ORDER BY b.tanggal_terupdate_baru DESC";
 $result = mysqli_query($koneksi, $query);
 $barang_list = [];
 if ($result) {

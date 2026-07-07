@@ -619,6 +619,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tambahForm) {
         tambahForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            const supplierSelect = document.getElementById('add_id_supplier');
+            if (!supplierSelect || !supplierSelect.value) {
+                Swal.fire({ icon: 'warning', title: 'Supplier belum dipilih', text: 'Pilih supplier terlebih dahulu sebelum menyimpan transaksi.', width: window.innerWidth < 768 ? '280px' : '400px' });
+                supplierSelect?.focus();
+                return;
+            }
             const rows = document.querySelectorAll('.item-input-row');
             if (rows.length === 0) {
                 Swal.fire({ icon: 'warning', title: 'Belum ada barang', text: 'Tambahkan minimal 1 barang sebelum menyimpan transaksi.', width: window.innerWidth < 768 ? '280px' : '400px' });

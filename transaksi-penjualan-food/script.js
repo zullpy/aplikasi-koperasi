@@ -143,6 +143,43 @@ function openBayar(id, total, sudahBayar) {
 }
 function closeBayar() { document.getElementById('modalBayar').classList.remove('active'); }
 
+// Submit pembayaran via AJAX (mencegah form resubmit saat refresh)
+document.addEventListener('DOMContentLoaded', function () {
+    const formBayar = document.querySelector('#modalBayar form');
+    if (!formBayar) return;
+    formBayar.addEventListener('submit', async function (e) {
+        e.preventDefault(); // Hentikan submit biasa
+
+        const submitBtn = formBayar.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="ph ph-spinner"></i> Menyimpan...';
+
+        const formData = new FormData(formBayar);
+        try {
+            const res = await fetch('../database/add-pembayaran.php', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await res.json();
+            closeBayar();
+            await Swal.fire({
+                icon: data.icon,
+                title: data.title,
+                text: data.text,
+                confirmButtonColor: '#2563a8'
+            });
+            location.reload(); // Reload setelah SweetAlert ditutup
+        } catch (err) {
+            Swal.fire('Error', 'Terjadi kesalahan jaringan. Silakan coba lagi.', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    });
+});
+
 function formatRupiahInput(input) {
     let value = input.value.replace(/[^0-9]/g, '');
     if (value === '') { input.value = ''; return; }

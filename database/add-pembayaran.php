@@ -5,6 +5,21 @@ session_start();
 include 'koneksi.php';
 date_default_timezone_set('Asia/Jakarta');
 
+// Deteksi apakah request dari AJAX
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+function respond($success, $icon, $title, $text, $isAjax) {
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => $success, 'icon' => $icon, 'title' => $title, 'text' => $text]);
+        exit;
+    } else {
+        $_SESSION['alert'] = ['icon' => $icon, 'title' => $title, 'text' => $text];
+        header("Location: ../transaksi-penjualan-food/index.php");
+        exit;
+    }
+}
+
 $id_transaksi = intval($_POST['id_transaksi']);
 $jumlah_bayar = preg_replace('/[^0-9]/', '', $_POST['jumlah_bayar']);
 $keterangan = mysqli_real_escape_string($koneksi, $_POST['keterangan'] ?? '');
@@ -15,9 +30,7 @@ if (isset($_FILES['bukti_bayar']) && $_FILES['bukti_bayar']['error'] === UPLOAD_
     $allowed = ['jpg', 'jpeg', 'png', 'gif', 'pdf'];
     $ext = strtolower(pathinfo($_FILES['bukti_bayar']['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowed)) {
-        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Format file tidak didukung'];
-        header("Location: ../transaksi-penjualan-food/index.php");
-        exit;
+        respond(false, 'error', 'Gagal', 'Format file tidak didukung', $isAjax);
     }
     $upload_dir = __DIR__ . '/../uploads/bukti-bayar/';
     if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
@@ -29,9 +42,7 @@ if (isset($_FILES['bukti_bayar']) && $_FILES['bukti_bayar']['error'] === UPLOAD_
 $q = mysqli_query($koneksi, "SELECT total, total_bayar FROM transaksi_penjualan WHERE id_transaksi = $id_transaksi");
 $trx = mysqli_fetch_assoc($q);
 if (!$trx) {
-    $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Transaksi tidak ditemukan'];
-    header("Location: ../transaksi-penjualan-food/index.php");
-    exit;
+    respond(false, 'error', 'Gagal', 'Transaksi tidak ditemukan', $isAjax);
 }
 
 $total = $trx['total'];
@@ -41,9 +52,7 @@ $sisa_bayar_baru = $total - $total_bayar_baru;
 
 // Validasi tidak overpay
 if ($total_bayar_baru > $total) {
-    $_SESSION['alert'] = ['icon' => 'warning', 'title' => 'Perhatian', 'text' => 'Jumlah bayar melebihi total transaksi'];
-    header("Location: ../transaksi-penjualan-food/index.php");
-    exit;
+    respond(false, 'warning', 'Perhatian', 'Jumlah bayar melebihi total transaksi', $isAjax);
 }
 
 // Tentukan status
@@ -71,9 +80,7 @@ mysqli_query($koneksi, "
 ");
 
 if ($status === 'lunas') {
-    $_SESSION['alert'] = ['icon' => 'success', 'title' => 'LUNAS! 🎉', 'text' => 'Pembayaran telah lunas. Sisa Rp 0'];
+    respond(true, 'success', 'LUNAS! 🎉', 'Pembayaran telah lunas. Sisa Rp 0', $isAjax);
 } else {
-    $_SESSION['alert'] = ['icon' => 'success', 'title' => 'Berhasil', 'text' => 'Pembayaran Rp ' . number_format($jumlah_bayar, 0, ',', '.') . ' tercatat. Sisa: Rp ' . number_format($sisa_bayar_baru, 0, ',', '.')];
+    respond(true, 'success', 'Berhasil', 'Pembayaran Rp ' . number_format($jumlah_bayar, 0, ',', '.') . ' tercatat. Sisa: Rp ' . number_format($sisa_bayar_baru, 0, ',', '.'), $isAjax);
 }
-header("Location: ../transaksi-penjualan-food/index.php");
-exit;

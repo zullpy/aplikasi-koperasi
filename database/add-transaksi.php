@@ -25,8 +25,26 @@ $tanggal_pembelian = is_array($_POST['tanggal_pembelian'])
     ? $_POST['tanggal_pembelian'][0]
     : $_POST['tanggal_pembelian'];
 
-$id_supplier       = $_POST['id_supplier'];
+$id_supplier       = $_POST['id_supplier'] ?? '';
 $metode_pembayaran = $_POST['metode_pembayaran'] ?? 'cash';
+
+// ✅ VALIDASI: id_supplier wajib diisi & harus supplier yang benar-benar terdaftar.
+// Sebelumnya tidak divalidasi -> kalau dropdown kosong/tidak dipilih, (int)"" jadi 0
+// dan tersimpan sebagai id_supplier=0/invalid di transaksi_pembelian & pembayaran_pembelian.
+if ($id_supplier === '' || (int) $id_supplier <= 0) {
+    $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Supplier belum dipilih. Silakan pilih supplier terlebih dahulu.'];
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+$cek_supplier = mysqli_query($koneksi, "SELECT id_supplier, nama_supplier, no_telepon FROM suplier WHERE id_supplier=" . (int) $id_supplier);
+if (!$cek_supplier || mysqli_num_rows($cek_supplier) === 0) {
+    $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Supplier tidak ditemukan/tidak valid.'];
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+$data_supplier = mysqli_fetch_assoc($cek_supplier);
+$nama_supplier_val = $data_supplier['nama_supplier'];
+$no_telepon_val    = $data_supplier['no_telepon'];
 
 // ✅ FIX UTAMA: pastikan biaya_admin selalu integer, minimal 0
 $biaya_admin_raw = $_POST['biaya_admin'] ?? '';
@@ -180,9 +198,11 @@ foreach ($nama_barang as $i => $barang_nama) {
         ? strtoupper($satuan_eceran_manual_item)
         : $satuan_eceran_terdeteksi;
 
-    $harga_jual_item = $jumlah_isi_final > 0
-        ? $harga_item + ($keuntungan_dus_item * $jumlah_isi_final)
-        : $harga_item + $keuntungan_dus_item;
+    // FIX: harga jual dus = harga beli + keuntungan dus saja (sinkron dengan
+    // preview di form / hitungHargaJualDus() di script.js). Sebelumnya keuntungan_dus
+    // dikali jumlah_isi_final kalau isi per satuan terisi, sehingga harga_jual yang
+    // tersimpan di DB jauh lebih besar dari yang ditampilkan ke user di form.
+    $harga_jual_item = $harga_item + $keuntungan_dus_item;
 
     $harga_jual_eceran_item = $harga_eceran_item + $keuntungan_eceran_item;
 
@@ -217,10 +237,14 @@ foreach ($nama_barang as $i => $barang_nama) {
         // 🆕 AUTO-CREATE: barang belum terdaftar → daftarkan otomatis ke tabel barang
         $satuan_default = !empty($satuan_item) ? $satuan_esc : 'Pcs';
 
+        $nama_supplier_esc = mysqli_real_escape_string($koneksi, $nama_supplier_val);
+        $no_telepon_esc    = mysqli_real_escape_string($koneksi, $no_telepon_val);
+
         $insert_barang = mysqli_query($koneksi, "
             INSERT INTO barang (
                 nama_barang, kategori, stok_akhir, harga_beli, harga_eceran,
                 harga_jual, harga_jual_eceran, satuan, satuan_eceran, isi_per_satuan,
+                suplier, no_kontak,
                 tanggal_terupdate_baru
             ) VALUES (
                 '$barang_nama_esc',
@@ -233,6 +257,8 @@ foreach ($nama_barang as $i => $barang_nama) {
                 '$satuan_default',
                 " . ($satuan_eceran_esc !== null ? "'$satuan_eceran_esc'" : "NULL") . ",
                 " . ($isi_per_satuan_sql !== null ? $isi_per_satuan_sql : "NULL") . ",
+                '$nama_supplier_esc',
+                '$no_telepon_esc',
                 '$tanggal_esc'
             )
         ") or die('INSERT barang Error: ' . mysqli_error($koneksi));
@@ -290,6 +316,9 @@ foreach ($nama_barang as $i => $barang_nama) {
         $konversi_set_sql .= "satuan_eceran='$satuan_eceran_esc',";
     }
 
+    $nama_supplier_esc = mysqli_real_escape_string($koneksi, $nama_supplier_val);
+    $no_telepon_esc    = mysqli_real_escape_string($koneksi, $no_telepon_val);
+
     mysqli_query($koneksi, "
         UPDATE barang
         SET $kategori_set_sql
@@ -299,6 +328,9 @@ foreach ($nama_barang as $i => $barang_nama) {
             harga_eceran='$harga_eceran_esc',
             harga_jual='$harga_jual_esc',
             harga_jual_eceran='$harga_jual_eceran_esc',
+            satuan='$satuan_esc',
+            suplier='$nama_supplier_esc',
+            no_kontak='$no_telepon_esc',
             tanggal_terupdate_baru='$tanggal_esc'
         WHERE id_barang='$id_barang'
     ");

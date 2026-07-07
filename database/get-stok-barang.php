@@ -14,7 +14,7 @@ header('Content-Type: application/json');
 $sqlMaster = "SELECT id_barang, nama_barang, satuan, satuan_eceran, isi_per_satuan,
               harga_beli, harga_eceran, stok_akhir
               FROM barang 
-              ORDER BY nama_barang ASC";
+              ORDER BY stok_akhir DESC";
 $resMaster = mysqli_query($koneksi, $sqlMaster);
 if (!$resMaster) {
     echo json_encode(['status' => 'error', 'message' => 'Master: ' . mysqli_error($koneksi)]);
