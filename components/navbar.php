@@ -363,6 +363,9 @@ $base_url = '';
         const triggers = document.querySelectorAll('.dd-trigger');
         const isMobile = () => window.innerWidth <= 788;
 
+        /* Ingat state nested SPPG (pinned = user sudah klik buka) */
+        let sppgPinned = false;
+
         triggers.forEach(trigger => {
             trigger.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -391,6 +394,14 @@ $base_url = '';
                         const ddMenu = parentLi.querySelector('.dropdown-menu');
                         if (ddMenu) ddMenu.style.display = 'block';
                     }
+
+                    /* Jika dropdown Transaksi dibuka, restore state nested SPPG */
+                    if (parentLi.id === 'dd-transaksi') {
+                        const sppgItem = document.getElementById('dd-sppg');
+                        if (sppgItem && (sppgPinned || sppgItem.classList.contains('active'))) {
+                            sppgItem.classList.add('nested-open');
+                        }
+                    }
                 }
             });
         });
@@ -410,6 +421,7 @@ $base_url = '';
         window.addEventListener('resize', () => {
             if (window.innerWidth > 788) closeMenu();
         });
+
         /* --- Nested dropdown SPPG --- */
         const sppgTriggers = document.querySelectorAll('.dd-sppg-trigger');
         sppgTriggers.forEach(trigger => {
@@ -419,18 +431,18 @@ $base_url = '';
                 const parentLi = this.closest('.dropdown-item-nested');
                 const isOpen = parentLi.classList.contains('nested-open');
                 parentLi.classList.toggle('nested-open', !isOpen);
+                /* Simpan state — ingat apakah user sudah klik buka */
+                sppgPinned = !isOpen;
             });
         });
 
-        /* Desktop: open nested on hover */
-        document.querySelectorAll('.dropdown-item-nested').forEach(item => {
-            item.addEventListener('mouseenter', function() {
-                if (!isMobile()) this.classList.add('nested-open');
-            });
-            item.addEventListener('mouseleave', function() {
-                if (!isMobile()) this.classList.remove('nested-open');
-            });
-        });
+        /* Desktop: open nested on hover — DIHAPUS, pakai click-to-toggle saja */
+
+        /* Simpan state sppgPinned jika halaman aktif di sub-menu SPPG */
+        const ddSppg = document.getElementById('dd-sppg');
+        if (ddSppg && ddSppg.classList.contains('active')) {
+            sppgPinned = true;
+        }
 
     })();
 </script>

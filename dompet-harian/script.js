@@ -652,9 +652,9 @@ function getBarangData() {
     const rowId = row.dataset.rowId;
     const idBarang = document.querySelector(`.barang-id[data-row="${rowId}"]`).value;
     const namaBarang = document.querySelector(`.barang-search-input[data-row="${rowId}"]`).value.trim();
-    if (idBarang && namaBarang) {
+    if (namaBarang) {  // cukup nama tidak kosong, id_barang boleh kosong (barang baru/manual)
       barangList.push({
-        id_barang: idBarang,
+        id_barang: idBarang || null,
         nama_barang: namaBarang,
         harga: parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value),
         quantity: parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0,

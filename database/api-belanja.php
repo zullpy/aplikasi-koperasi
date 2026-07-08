@@ -63,11 +63,11 @@ try {
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
 
-            // ─── LIST BARANG: Ambil master barang ──────────────────────────────
+            // ─── LIST BARANG: Ambil estimasi harga ────────────────────────────
         case 'list_barang':
             $res = $koneksi->query("
-                SELECT id_barang, nama_barang, harga_beli, satuan
-                FROM barang
+                SELECT id AS id_barang, nama_barang, harga_beli, satuan, tanggal_terupdate
+                FROM estimasi_harga
                 ORDER BY nama_barang ASC
             ");
             $data = [];
@@ -214,6 +214,51 @@ try {
                 }
 
                 $koneksi->commit();
+
+                // ─── Sync estimasi_harga ──────────────────────────────────────
+                // UPDATE harga jika barang sudah ada, INSERT jika barang baru
+                foreach ($items as $it) {
+                    $namaBarang = trim($it['nama_barang'] ?? '');
+                    $hargaBeli  = floatval($it['harga'] ?? 0);
+                    $satuan     = trim($it['satuan'] ?? '');
+                    if (!$namaBarang || !$hargaBeli) continue;
+
+                    // Cek apakah sudah ada di estimasi_harga (exact match case-insensitive)
+                    $stmtCek = $koneksi->prepare(
+                        "SELECT id FROM estimasi_harga WHERE LOWER(TRIM(nama_barang)) = LOWER(TRIM(?)) LIMIT 1"
+                    );
+                    if ($stmtCek) {
+                        $stmtCek->bind_param('s', $namaBarang);
+                        $stmtCek->execute();
+                        $resCek = $stmtCek->get_result();
+                        $rowCek = $resCek->fetch_assoc();
+                        $stmtCek->close();
+
+                        if ($rowCek) {
+                            // Sudah ada → UPDATE harga & tanggal
+                            $stmtUpd = $koneksi->prepare(
+                                "UPDATE estimasi_harga SET harga_beli = ?, satuan = ?, tanggal_terupdate = CURDATE() WHERE id = ?"
+                            );
+                            if ($stmtUpd) {
+                                $stmtUpd->bind_param('dsi', $hargaBeli, $satuan, $rowCek['id']);
+                                $stmtUpd->execute();
+                                $stmtUpd->close();
+                            }
+                        } else {
+                            // Belum ada → INSERT baru
+                            $stmtIns = $koneksi->prepare(
+                                "INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate) VALUES (?, ?, ?, CURDATE())"
+                            );
+                            if ($stmtIns) {
+                                $stmtIns->bind_param('sds', $namaBarang, $hargaBeli, $satuan);
+                                $stmtIns->execute();
+                                $stmtIns->close();
+                            }
+                        }
+                    }
+                }
+                // ─────────────────────────────────────────────────────────────
+
                 echo json_encode([
                     'success' => true,
                     'message' => $idPengajuan ? 'Data berhasil diperbarui' : 'Data berhasil ditambahkan',

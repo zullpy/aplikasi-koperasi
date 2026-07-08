@@ -425,6 +425,12 @@ if (empty($items)) {
             display: block;
         }
 
+        .ttd-name {
+            display: block;
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
         .ttd-line {
             display: block;
             margin-top: 2px;
@@ -435,7 +441,8 @@ if (empty($items)) {
             height: auto;
             opacity: 0.88;
             display: inline-block;
-            margin: 2px 0;
+            vertical-align: top; 
+            margin: 0 0 0 6px;
         }
 
         /* ===== PRINT ===== */
@@ -549,11 +556,10 @@ if (empty($items)) {
             </td>
 
             <td class="ttd-kanan">
-                Hormat Kami,
-                <br>
+                Hormat Kami,<br>
                 <img src="../assets/logo-kbus.png" class="cap-img" alt="Cap KBUS">
-                <br>
-                <span class="ttd-line">...................................</span>
+                <span class="ttd-gap"></span>
+                <span class="ttd-name">Yudi Hendrian</span>
             </td>
         </tr>
     </table>

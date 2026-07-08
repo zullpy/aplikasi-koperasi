@@ -327,7 +327,7 @@ body {
 .dropdown-item-nested.nested-open .dropdown-menu-nested {
     opacity: 1;
     visibility: visible;
-    transform: translateX(0);
+    transform: translateX(5px);
     pointer-events: auto;
 }
 

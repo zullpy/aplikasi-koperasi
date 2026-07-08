@@ -440,9 +440,9 @@ try {
             </div>
         </div>
         <div class="toolbar-buttons">
-            <button class="btn btn-back" onclick="window.history.back()">
+            <!-- <button class="btn btn-back" onclick="window.history.back()">
                 <i class="ph ph-arrow-left"></i> Kembali
-            </button>
+            </button> -->
             <button class="btn btn-download" id="downloadBtn" onclick="downloadPDF()">
                 <i class="ph ph-download-simple"></i> Download PDF
             </button>
