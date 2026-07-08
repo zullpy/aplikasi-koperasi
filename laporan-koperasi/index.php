@@ -73,6 +73,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
         exit;
     }
 
+    if ($_POST['aksi'] === 'kembalikan_saldo') {
+        $res = kembalikanSaldoKoperasi(
+            $koneksi,
+            $_POST['pengajuan_id_kembali'],
+            str_replace(['.', ','], '', $_POST['jumlah_kembali']),
+            $_FILES['bukti_kembali'] ?? null,
+            date('Y-m-d'),
+            $_POST['keterangan_kembali'] ?? null
+        );
+        header('Location: index.php?status=' . ($res['success'] ? 'saldo_returned' : 'gagal'));
+        exit;
+    }
+
     // ── Simpan / Ganti Tanda Tangan ──
     // Role diambil dari SESSION (bukan dari form), supaya user tidak bisa
     // "menandatangani sebagai" role lain lewat manipulasi request.
@@ -160,12 +173,13 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
         </div>
 
         <!-- Alert -->
-        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['harga_updated', 'barang_added', 'barang_deleted', 'saldo_added', 'nota_added', 'kwitansi_added', 'ttd_saved', 'ttd_deleted', 'gagal'])):
+        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['harga_updated', 'barang_added', 'barang_deleted', 'saldo_added', 'saldo_returned', 'nota_added', 'kwitansi_added', 'ttd_saved', 'ttd_deleted', 'gagal'])):
             $pesan = [
                 'harga_updated'  => 'Harga / nominal berhasil diperbarui.',
                 'barang_added'   => 'Barang baru berhasil ditambahkan.',
                 'barang_deleted' => 'Barang berhasil dihapus.',
                 'saldo_added'    => 'Saldo berhasil ditambahkan.',
+                'saldo_returned' => 'Sisa saldo berhasil dikembalikan.',
                 'nota_added'     => 'Nota berhasil ditambahkan.',
                 'kwitansi_added' => 'Kwitansi/nota berhasil ditambahkan.',
                 'ttd_saved'      => 'Tanda tangan berhasil disimpan.',
@@ -334,6 +348,16 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                 </svg>
                                                 Saldo
                                             </button>
+                                            <?php if ($sisa > 0): ?>
+                                                <button class="btn btn--kembali"
+                                                    onclick="bukaKembalikanSaldo(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>', <?= $sisa ?>)">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <polyline points="9 14 4 19 9 24" />
+                                                        <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                                                    </svg>
+                                                    Kembalikan Saldo
+                                                </button>
+                                            <?php endif; ?>
                                             <?php if ($jenisStok): ?>
                                                 <?php if ($bisaTtd):
                                                     $ttdRoleIni = $ttdSemua[$row['id']][$roleLoginSaatIni] ?? null;
@@ -643,6 +667,80 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                             <polyline points="7 3 7 8 15 8" />
                         </svg>
                         Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ─── Modal Kembalikan Saldo ─────────────────────────────────── -->
+    <div class="modal-overlay" id="modalKembali" onclick="tutupModal('modalKembali', event)">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleKembali">
+            <form method="POST" enctype="multipart/form-data">
+                <div class="modal__header">
+                    <div class="modal__title" id="titleKembali">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px">
+                            <polyline points="9 14 4 19 9 24" />
+                            <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                        </svg>
+                        Kembalikan Sisa Saldo
+                    </div>
+                    <button type="button" class="modal__close" onclick="tutupModalById('modalKembali')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal__body">
+                    <input type="hidden" name="aksi" value="kembalikan_saldo">
+                    <input type="hidden" name="pengajuan_id_kembali" id="inputIdPengajuanKembali">
+
+                    <div class="form-group">
+                        <label class="form-label">Pengajuan</label>
+                        <input type="text" class="form-control" id="inputNamaPengajuanKembali" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sisa Saldo Saat Ini</label>
+                        <input type="text" class="form-control" id="inputSisaSaldoKembali" disabled style="font-weight:600;color:var(--success,#059669)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Jumlah Yang Dikembalikan (Rp)</label>
+                        <input type="text" inputmode="numeric" name="jumlah_kembali" id="inputJumlahKembali" class="form-control" required
+                            placeholder="Contoh: 50.000" oninput="formatRibuan(this)">
+                        <div class="form-hint">Titik ribuan otomatis mengikuti saat kamu mengetik.</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Keterangan <span style="font-weight:400;color:var(--muted)">(opsional)</span></label>
+                        <input type="text" name="keterangan_kembali" class="form-control" placeholder="Contoh: Sisa dana dikembalikan ke kas koperasi">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Upload Bukti Transfer</label>
+                        <input type="file" name="bukti_kembali" class="form-control" accept="image/jpeg,image/png,application/pdf" required>
+                        <div class="form-hint">Foto/scan bukti transfer pengembalian. Format JPG, PNG, atau PDF. Maksimal 5MB.</div>
+                    </div>
+
+                    <div class="form-group" style="background:var(--warning-bg,#FEF3C7);border:1px solid #FDE68A;border-radius:var(--radius-sm,8px);padding:10px 14px;margin-bottom:0">
+                        <div style="display:flex;gap:8px;align-items:flex-start">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span style="font-size:12.5px;color:#92400E;line-height:1.5">
+                                Pengembalian saldo akan mengurangi <strong>Saldo Masuk</strong> pengajuan ini. Tindakan tidak bisa dibatalkan secara otomatis.
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" onclick="tutupModalById('modalKembali')">Batal</button>
+                    <button type="submit" class="btn btn--kembali">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 14 4 19 9 24" />
+                            <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+                        </svg>
+                        Simpan Pengembalian
                     </button>
                 </div>
             </form>

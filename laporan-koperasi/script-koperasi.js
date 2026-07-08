@@ -54,6 +54,19 @@ function bukaTambahSaldo(id, namaPengajuan) {
     bukaModal('modalSaldo');
 }
 
+/* ─── Modal Kembalikan Saldo ─────────────────────────────────────────── */
+function bukaKembalikanSaldo(id, namaPengajuan, sisaSaldo) {
+    document.getElementById('inputIdPengajuanKembali').value = id;
+    document.getElementById('inputNamaPengajuanKembali').value = namaPengajuan;
+    // Format sisa saldo ke Rupiah
+    const saldoFmt = 'Rp ' + Number(sisaSaldo).toLocaleString('id-ID', { minimumFractionDigits: 0 });
+    document.getElementById('inputSisaSaldoKembali').value = saldoFmt;
+    // Isi otomatis jumlah dengan sisa saldo penuh (user bisa ubah)
+    const inputJumlah = document.getElementById('inputJumlahKembali');
+    inputJumlah.value = Number(sisaSaldo).toLocaleString('id-ID', { minimumFractionDigits: 0 });
+    bukaModal('modalKembali');
+}
+
 /* ─── Modal Tambah Barang ─────────────────────────────────────────────── */
 function bukaTambahBarang(pengajuanId) {
     document.getElementById('tambahBarangPengajuanId').value = pengajuanId;

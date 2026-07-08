@@ -35,8 +35,14 @@ function getDataLaporanKoperasi($koneksi)
         // Fallback ke `jumlah` cuma jaga-jaga kalau ada data lama yang `saldo`-nya masih NULL.
         $nominalDisetujui = isset($r['saldo']) && $r['saldo'] !== null ? (float) $r['saldo'] : (float) $r['jumlah'];
 
+        // Saldo Masuk HARUS tetap pakai `saldo` (nominal disetujui saat approve), supaya
+        // tidak ikut berubah kalau nominal dikoreksi belakangan lewat "Edit Nominal".
         $r['saldo_masuk']   = hitungSaldoMasukKoperasi($koneksi, $r['id'], $nominalDisetujui);
-        $r['total_belanja'] = hitungTotalBelanjaKoperasi($koneksi, $r['id'], $r['jenis'], $nominalDisetujui);
+
+        // Total Belanja jenis operasional pakai `jumlah` (kolom yang benar-benar diedit lewat
+        // modal "Edit Nominal"), BUKAN `saldo`. Ini yang bikin koreksi nominal kelihatan di
+        // "Total Belanja" / "Sisa Saldo", tanpa ikut mengubah "Saldo Masuk".
+        $r['total_belanja'] = hitungTotalBelanjaKoperasi($koneksi, $r['id'], $r['jenis'], (float) $r['jumlah']);
         $r['sisa_saldo']    = $r['saldo_masuk'] - $r['total_belanja'];
 
         // Kwitansi/nota level-pengajuan (dipakai untuk jenis selain 'stok', yang tidak
@@ -48,16 +54,24 @@ function getDataLaporanKoperasi($koneksi)
     return $rows;
 }
 
-// ===== HITUNG SALDO MASUK (jumlah awal + akumulasi tambah saldo) =====
+// ===== HITUNG SALDO MASUK (jumlah awal + akumulasi tambah saldo, dikurangi pengembalian) =====
 function hitungSaldoMasukKoperasi($koneksi, $pengajuanId, $jumlahAwal)
 {
-    $stmt = $koneksi->prepare("SELECT COALESCE(SUM(jumlah), 0) AS total FROM saldo_koperasi WHERE pengajuan_id = ?");
+    // Tambahan saldo (tipe = 'masuk')
+    $stmt = $koneksi->prepare("SELECT COALESCE(SUM(jumlah), 0) AS total FROM saldo_koperasi WHERE pengajuan_id = ? AND tipe = 'masuk'");
     $stmt->bind_param('i', $pengajuanId);
     $stmt->execute();
     $tambahan = (float) $stmt->get_result()->fetch_assoc()['total'];
     $stmt->close();
 
-    return (float) $jumlahAwal + $tambahan;
+    // Pengembalian saldo (tipe = 'kembali') — dikurangkan dari saldo masuk
+    $stmt2 = $koneksi->prepare("SELECT COALESCE(SUM(jumlah), 0) AS total FROM saldo_koperasi WHERE pengajuan_id = ? AND tipe = 'kembali'");
+    $stmt2->bind_param('i', $pengajuanId);
+    $stmt2->execute();
+    $kembali = (float) $stmt2->get_result()->fetch_assoc()['total'];
+    $stmt2->close();
+
+    return (float) $jumlahAwal + $tambahan - $kembali;
 }
 
 // ===== HITUNG TOTAL BELANJA =====
@@ -127,7 +141,7 @@ function decodeNotaPathKoperasi($notaPath)
     return [$notaPath];
 }
 
-// ===== AMBIL RIWAYAT TAMBAH SALDO =====
+// ===== AMBIL RIWAYAT SALDO (tambah + pengembalian) =====
 function getRiwayatSaldoKoperasi($koneksi, $pengajuanId)
 {
     $stmt = $koneksi->prepare("SELECT * FROM saldo_koperasi WHERE pengajuan_id = ? ORDER BY tanggal DESC, id DESC");
@@ -168,11 +182,11 @@ function updateJumlahPengajuanKoperasi($koneksi, $pengajuanId, $jumlahBaru)
     $pengajuanId = (int) $pengajuanId;
     $jumlahBaru  = (float) $jumlahBaru;
 
-    // `saldo` ikut di-update juga karena laporan (getDataLaporanKoperasi) sekarang membaca
-    // nominal disetujui dari kolom `saldo`, bukan `jumlah`. Kalau cuma `jumlah` yang diupdate,
-    // perubahan nominal dari tombol "Edit Nominal" tidak akan kelihatan di laporan.
-    $stmt = $koneksi->prepare("UPDATE pengajuan_anggaran SET jumlah = ?, saldo = ? WHERE id = ? AND jenis = 'operasional'");
-    $stmt->bind_param('ddi', $jumlahBaru, $jumlahBaru, $pengajuanId);
+    // PENTING: hanya update `jumlah`. Kolom `saldo` (nominal disetujui saat approve, basis
+    // perhitungan "Saldo Masuk") SENGAJA tidak disentuh, supaya "Edit Nominal" cuma
+    // mengoreksi Total Belanja/Sisa Saldo dan tidak ikut mengubah histori Saldo Masuk.
+    $stmt = $koneksi->prepare("UPDATE pengajuan_anggaran SET jumlah = ? WHERE id = ? AND jenis = 'operasional'");
+    $stmt->bind_param('di', $jumlahBaru, $pengajuanId);
     $ok = $stmt->execute();
     $stmt->close();
 
@@ -349,11 +363,44 @@ function tambahSaldoKoperasi($koneksi, $pengajuanId, $jumlah, $fileBukti, $tangg
         return ['success' => false, 'message' => 'Bukti transfer wajib diunggah.'];
     }
 
+    $tipe = 'masuk';
     $stmt = $koneksi->prepare("
-        INSERT INTO saldo_koperasi (pengajuan_id, jumlah, bukti_transfer, tanggal, keterangan)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO saldo_koperasi (pengajuan_id, jumlah, bukti_transfer, tanggal, keterangan, tipe)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
-    $stmt->bind_param('idsss', $pengajuanId, $jumlah, $buktiPath, $tanggal, $keterangan);
+    $stmt->bind_param('idssss', $pengajuanId, $jumlah, $buktiPath, $tanggal, $keterangan, $tipe);
+    $ok = $stmt->execute();
+    $stmt->close();
+
+    return ['success' => $ok];
+}
+
+// ===== KEMBALIKAN SALDO (sisa saldo dikembalikan ke kas, dengan bukti transfer wajib) =====
+function kembalikanSaldoKoperasi($koneksi, $pengajuanId, $jumlah, $fileBukti, $tanggal = null, $keterangan = null)
+{
+    $pengajuanId = (int) $pengajuanId;
+    $jumlah      = (float) $jumlah;
+    $tanggal     = $tanggal ?: date('Y-m-d');
+
+    if ($jumlah <= 0) {
+        return ['success' => false, 'message' => 'Jumlah pengembalian harus lebih dari 0.'];
+    }
+
+    if (!empty($fileBukti['name']) && ($fileBukti['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        $buktiPath = uploadFileKoperasi($fileBukti, 'bukti_saldo_koperasi', 'kembali');
+        if ($buktiPath === false) {
+            return ['success' => false, 'message' => 'Upload bukti transfer gagal. Pastikan format JPG/PNG/PDF dan ukuran maksimal 5MB.'];
+        }
+    } else {
+        return ['success' => false, 'message' => 'Bukti transfer pengembalian wajib diunggah.'];
+    }
+
+    $tipe = 'kembali';
+    $stmt = $koneksi->prepare("
+        INSERT INTO saldo_koperasi (pengajuan_id, jumlah, bukti_transfer, tanggal, keterangan, tipe)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->bind_param('idssss', $pengajuanId, $jumlah, $buktiPath, $tanggal, $keterangan, $tipe);
     $ok = $stmt->execute();
     $stmt->close();
 

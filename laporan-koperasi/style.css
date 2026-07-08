@@ -579,6 +579,17 @@ table.laporan td.mono {
     background: var(--navy-light);
 }
 
+.btn--kembali {
+    background: #D97706;
+    color: #fff;
+    border-color: #D97706;
+}
+
+.btn--kembali:hover {
+    background: #B45309;
+    border-color: #B45309;
+}
+
 /* ─── Signature Pad ──────────────────────────────────── */
 .signature-pad-wrap {
     position: relative;

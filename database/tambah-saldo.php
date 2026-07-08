@@ -34,10 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
 
         // Update uang_masuk, hitung ulang sisa_uang = uang_masuk - total_belanja,
         // dan simpan nama file bukti transfer jika ada upload baru
+        // CATATAN: di MySQL, dalam satu SET, referensi ke kolom lain (uang_masuk)
+        // membaca nilai LAMA sebelum update. Maka sisa_uang harus ditambah langsung
+        // dengan tambah_saldo, bukan dihitung ulang dari (uang_masuk + x) - total_belanja.
         if ($nama_file_baru !== null) {
             $sql = "UPDATE pengajuan_belanja 
                     SET uang_masuk = uang_masuk + ?, 
-                        sisa_uang = (uang_masuk + ?) - total_belanja,
+                        sisa_uang  = sisa_uang + ?,
                         bukti_transfer = ?
                     WHERE id = ?";
             $stmt = mysqli_prepare($koneksi, $sql);
@@ -45,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         } else {
             $sql = "UPDATE pengajuan_belanja 
                     SET uang_masuk = uang_masuk + ?, 
-                        sisa_uang = (uang_masuk + ?) - total_belanja 
+                        sisa_uang  = sisa_uang + ?
                     WHERE id = ?";
             $stmt = mysqli_prepare($koneksi, $sql);
             mysqli_stmt_bind_param($stmt, 'ddi', $tambah_saldo, $tambah_saldo, $id_pengajuan);

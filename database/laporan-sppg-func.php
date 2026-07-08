@@ -187,12 +187,63 @@ function syncTotalBelanja($koneksi, $pengajuan_id)
     $total = mysqli_fetch_assoc($res)['total'];
     mysqli_stmt_close($stmt);
 
+    // Edit nominal hanya update total_belanja dan sisa_uang. uang_masuk tidak disentuh.
     $sql2  = "UPDATE pengajuan_belanja SET total_belanja = ?, sisa_uang = uang_masuk - ? WHERE id = ?";
     $stmt2 = mysqli_prepare($koneksi, $sql2);
     mysqli_stmt_bind_param($stmt2, 'ddi', $total, $total, $pengajuan_id);
     mysqli_stmt_execute($stmt2);
     mysqli_stmt_close($stmt2);
 }
+
+/**
+ * Kembalikan saldo lebih ke SPPG (kelebihan bayar).
+ * Mengurangi uang_masuk dan sisa_uang sejumlah $jumlah.
+ * Opsional: simpan bukti transfer pengembalian (nama file saja, sudah dipindahkan sebelumnya).
+ * Return: true jika berhasil, false jika sisa tidak mencukupi atau id tidak valid.
+ */
+function kembalikanSaldo($koneksi, $id_pengajuan, $jumlah, $bukti_file = null)
+{
+    $id_pengajuan = (int) $id_pengajuan;
+    $jumlah       = (float) $jumlah;
+
+    if ($id_pengajuan <= 0 || $jumlah <= 0) {
+        return false;
+    }
+
+    // Validasi: sisa harus mencukupi jumlah yang akan dikembalikan
+    $cek  = mysqli_prepare($koneksi, "SELECT sisa_uang FROM pengajuan_belanja WHERE id = ?");
+    mysqli_stmt_bind_param($cek, 'i', $id_pengajuan);
+    mysqli_stmt_execute($cek);
+    $resC  = mysqli_stmt_get_result($cek);
+    $baris = mysqli_fetch_assoc($resC);
+    mysqli_stmt_close($cek);
+
+    if (!$baris || (float) $baris['sisa_uang'] < $jumlah) {
+        return false; // sisa tidak mencukupi
+    }
+
+    if ($bukti_file !== null) {
+        $sql  = "UPDATE pengajuan_belanja
+                 SET uang_masuk     = uang_masuk  - ?,
+                     sisa_uang      = sisa_uang   - ?,
+                     bukti_transfer = ?
+                 WHERE id = ?";
+        $stmt = mysqli_prepare($koneksi, $sql);
+        mysqli_stmt_bind_param($stmt, 'ddsi', $jumlah, $jumlah, $bukti_file, $id_pengajuan);
+    } else {
+        $sql  = "UPDATE pengajuan_belanja
+                 SET uang_masuk = uang_masuk - ?,
+                     sisa_uang  = sisa_uang  - ?
+                 WHERE id = ?";
+        $stmt = mysqli_prepare($koneksi, $sql);
+        mysqli_stmt_bind_param($stmt, 'ddi', $jumlah, $jumlah, $id_pengajuan);
+    }
+
+    $ok = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+    return $ok;
+}
+
 
 /**
  * Simpan tanda tangan digital untuk sebuah laporan (pengajuan_belanja) ke

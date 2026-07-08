@@ -412,6 +412,21 @@ table.laporan td.mono {
     background: #047857;
 }
 
+.btn--warning {
+    background: #D97706;
+    color: #fff;
+    border-color: #D97706;
+}
+
+.btn--warning:hover {
+    background: #B45309;
+}
+
+.btn--warning:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
 .btn--secondary {
     background: #F1F5F9;
     color: var(--muted);

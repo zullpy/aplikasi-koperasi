@@ -32,6 +32,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
         exit;
     }
 
+    if ($_POST['aksi'] === 'kembalikan_saldo') {
+        $id_kembali     = (int) ($_POST['id_pengajuan'] ?? 0);
+        $jumlah_kembali = (float) str_replace(['.', ','], ['', '.'], $_POST['jumlah_kembali'] ?? '0');
+
+        $bukti_kembali = null;
+        if (isset($_FILES['bukti_kembali']) && $_FILES['bukti_kembali']['error'] === UPLOAD_ERR_OK) {
+            $file     = $_FILES['bukti_kembali'];
+            $ekstensi = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowed  = ['jpg', 'jpeg', 'png', 'pdf'];
+            $maxSize  = 5 * 1024 * 1024;
+
+            if (in_array($ekstensi, $allowed) && $file['size'] <= $maxSize) {
+                $folderUpload = '../uploads/bukti_transfer/';
+                if (!is_dir($folderUpload)) mkdir($folderUpload, 0755, true);
+                $nama_file = 'kembali_' . $id_kembali . '_' . time() . '_' . uniqid() . '.' . $ekstensi;
+                if (move_uploaded_file($file['tmp_name'], $folderUpload . $nama_file)) {
+                    $bukti_kembali = $nama_file;
+                }
+            }
+        }
+
+        kembalikanSaldo($koneksi, $id_kembali, $jumlah_kembali, $bukti_kembali);
+        header('Location: index.php?status=saldo_dikembalikan');
+        exit;
+    }
+
     if ($_POST['aksi'] === 'simpan_ttd') {
         $role_login     = $_SESSION['role'] ?? '';
         $user_id_login  = $_SESSION['id'] ?? null;
@@ -107,15 +133,16 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
         </div>
 
         <!-- Alert -->
-        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['success', 'harga_updated', 'barang_added', 'barang_deleted', 'ttd_saved', 'ttd_deleted', 'ttd_gagal'])):
+        <?php if (isset($_GET['status']) && in_array($_GET['status'], ['success', 'harga_updated', 'barang_added', 'barang_deleted', 'ttd_saved', 'ttd_deleted', 'ttd_gagal', 'saldo_dikembalikan'])):
             $pesan = [
-                'success'        => 'Saldo masuk berhasil diperbarui.',
-                'harga_updated'  => 'Harga barang berhasil diperbarui.',
-                'barang_added'   => 'Barang baru berhasil ditambahkan.',
-                'barang_deleted' => 'Barang berhasil dihapus.',
-                'ttd_saved'      => 'Tanda tangan berhasil disimpan.',
-                'ttd_deleted'    => 'Tanda tangan berhasil dihapus.',
-                'ttd_gagal'      => 'Gagal menyimpan tanda tangan, silakan coba lagi.',
+                'success'             => 'Saldo masuk berhasil diperbarui.',
+                'harga_updated'       => 'Harga barang berhasil diperbarui.',
+                'barang_added'        => 'Barang baru berhasil ditambahkan.',
+                'barang_deleted'      => 'Barang berhasil dihapus.',
+                'ttd_saved'           => 'Tanda tangan berhasil disimpan.',
+                'ttd_deleted'         => 'Tanda tangan berhasil dihapus.',
+                'ttd_gagal'           => 'Gagal menyimpan tanda tangan, silakan coba lagi.',
+                'saldo_dikembalikan'  => 'Saldo berhasil dikembalikan.',
             ][$_GET['status']];
             $isError = $_GET['status'] === 'ttd_gagal';
         ?>
@@ -292,6 +319,16 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                 </svg>
                                                 Saldo
                                             </button>
+                                            <?php if ($sisa > 0): ?>
+                                                <button class="btn btn--warning"
+                                                    onclick="bukaKembalikan(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>', <?= (float) $row['sisa_uang'] ?>)">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M3 12a9 9 0 1 0 3-6.7" />
+                                                        <path d="M3 4v5h5" />
+                                                    </svg>
+                                                    Kembalikan
+                                                </button>
+                                            <?php endif; ?>
                                             <?php if ($bisaTtd): ?>
                                                 <button type="button" class="btn <?= $ttdSaya ? 'btn--outline' : 'btn--ttd' ?>"
                                                     onclick='bukaTandaTangan(<?= $row['id'] ?>, "<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>", "<?= htmlspecialchars($daftarRoleTtd[$role_login_saat_ini]) ?>", <?= $ttdSaya ? json_encode([
@@ -507,7 +544,78 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
         </div>
     </div>
 
-    <!-- ─── Modal Tanda Tangan Digital ──────────────────────────────── -->
+    <!-- ─── Modal Kembalikan Saldo ─────────────────────────────────── -->
+    <div class="modal-overlay" id="modalKembalikan" onclick="tutupModal('modalKembalikan', event)">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleKembalikan">
+            <form method="POST" enctype="multipart/form-data" id="formKembalikan" onsubmit="return validasiKembalikan()">
+                <div class="modal__header">
+                    <div class="modal__title" id="titleKembalikan">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px">
+                            <path d="M3 12a9 9 0 1 0 3-6.7" />
+                            <path d="M3 4v5h5" />
+                        </svg>
+                        Kembalikan Saldo
+                    </div>
+                    <button type="button" class="modal__close" onclick="tutupModalById('modalKembalikan')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal__body">
+                    <input type="hidden" name="aksi" value="kembalikan_saldo">
+                    <input type="hidden" name="id_pengajuan" id="kembalikanId">
+
+                    <div class="form-group">
+                        <label class="form-label">Menu</label>
+                        <input type="text" class="form-control" id="kembalikanNamaMenu" disabled>
+                    </div>
+
+                    <!-- Info sisa saldo saat ini -->
+                    <div style="background:var(--green-light,#ECFDF5);border:1px solid #6EE7B7;border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">
+                            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                        <div style="font-size:13px;color:#065F46">
+                            Sisa saldo yang tersedia:
+                            <strong id="kembalikanSisaInfo" style="font-size:14px;margin-left:4px">Rp 0</strong>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Jumlah yang Dikembalikan (Rp)</label>
+                        <input type="text" inputmode="numeric" name="jumlah_kembali"
+                            id="kembalikanJumlah" class="form-control" required
+                            placeholder="Contoh: 50.000"
+                            oninput="formatRibuan(this); cekMaksKembalikan()">
+                        <div class="form-hint" id="kembalikanHint">Tidak boleh melebihi sisa saldo yang ada.</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bukti Transfer Pengembalian
+                            <span style="font-weight:400;color:var(--muted);font-size:12px">(opsional)</span>
+                        </label>
+                        <input type="file" name="bukti_kembali" id="kembalikanBukti"
+                            class="form-control" accept="image/jpeg,image/png,application/pdf">
+                        <div class="form-hint">Format JPG, PNG, atau PDF. Maksimal 5MB.</div>
+                    </div>
+                </div>
+                <div class="modal__footer">
+                    <button type="button" class="btn btn--secondary" onclick="tutupModalById('modalKembalikan')">Batal</button>
+                    <button type="submit" class="btn btn--warning" id="kembalikanSubmit">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 1 0 3-6.7" />
+                            <path d="M3 4v5h5" />
+                        </svg>
+                        Konfirmasi Pengembalian
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
     <div class="modal-overlay" id="modalTandaTangan" onclick="tutupModal('modalTandaTangan', event)">
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="titleTTD">
             <form method="POST" id="formTandaTangan" onsubmit="return submitTandaTangan(event)">
@@ -721,6 +829,58 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                 document.body.style.overflow = '';
             }
         });
+
+        /* ─── Kembalikan Saldo Modal ─────────────────────────────────── */
+        var _kembalikanMaxSisa = 0;
+
+        function bukaKembalikan(id, nama, sisaSaldo) {
+            _kembalikanMaxSisa = sisaSaldo;
+            document.getElementById('kembalikanId').value        = id;
+            document.getElementById('kembalikanNamaMenu').value  = nama;
+            document.getElementById('kembalikanSisaInfo').textContent =
+                'Rp ' + Math.round(sisaSaldo).toLocaleString('id-ID');
+            document.getElementById('kembalikanJumlah').value    = '';
+            document.getElementById('kembalikanBukti').value     = '';
+            document.getElementById('kembalikanHint').textContent =
+                'Tidak boleh melebihi sisa saldo yang ada.';
+            document.getElementById('kembalikanHint').style.color = '';
+            bukaModal('modalKembalikan');
+        }
+
+        function cekMaksKembalikan() {
+            const input  = document.getElementById('kembalikanJumlah');
+            const hint   = document.getElementById('kembalikanHint');
+            const submit = document.getElementById('kembalikanSubmit');
+            const bersih = angkaBersih(input.value);
+            const jumlah = parseFloat(bersih) || 0;
+
+            if (jumlah > _kembalikanMaxSisa) {
+                hint.textContent = '⚠ Jumlah melebihi sisa saldo (' +
+                    'Rp ' + Math.round(_kembalikanMaxSisa).toLocaleString('id-ID') + ').';
+                hint.style.color = 'var(--minus, #DC2626)';
+                submit.disabled  = true;
+            } else {
+                hint.textContent = 'Tidak boleh melebihi sisa saldo yang ada.';
+                hint.style.color = '';
+                submit.disabled  = false;
+            }
+        }
+
+        function validasiKembalikan() {
+            const input  = document.getElementById('kembalikanJumlah');
+            const bersih = angkaBersih(input.value);
+            const jumlah = parseFloat(bersih) || 0;
+
+            if (jumlah <= 0) {
+                alert('Jumlah yang dikembalikan harus lebih dari 0.');
+                return false;
+            }
+            if (jumlah > _kembalikanMaxSisa) {
+                alert('Jumlah melebihi sisa saldo yang tersedia.');
+                return false;
+            }
+            return true;
+        }
 
         /* ─── Saldo Modal ───────────────────────────────────────────── */
         function bukaSaldo(id, nama) {
