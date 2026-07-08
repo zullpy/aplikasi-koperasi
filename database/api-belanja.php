@@ -4,10 +4,62 @@ if (ob_get_level()) ob_clean();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 header('Content-Type: application/json; charset=utf-8');
+
+// ─── Session Guard (API-safe versi dari auth.php) ──────────────────────────
+// TIDAK pakai require_once 'auth.php' langsung karena auth.php melakukan
+// header("Location: ../") saat gagal — itu cocok untuk halaman biasa, tapi
+// untuk endpoint JSON ini harus balas JSON 401, bukan redirect (redirect
+// bikin fetch() di JS menerima HTML, bukan JSON, dan gagal di-parse).
+$isHttps = (
+    (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+);
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => '',
+    'secure'   => $isHttps,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+
+if (!isset($_SESSION['id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: sesi tidak valid, silakan login ulang']);
+    exit;
+}
+
 require_once 'koneksi.php';
 
 $action = $_REQUEST['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
+
+// ─── Role Guard ───────────────────────────────────────────────────────────
+$userRole = $_SESSION['role'] ?? null;
+if (!$userRole) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: role tidak ditemukan di sesi']);
+    exit;
+}
+$isPurchase = ($userRole === 'purchase');
+
+// ─── Purchase Whitelist Guard ──────────────────────────────────────────────
+// PENDEKATAN WHITELIST (bukan blacklist) — lebih aman:
+// Definisikan HANYA aksi yang BOLEH dilakukan role purchase.
+// Semua aksi di luar daftar ini otomatis ditolak 403, termasuk aksi baru
+// yang mungkin ditambahkan di masa depan (save_ttd, get_ttd, dll.).
+if ($isPurchase) {
+    $purchaseAllowedActions = ['list', 'list_barang', 'update_item_status', 'upload_nota'];
+    if (!in_array($action, $purchaseAllowedActions, true)) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Akses ditolak: role purchase hanya dapat melakukan aksi: ' . implode(', ', $purchaseAllowedActions),
+        ]);
+        exit;
+    }
+}
 
 try {
     switch ($action) {
@@ -547,6 +599,10 @@ try {
             $validRoles = ['bendahara', 'purchase', 'ketua'];
             if (!in_array($rolePenanda, $validRoles)) {
                 throw new Exception('role_penanda tidak valid: ' . $rolePenanda);
+            }
+            // Cegah user menandatangani atas nama role lain (admin dikecualikan)
+            if ($userRole !== 'admin' && $rolePenanda !== $userRole) {
+                throw new Exception('Anda hanya dapat menandatangani sebagai role Anda sendiri (' . $userRole . ')');
             }
 
             // Pastikan tabel ada

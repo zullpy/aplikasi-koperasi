@@ -1,6 +1,8 @@
 <?php
 $currentPage = basename($_SERVER['PHP_SELF']);
 $base_url = '';
+$userRole = $_SESSION['role'] ?? null;
+$isPurchase = ($userRole === 'purchase');
 ?>
 
 <head>
@@ -31,6 +33,7 @@ $base_url = '';
         <nav class="nav-menu" id="nav-menu" aria-label="Menu utama">
             <ul class="nav-list">
 
+                <?php if (!$isPurchase): ?>
                 <!-- GROUP: Transaksi (dropdown desktop, flat mobile) -->
                 <li class="nav-item <?= in_array($activePage, ['transaksi-pembelian', 'transaksi-penjualan', 'penjualan-sppg-foodcost', 'penjualan-sppg-addcost', 'transaksi-penjualan-umum']) ? 'active' : '' ?>" id="dd-transaksi">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-transaksi">
@@ -117,7 +120,9 @@ $base_url = '';
 
                     </ul>
                 </li>
+                <?php endif; ?>
 
+                <?php if (!$isPurchase): ?>
                 <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
                 <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
@@ -169,7 +174,9 @@ $base_url = '';
                         </li>
                     </ul>
                 </li>
+                <?php endif; ?>
 
+                <?php if (!$isPurchase): ?>
                 <!-- GROUP: Daftar (dropdown) -->
                 <li class="nav-item <?= in_array($activePage, ['daftar-harga-barang', 'daftar-aset-koperasi']) ? 'active' : '' ?>" id="dd-daftar">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-daftar">
@@ -212,8 +219,22 @@ $base_url = '';
                         </li>
                     </ul>
                 </li>
+                <?php endif; ?>
 
-                <!-- GROUP: Pengajuan (dropdown) -->
+                <!-- GROUP: Pengajuan -->
+                <?php if ($isPurchase): ?>
+                <li class="nav-item <?= $activePage == 'dompet-belanja-harian' ? 'active' : '' ?>">
+                    <a href="../dompet-harian/index.php" class="nav-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h7" />
+                            <path d="M16 2v4M8 2v4" />
+                            <circle cx="18" cy="18" r="4" />
+                            <path d="M18 16v2l1 1" />
+                        </svg>
+                        Dompet Belanja Harian SPPG
+                    </a>
+                </li>
+                <?php else: ?>
                 <li class="nav-item <?= in_array($activePage, ['dompet-belanja-harian', 'pengajuan-koperasi']) ? 'active' : '' ?>" id="dd-pengajuan">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-pengajuan">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -254,8 +275,10 @@ $base_url = '';
                         </li>
                     </ul>
                 </li>
+                <?php endif; ?>
 
 
+                <?php if (!$isPurchase): ?>
                 <!-- GROUP: Laporan (dropdown) -->
                 <li class="nav-item <?= in_array($activePage, ['laporan-sppg', 'laporan-koperasi']) ? 'active' : '' ?>" id="dd-laporan">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-laporan">
@@ -297,7 +320,9 @@ $base_url = '';
                         </li>
                     </ul>
                 </li>
+                <?php endif; ?>
 
+                <?php if (!$isPurchase): ?>
                 <!-- Laporan Keuangan -->
                 <li class="nav-item <?= $activePage == 'laporan-keuangan' ? 'active' : '' ?>">
                     <a href="../laporan-keuangan-food/index.php" class="nav-link">
@@ -309,6 +334,7 @@ $base_url = '';
                         Laporan Keuangan
                     </a>
                 </li>
+                <?php endif; ?>
             </ul>
         </nav>
 

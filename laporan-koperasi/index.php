@@ -454,7 +454,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                                 <th>Nama Barang</th>
                                                                 <th>Qty</th>
                                                                 <th>Satuan</th>
-                                                                <th>Harga</th>
+                                                                <th>Estimasi Harga</th>
                                                                 <th>Subtotal</th>
                                                                 <th>Nota</th>
                                                                 <th>Aksi</th>

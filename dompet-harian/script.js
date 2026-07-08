@@ -207,7 +207,7 @@ function renderTable() {
                               Saldo Masuk: <strong>${formatRupiah(uangMasuk)}</strong>
                             </span>${selisihHtml}`;
             }
-            if (buktiTF) {
+            if (buktiTF && !isPurchase) {
               html += `<button class="btn-bukti-tf" onclick="openBuktiTF('${escHtml(buktiTF)}')" title="Lihat Bukti Transfer">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1" y="2" width="11" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
@@ -237,7 +237,7 @@ function renderTable() {
                             <th style="width:${isPurchase ? '25%' : '35%'}">Nama Barang</th>
                             <th style="width:8%">Qty</th>
                             <th style="width:8%">Satuan</th>
-                            <th style="width:12%">Harga Satuan</th>
+                            <th style="width:12%">Estimasi Harga </th>
                             <th style="width:10%">Subtotal</th>
                             ${isPurchase ? '<th style="width:15%">Status</th>' : ''}
                             <th style="width:${isPurchase ? '18%' : '20%'}">Nota</th>
@@ -294,12 +294,14 @@ function renderTable() {
                                           <span class="nota-count-badge">${urls.length}</span>
                                         </button>`
                   : `<span class="nota-empty-label">—</span>`;
-                const uploadBtn = `<button class="btn-nota-icon btn-nota-upload-icon" title="Upload nota" onclick="openUploadNotaForItem(${itemId}, ${item.id})">
+                const uploadBtn = isPurchase
+                  ? `<button class="btn-nota-icon btn-nota-upload-icon" title="Upload nota" onclick="openUploadNotaForItem(${itemId}, ${item.id})">
                                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                           <path d="M7 10V4M4 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                           <path d="M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                                         </svg>
-                                      </button>`;
+                                      </button>`
+                  : '';
                 return `<div class="nota-action-group">${viewBtn}${uploadBtn}</div>`;
               })()}
                                 </td>
@@ -309,7 +311,7 @@ function renderTable() {
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colspan="${isPurchase ? 5 : 5}" class="tfoot-label">Total Belanja</td>
+                            <td colspan="${isPurchase ? 5 : 5}" class="tfoot-label">Total Estimasi  </td>
                             <td class="tfoot-total" colspan="${isPurchase ? 2 : 1}">${formatRupiah(totalItem)}</td>
                           </tr>
                         </tfoot>
@@ -351,22 +353,31 @@ async function markItemAsBought(detailId) {
 
 // ─── Approval Functions ───────────────────────────────────────────────────────
 async function approveItem(id) {
+  // Guard: role purchase tidak boleh approve
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] approveItem: role purchase tidak memiliki akses'); return; }
   if (!confirm('Setujui pengajuan ini?')) return;
   await updateStatus(id, 'approved', '');
 }
 
 function openRejectModal(id) {
+  // Guard: role purchase tidak boleh reject
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openRejectModal: role purchase tidak memiliki akses'); return; }
   document.getElementById('rejectTargetId').value = id;
   document.getElementById('rejectionReason').value = '';
   document.getElementById('rejectModal').classList.add('active');
 }
 
 function closeRejectModal() {
-  document.getElementById('rejectModal').classList.remove('active');
-  document.getElementById('rejectionReason').value = '';
+  const modal = document.getElementById('rejectModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  const reason = document.getElementById('rejectionReason');
+  if (reason) reason.value = '';
 }
 
 async function confirmReject() {
+  // Guard: role purchase tidak boleh reject
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] confirmReject: role purchase tidak memiliki akses'); return; }
   const id = document.getElementById('rejectTargetId').value;
   const reason = document.getElementById('rejectionReason').value.trim();
   if (!reason) {
@@ -378,6 +389,8 @@ async function confirmReject() {
 }
 
 async function updateStatus(id, status, catatan) {
+  // Guard: role purchase tidak boleh update status pengajuan
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] updateStatus: role purchase tidak memiliki akses'); return; }
   try {
     const res = await fetch('../database/api-belanja.php?action=update_status', {
       method: 'POST',
@@ -399,6 +412,8 @@ async function updateStatus(id, status, catatan) {
 
 // ─── Modal Functions ─────────────────────────────────────────────────────────
 function openModal() {
+  // Guard: role purchase tidak boleh tambah data
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openModal: role purchase tidak memiliki akses'); return; }
   editingId = null;
   resetForm();
   setTodayDate();
@@ -408,6 +423,8 @@ function openModal() {
 }
 
 function openEditModal(id) {
+  // Guard: role purchase tidak boleh edit data
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openEditModal: role purchase tidak memiliki akses'); return; }
   const item = allData.find(d => d.id == id || d.id_pengajuan == id);
   if (!item) return;
   editingId = id;
@@ -437,7 +454,9 @@ function openEditModal(id) {
 }
 
 function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('active');
+  const modal = document.getElementById('modalOverlay');
+  if (!modal) return;
+  modal.classList.remove('active');
   editingId = null;
 }
 
@@ -545,7 +564,7 @@ function addBarangRow(data = null) {
       </div>
     </div>
     <div class="form-group" style="margin-top:0.6rem">
-      <label class="form-label">Harga Satuan</label>
+      <label class="form-label">Estimasi Harga</label>
       <div class="input-icon-wrapper">
         <span class="input-icon input-icon-text">Rp</span>
         <input
@@ -691,8 +710,9 @@ function validate() {
 }
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
-// ─── Save ─────────────────────────────────────────────────────────────────────
 async function saveItem() {
+  // Guard: role purchase tidak boleh simpan/edit data belanja
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] saveItem: role purchase tidak memiliki akses'); return; }
   if (!validate()) return;
   const barangList = getBarangData();
   const totalBelanja = barangList.reduce((sum, b) => sum + (b.harga * b.quantity), 0);
@@ -828,6 +848,8 @@ function closeNotaModal() {
 
 // ─── Bukti Transfer Preview ──────────────────────────────────────────────────
 function openBuktiTF(url) {
+  // Guard: role purchase tidak boleh melihat bukti transfer
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openBuktiTF: role purchase tidak memiliki akses'); return; }
   const overlay = document.getElementById('notaModalOverlay');
   const title = document.getElementById('notaModalTitle');
   const body = document.getElementById('notaModalBody');
@@ -1135,6 +1157,8 @@ function closeUploadNotaModal() {
 }
 
 async function deleteItem(id) {
+  // Guard: role purchase tidak boleh hapus data
+  if (USER_ROLE === 'purchase') { console.warn('[RBAC] deleteItem: role purchase tidak memiliki akses'); return; }
   if (!confirm('Hapus data belanja ini?')) return;
   try {
     const res = await fetch('../database/api-belanja.php?action=delete', {
@@ -1182,36 +1206,46 @@ function initSearch() {
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
+// Helper: bind event listener hanya kalau elemennya ada di DOM.
+// Penting untuk role 'purchase', karena beberapa tombol (btnOpenModal, dll)
+// sengaja tidak dirender oleh index.php untuk role ini.
+function bindIfExists(id, event, handler) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(event, handler);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   fetchData();
-  document.getElementById('btnOpenModal').addEventListener('click', openModal);
-  document.getElementById('btnCloseModal').addEventListener('click', closeModal);
-  document.getElementById('btnCancel').addEventListener('click', closeModal);
-  document.getElementById('btnSave').addEventListener('click', saveItem);
-  document.getElementById('btnAddBarangRow').addEventListener('click', () => {
+
+  // Tombol-tombol ini hanya ada untuk role selain 'purchase'
+  bindIfExists('btnOpenModal', 'click', openModal);
+  bindIfExists('btnCloseModal', 'click', closeModal);
+  bindIfExists('btnCancel', 'click', closeModal);
+  bindIfExists('btnSave', 'click', saveItem);
+  bindIfExists('btnAddBarangRow', 'click', () => {
     addBarangRow();
     renumberRows();
   });
-  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  bindIfExists('modalOverlay', 'click', (e) => {
     if (e.target === document.getElementById('modalOverlay')) closeModal();
   });
 
-  // Reject modal events
-  document.getElementById('btnCancelReject').addEventListener('click', closeRejectModal);
-  document.getElementById('btnConfirmReject').addEventListener('click', confirmReject);
-  document.getElementById('rejectModal').addEventListener('click', (e) => {
+  // Reject modal events (bukan untuk purchase)
+  bindIfExists('btnCancelReject', 'click', closeRejectModal);
+  bindIfExists('btnConfirmReject', 'click', confirmReject);
+  bindIfExists('rejectModal', 'click', (e) => {
     if (e.target === document.getElementById('rejectModal')) closeRejectModal();
   });
 
-  // Nota preview modal
-  document.getElementById('btnCloseNotaModal').addEventListener('click', closeNotaModal);
-  document.getElementById('notaModalOverlay').addEventListener('click', (e) => {
+  // Nota preview modal (dipakai semua role, termasuk purchase)
+  bindIfExists('btnCloseNotaModal', 'click', closeNotaModal);
+  bindIfExists('notaModalOverlay', 'click', (e) => {
     if (e.target === document.getElementById('notaModalOverlay')) closeNotaModal();
   });
 
-  // Upload nota modal
-  document.getElementById('btnCloseUploadNotaModal').addEventListener('click', closeUploadNotaModal);
-  document.getElementById('uploadNotaModalOverlay').addEventListener('click', (e) => {
+  // Upload nota modal (dipakai purchase)
+  bindIfExists('btnCloseUploadNotaModal', 'click', closeUploadNotaModal);
+  bindIfExists('uploadNotaModalOverlay', 'click', (e) => {
     if (e.target === document.getElementById('uploadNotaModalOverlay')) closeUploadNotaModal();
   });
 

@@ -3,6 +3,13 @@
 require_once '../database/koneksi.php';
 require_once '../database/auth.php';
 
+// Halaman Cetak Laporan SPPG hanya untuk bendahara, admin, ketua – bukan purchase
+$userRole = $_SESSION['role'] ?? 'admin';
+if ($userRole === 'purchase') {
+    header("Location: index.php");
+    exit;
+}
+
 // Check jika tidak ada parameter ID
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     die('ID pengajuan tidak ditemukan');

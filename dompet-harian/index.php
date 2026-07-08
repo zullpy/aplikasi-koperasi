@@ -1,7 +1,6 @@
 <?php
-// Dompet Belanja Harian SPPG
-$userRole = $_SESSION['role'] ?? 'admin';
 require_once '../database/auth.php';
+$userRole = $_SESSION['role'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -17,6 +16,7 @@ require_once '../database/auth.php';
 <body>
     <?php $activePage = 'dompet-belanja-harian';
     include '../components/navbar.php'; ?>
+    
     <!-- HERO -->
     <section class="page-hero">
         <div class="page-hero-inner">
@@ -52,18 +52,20 @@ require_once '../database/auth.php';
                     </svg>
                 </button>
             </div>
+            <?php if ($userRole !== 'purchase'): ?>
             <a href="approve.php" class="btn-approval">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
                 Approval
             </a>
+            <?php endif; ?>
             <?php if ($userRole !== 'purchase'): ?>
                 <button id="btnOpenModal" class="btn-add">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M8 3V13M3 8H13" stroke="#fff" stroke-width="2" stroke-linecap="round" />
                     </svg>
-                    Tambah Belanja
+                    Tambah Estimasi Belanja
                 </button>
             <?php endif; ?>
         </div>
@@ -82,6 +84,7 @@ require_once '../database/auth.php';
             <div class="empty-desc">Klik "Tambah Belanja" untuk mulai mencatat pengeluaran harian.</div>
         </div>
     </main>
+    <?php if ($userRole !== 'purchase'): ?>
     <!-- ============ MODAL BELANJA ============ -->
     <div id="modalOverlay" class="modal-overlay">
         <div class="modal modal-wide">
@@ -146,7 +149,7 @@ require_once '../database/auth.php';
                 <div id="errorBarang" class="form-error"></div>
                 <!-- Subtotal -->
                 <div class="subtotal-preview">
-                    <div class="subtotal-label">Total Belanja</div>
+                    <div class="subtotal-label">Total Estimasi</div>
                     <div id="subtotalValue" class="subtotal-value">Rp 0</div>
                 </div>
             </div>
@@ -161,6 +164,8 @@ require_once '../database/auth.php';
             </div>
         </div>
     </div>
+    <?php endif; ?>
+    <?php if ($userRole !== 'purchase'): ?>
     <!-- ============ MODAL TOLAK ============ -->
     <div id="rejectModal" class="modal-overlay">
         <div class="modal" style="max-width:480px;">
@@ -203,6 +208,7 @@ require_once '../database/auth.php';
             </div>
         </div>
     </div>
+    <?php endif; ?>
     <!-- ============ MODAL PREVIEW NOTA ============ -->
     <div id="notaModalOverlay" class="modal-overlay">
         <div class="modal modal-nota">
