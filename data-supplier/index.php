@@ -41,9 +41,11 @@ require_once '../database/auth.php'; ?>
                     <i class="ti ti-search"></i>
                     <input type="text" id="search-input" placeholder="Cari supplier..." />
                 </div>
+                <?php if ($_SESSION['role'] === 'admin'): ?>
                 <button class="btn-add" onclick="openModal()">
                     <i class="ti ti-plus"></i> Tambah Supplier
                 </button>
+                <?php endif; ?>
             </div>
         </div>
         <div class="card-grid" id="card-grid"></div>
@@ -99,7 +101,8 @@ require_once '../database/auth.php'; ?>
     <script>
         initPage({
             apiUrl: '../database/add-supplier.php',  /* path dari data-supplier/ ke database/ */
-            type: 'supplier'
+            type: 'supplier',
+            role: '<?php echo $_SESSION['role'] ?? ''; ?>'
         });
     </script>
     <?php include '../components/made-by.php'; ?>

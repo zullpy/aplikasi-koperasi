@@ -4,6 +4,16 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
+if (!isset($_SESSION['id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon'  => 'error',
+        'title' => 'Akses Ditolak',
+        'text'  => 'Hanya admin yang dapat membayar sisa tagihan.'
+    ];
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+
 $kode_transaksi = mysqli_real_escape_string($koneksi, $_POST['kode_transaksi'] ?? '');
 $jumlah_bayar_raw = preg_replace('/[^0-9]/', '', $_POST['jumlah_bayar'] ?? '');
 $jumlah_bayar = ($jumlah_bayar_raw === '') ? 0 : (int) $jumlah_bayar_raw;

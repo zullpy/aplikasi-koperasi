@@ -339,6 +339,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                 </svg>
                                                 Detail
                                             </button>
+                                            <?php if ($roleLoginSaatIni === 'bendahara'): ?>
                                             <button class="btn btn--success"
                                                 onclick="bukaTambahSaldo(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>')">
                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -348,6 +349,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                 </svg>
                                                 Saldo
                                             </button>
+                                            <?php endif; ?>
                                             <?php if ($sisa > 0): ?>
                                                 <button class="btn btn--kembali"
                                                     onclick="bukaKembalikanSaldo(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>', <?= $sisa ?>)">
@@ -377,6 +379,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                         <?= $ttdRoleIni ? 'Lihat TTD' : 'Tanda Tangan' ?>
                                                     </button>
                                                 <?php endif; ?>
+                                                <?php if ($roleLoginSaatIni === 'admin'): ?>
                                                 <a class="btn btn--outline"
                                                     href="cetak-laporan-koperasi.php?id=<?= $row['id'] ?>"
                                                     target="_blank" title="Ekspor / Cetak PDF Laporan Belanja">
@@ -388,6 +391,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                     </svg>
                                                     Cetak
                                                 </a>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <?php if (!empty($row['kwitansi'])): ?>
                                                     <button type="button" class="btn btn--outline btn-nota"
@@ -399,6 +403,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                         Lihat Kwitansi<?= count($row['kwitansi']) > 1 ? ' (' . count($row['kwitansi']) . ')' : '' ?>
                                                     </button>
                                                 <?php endif; ?>
+                                                <?php if ($roleLoginSaatIni === 'admin'): ?>
                                                 <button type="button" class="btn btn--outline"
                                                     onclick="bukaUploadKwitansi(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>')"
                                                     title="Upload Kwitansi / Nota Belanja">
@@ -409,8 +414,9 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                     </svg>
                                                     <?= empty($row['kwitansi']) ? 'Upload Kwitansi/Nota' : '+ Kwitansi/Nota' ?>
                                                 </button>
+                                                <?php endif; ?>
                                             <?php endif; ?>
-                                            <?php if (!$punyaItem): ?>
+                                            <?php if ($roleLoginSaatIni === 'admin' && !$punyaItem): ?>
                                                 <button class="btn btn--outline"
                                                     onclick="bukaEditHarga('pengajuan', <?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>', <?= (float) $row['jumlah'] ?>)">
                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -438,6 +444,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                         </svg>
                                                         Rincian Barang — <?= htmlspecialchars($row['tujuan']) ?>
                                                     </span>
+                                                    <?php if ($roleLoginSaatIni === 'admin'): ?>
                                                     <button type="button" class="btn btn--success" onclick="bukaTambahBarang(<?= $row['id'] ?>)">
                                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                                             <circle cx="12" cy="12" r="10" />
@@ -446,6 +453,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                         </svg>
                                                         Tambah Barang
                                                     </button>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div style="overflow-x:auto; margin-bottom:18px">
                                                     <table class="detail-table">
@@ -497,6 +505,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                                             <?php endif; ?>
                                                                         </td>
                                                                         <td>
+                                                                            <?php if ($roleLoginSaatIni === 'admin'): ?>
                                                                             <div class="actions">
                                                                                 <button type="button" class="btn btn--outline"
                                                                                     onclick="bukaUploadNota(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['keterangan'])) ?>')">
@@ -520,6 +529,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                                                     </button>
                                                                                 </form>
                                                                             </div>
+                                                                            <?php endif; ?>
                                                                         </td>
                                                                     </tr>
                                                             <?php endforeach;

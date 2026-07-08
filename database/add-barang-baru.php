@@ -2,6 +2,17 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
+
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon' => 'error',
+        'title' => 'Gagal',
+        'text' => 'Akses ditolak! Anda bukan admin.'
+    ];
+    header("Location: ../daftar-harga-barang-food/index.php");
+    exit;
+}
+
 include 'koneksi.php';
 
 $nama_barang = $_POST['nama_barang'];

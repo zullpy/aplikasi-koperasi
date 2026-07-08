@@ -144,9 +144,9 @@ function renderTable() {
         const totalItem = parseFloat(item.total_belanja || item.total_harga) || 0;
         const status = item.status || 'pending';
 
-        // Tombol aksi di level MENU CARD (hanya untuk non-purchase)
+        // Tombol aksi di level MENU CARD (hanya untuk admin)
         let menuActionsHtml = '';
-        if (!isPurchase) {
+        if (USER_ROLE === 'admin') {
           menuActionsHtml = `
                   <button class="btn-action btn-action-edit" onclick="openEditModal(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -412,8 +412,8 @@ async function updateStatus(id, status, catatan) {
 
 // ─── Modal Functions ─────────────────────────────────────────────────────────
 function openModal() {
-  // Guard: role purchase tidak boleh tambah data
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openModal: role purchase tidak memiliki akses'); return; }
+  // Guard: hanya admin yang boleh tambah data
+  if (USER_ROLE !== 'admin') { console.warn('[RBAC] openModal: selain admin tidak memiliki akses'); return; }
   editingId = null;
   resetForm();
   setTodayDate();
@@ -423,8 +423,8 @@ function openModal() {
 }
 
 function openEditModal(id) {
-  // Guard: role purchase tidak boleh edit data
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openEditModal: role purchase tidak memiliki akses'); return; }
+  // Guard: hanya admin yang boleh edit data
+  if (USER_ROLE !== 'admin') { console.warn('[RBAC] openEditModal: selain admin tidak memiliki akses'); return; }
   const item = allData.find(d => d.id == id || d.id_pengajuan == id);
   if (!item) return;
   editingId = id;
@@ -711,8 +711,8 @@ function validate() {
 
 // ─── Save ─────────────────────────────────────────────────────────────────────
 async function saveItem() {
-  // Guard: role purchase tidak boleh simpan/edit data belanja
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] saveItem: role purchase tidak memiliki akses'); return; }
+  // Guard: hanya admin yang boleh simpan/edit data belanja
+  if (USER_ROLE !== 'admin') { console.warn('[RBAC] saveItem: selain admin tidak memiliki akses'); return; }
   if (!validate()) return;
   const barangList = getBarangData();
   const totalBelanja = barangList.reduce((sum, b) => sum + (b.harga * b.quantity), 0);
@@ -1157,8 +1157,8 @@ function closeUploadNotaModal() {
 }
 
 async function deleteItem(id) {
-  // Guard: role purchase tidak boleh hapus data
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] deleteItem: role purchase tidak memiliki akses'); return; }
+  // Guard: hanya admin yang boleh hapus data
+  if (USER_ROLE !== 'admin') { console.warn('[RBAC] deleteItem: selain admin tidak memiliki akses'); return; }
   if (!confirm('Hapus data belanja ini?')) return;
   try {
     const res = await fetch('../database/api-belanja.php?action=delete', {

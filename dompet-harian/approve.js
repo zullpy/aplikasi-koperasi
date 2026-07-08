@@ -4,6 +4,7 @@ approve.js — Approval Pengajuan Belanja
 ───────────────────────────────────────────── */
 
 // ── STATE ─────────────────────────────────────
+const USER_ROLE = window.CURRENT_USER_ROLE || '';
 let allData = [];
 let currentFilter = 'all';
 let rejectTargetId = null;
@@ -407,7 +408,12 @@ function buildItemRow(it, idx) {
 }
 
 function buildTtdSection(item) {
-    const roleKeys = Object.keys(ROLES);
+    // Filter kolom TTD: tampilkan hanya role yang sedang login
+    // Admin bisa lihat semua; ketua/bendahara hanya miliknya sendiri
+    const allRoleKeys = Object.keys(ROLES);
+    const roleKeys = (USER_ROLE === 'admin' || !allRoleKeys.includes(USER_ROLE))
+        ? allRoleKeys
+        : [USER_ROLE];
     const cols = roleKeys.map(role => {
         const sig = getSig(item.id, role);
         const info = ROLES[role];

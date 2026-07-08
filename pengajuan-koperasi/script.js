@@ -256,11 +256,12 @@ function toggleActionMenu(e, id) {
     menu.id = 'globalActionMenu';
     menu.className = 'action-dropdown';
     menu.dataset.id = id;
+    const isAdmin = SESSION_ROLE === 'admin';
     menu.innerHTML = `
-        <button class="action-dropdown-item" onclick="closeActionMenu();openEdit(${id})"><i class="ti ti-edit"></i> Edit</button>
-        <button class="action-dropdown-item" onclick="closeActionMenu();exportPDF(${id})"><i class="ti ti-file-type-pdf" style="color:#c2410c"></i> Ekspor PDF</button>
-        <div class="action-dropdown-divider"></div>
-        <button class="action-dropdown-item danger" onclick="closeActionMenu();deleteItem(${id})"><i class="ti ti-trash"></i> Hapus</button>
+        ${isAdmin ? `<button class="action-dropdown-item" onclick="closeActionMenu();openEdit(${id})"><i class="ti ti-edit"></i> Edit</button>` : ''}
+        ${isAdmin ? `<button class="action-dropdown-item" onclick="closeActionMenu();exportPDF(${id})"><i class="ti ti-file-type-pdf" style="color:#c2410c"></i> Ekspor PDF</button>` : ''}
+        ${isAdmin ? `<div class="action-dropdown-divider"></div>
+        <button class="action-dropdown-item danger" onclick="closeActionMenu();deleteItem(${id})"><i class="ti ti-trash"></i> Hapus</button>` : ''}
     `;
     document.body.appendChild(menu);
 
@@ -389,9 +390,9 @@ function renderRow(i, no = 1) {
         <td style="text-align:center">${saldoCell}</td>
         <td>
             <div class="actions" style="justify-content:center">
-                <button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>
+                ${(['ketua','bendahara'].includes(SESSION_ROLE)) ? `<button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>` : ''}
                 <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"><i class="ti ti-pencil" aria-hidden="true"></i> TTD</button>
-                <button class="btn sm icon-only action-menu-btn" onclick="toggleActionMenu(event, ${i.id})" title="Aksi lainnya"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>
+                ${SESSION_ROLE === 'admin' ? `<button class="btn sm icon-only action-menu-btn" onclick="toggleActionMenu(event, ${i.id})" title="Aksi lainnya"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>` : ''}
             </div>
         </td>
     </tr>`;

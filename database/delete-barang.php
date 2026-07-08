@@ -1,6 +1,16 @@
-<?php 
+<?php
 session_start();
 include 'koneksi.php';
+
+if (!isset($_SESSION['id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon'  => 'error',
+        'title' => 'Akses Ditolak',
+        'text'  => 'Hanya admin yang dapat menghapus transaksi pembelian.'
+    ];
+    header("Location: ../transaksi-pembelian-food/");
+    exit;
+}
 
 if(isset($_GET['id'])){
     $id = $_GET['id'];

@@ -96,7 +96,9 @@ if ($result) {
                         <th>Harga Jual</th>
                         <th>Satuan</th>
                         <th>Nama Toko</th>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
                         <th>Aksi</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,8 +123,9 @@ if ($result) {
                                 </span>
                             </td>
                             <td><span class="badge badge-jual">Rp <?= number_format($row['harga_jual'], 0, ',', '.'); ?></span></td>
-                            <td class="suplier"><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
+                            <td class="satuan"><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
                             <td class="suplier"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></td>
+                            <?php if ($_SESSION['role'] === 'admin'): ?>
                             <td>
                                 <div class="action-buttons">
                                     <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
@@ -130,6 +133,7 @@ if ($result) {
                                     </button>
                                 </div>
                             </td>
+                            <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -181,11 +185,13 @@ if ($result) {
                             <span class="detail-row-label">Nama Toko</span>
                             <span class="detail-row-value"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></span>
                         </div>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
                         <div class="mobile-actions">
                             <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
                                 <i class="ph ph-pencil-simple"></i> Edit
                             </button>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </details>
             <?php endforeach; ?>

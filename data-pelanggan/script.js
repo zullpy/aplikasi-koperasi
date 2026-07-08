@@ -1,5 +1,6 @@
 let _apiUrl = '';
 let _type   = '';
+let _userRole = '';
 let _editingId    = null;
 let _deletingId   = null;
 let _deletingName = '';
@@ -10,9 +11,10 @@ const FIELDS = {
     customer: { id: 'id_pelanggan', nama: 'nama_pelanggan', kontak: 'no_telepon', alamat: 'alamat' }
 };
 
-function initPage({ apiUrl, type }) {
+function initPage({ apiUrl, type, role }) {
     _apiUrl = apiUrl;
     _type   = type;
+    _userRole = role || '';
     fetchData();
     bindEvents();
 }
@@ -46,11 +48,12 @@ function renderCards(items) {
     if (items.length === 0) {
         const label = _type === 'supplier' ? 'supplier' : 'pelanggan';
         const icon  = _type === 'supplier' ? 'ti-building-store' : 'ti-users';
+        const instruction = _userRole === 'admin' ? `<span>Klik "Tambah" untuk menambahkan ${label} baru.</span>` : '';
         grid.innerHTML = `
             <div class="empty-state">
                 <i class="ti ${icon}"></i>
                 <p>Belum ada data</p>
-                <span>Klik "Tambah" untuk menambahkan ${label} baru.</span>
+                ${instruction}
             </div>`;
         return;
     }
@@ -59,6 +62,7 @@ function renderCards(items) {
         <div class="data-card">
             <div class="card-top">
                 <div class="avatar ${_type}">${getInitials(item[f.nama])}</div>
+                ${_userRole === 'admin' ? `
                 <div class="card-actions">
                     <button class="icon-btn" onclick="openModal(${item[f.id]})" title="Edit">
                         <i class="ti ti-edit"></i>
@@ -67,6 +71,7 @@ function renderCards(items) {
                         <i class="ti ti-trash"></i>
                     </button>
                 </div>
+                ` : ''}
             </div>
             <div class="card-name">${escapeHtml(item[f.nama])}</div>
             <div class="card-info">

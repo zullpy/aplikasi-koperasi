@@ -7,6 +7,17 @@ if (!isset($_SESSION['id'])) {
     header('Location: ../');
     exit;
 }
+
+if (($_SESSION['role'] ?? '') !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon'  => 'error',
+        'title' => 'Akses Ditolak',
+        'text'  => 'Hanya admin yang dapat mengakses halaman Tambah Transaksi Pembelian.'
+    ];
+    header('Location: index.php');
+    exit;
+}
+
 include '../database/koneksi.php';
 $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_supplier ASC");
 $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang WHERE kategori IS NOT NULL AND kategori <> '' ORDER BY kategori ASC");

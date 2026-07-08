@@ -413,3 +413,45 @@ footer.report-footer {
         font-size: 12px;
     }
 }
+
+/* UNDER CONSTRUCTION PANEL */
+.uc-panel {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--header-border);
+    padding: 64px 32px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.uc-icon {
+    width: 84px;
+    height: 84px;
+    margin-bottom: 12px;
+}
+
+.uc-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.uc-panel h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.uc-desc {
+    color: var(--text-muted);
+    font-size: 14px;
+    max-width: 420px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.uc-btn {
+    margin-top: 8px;
+}

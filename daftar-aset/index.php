@@ -3,8 +3,20 @@ $activePage = 'daftar-aset-koperasi';
 require_once '../database/koneksi.php';
 require_once '../database/auth.php';
 
+$userRole = $_SESSION['role'] ?? null;
+
+// Batasi akses halaman hanya untuk admin, bendahara, dan ketua
+if (!in_array($userRole, ['admin', 'bendahara', 'ketua'])) {
+    header("Location: ../");
+    exit;
+}
+
 // ===================== PROSES TAMBAH ASET =====================
 if (isset($_POST['aksi']) && $_POST['aksi'] === 'tambah') {
+    if ($userRole !== 'admin') {
+        echo json_encode(['status' => 'error', 'message' => 'Akses ditolak: Hanya admin yang dapat menambah aset']);
+        exit;
+    }
     $nama_aset    = trim($_POST['nama_aset']);
     $jumlah       = (int) $_POST['jumlah'];
     $tanggal_beli = $_POST['tanggal_beli'];
@@ -24,6 +36,10 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === 'tambah') {
 
 // ===================== PROSES EDIT ASET =====================
 if (isset($_POST['aksi']) && $_POST['aksi'] === 'edit') {
+    if ($userRole !== 'admin') {
+        echo json_encode(['status' => 'error', 'message' => 'Akses ditolak: Hanya admin yang dapat mengubah aset']);
+        exit;
+    }
     $id           = (int) $_POST['id'];
     $nama_aset    = trim($_POST['nama_aset']);
     $jumlah       = (int) $_POST['jumlah'];
@@ -44,6 +60,10 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === 'edit') {
 
 // ===================== PROSES HAPUS ASET =====================
 if (isset($_POST['aksi']) && $_POST['aksi'] === 'hapus') {
+    if ($userRole !== 'admin') {
+        echo json_encode(['status' => 'error', 'message' => 'Akses ditolak: Hanya admin yang dapat menghapus aset']);
+        exit;
+    }
     $id = (int) $_POST['id'];
 
     $stmt = $koneksi->prepare("DELETE FROM aset_koperasi WHERE id = ?");
@@ -97,9 +117,16 @@ include '../components/navbar.php';
 
         <div class="card-header-aset">
             <h2><i class="ph ph-package"></i> Daftar Aset Koperasi</h2>
-            <button class="btn-tambah" onclick="bukaModalTambah()">
-                <i class="ph ph-plus"></i> Tambah Aset
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-tambah no-print" onclick="window.print()" style="background: #475569;">
+                    <i class="ph ph-printer"></i> Cetak
+                </button>
+                <?php if ($userRole === 'admin'): ?>
+                <button class="btn-tambah no-print" onclick="bukaModalTambah()">
+                    <i class="ph ph-plus"></i> Tambah Aset
+                </button>
+                <?php endif; ?>
+            </div>
         </div>
 
         <div class="card-table">
@@ -111,7 +138,9 @@ include '../components/navbar.php';
                         <th>Jumlah</th>
                         <th>Tanggal Beli</th>
                         <th>Kondisi</th>
-                        <th>Aksi</th>
+                        <?php if ($userRole === 'admin'): ?>
+                        <th class="no-print">Aksi</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -131,7 +160,8 @@ include '../components/navbar.php';
                                 <td><?= htmlspecialchars($row['jumlah']); ?></td>
                                 <td><?= date('d M Y', strtotime($row['tanggal_beli'])); ?></td>
                                 <td><span class="badge <?= $badgeClass; ?>"><?= $row['kondisi']; ?></span></td>
-                                <td>
+                                <?php if ($userRole === 'admin'): ?>
+                                <td class="no-print">
                                     <button class="aksi-btn btn-edit" onclick="bukaModalEdit(<?= $row['id']; ?>)" title="Edit">
                                         <i class="ph ph-pencil-simple"></i>
                                     </button>
@@ -139,11 +169,12 @@ include '../components/navbar.php';
                                         <i class="ph ph-trash"></i>
                                     </button>
                                 </td>
+                                <?php endif; ?>
                             </tr>
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" class="empty-state">
+                            <td colspan="<?= $userRole === 'admin' ? 6 : 5; ?>" class="empty-state">
                                 <i class="ph ph-package" style="font-size: 32px;"></i>
                                 <p>Belum ada data aset koperasi</p>
                             </td>

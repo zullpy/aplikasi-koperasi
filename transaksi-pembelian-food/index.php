@@ -149,16 +149,20 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                     <i class="ph ph-magnifying-glass"></i>
                 </div>
             </div>
+            <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
             <a href="tambah-pembelian.php" class="add-btn">
                 <i class="ph ph-plus-circle"></i>
                 Tambah Transaksi Pembelian
             </a>
+            <?php endif; ?>
         </div>
         <?php if (empty($grouped)): ?>
             <div class="empty-state">
                 <i class="ph ph-receipt"></i>
                 <h3>Belum ada transaksi pembelian</h3>
+                <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
                 <p>Mulai catat pembelian dengan menekan tombol "Tambah Transaksi Pembelian" di atas.</p>
+                <?php endif; ?>
             </div>
         <?php else: ?>
             <div class="purchase-groups" id="purchase-groups">
@@ -276,9 +280,11 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                             data-biaya-admin="<?= (float) $row['biaya_admin_clean'] ?>">
                                                             <i class="ph ph-info"></i> Detail
                                                         </button>
+                                                        <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
                                                         <button type="button" class="edit-btn" data-id="<?= (int) $row['id_pembelian'] ?>">
                                                             <i class="ph ph-pencil-simple"></i> Edit
                                                         </button>
+                                                        <?php endif; ?>
                                                     </div>
                                                 </div>
                                             <?php endforeach; ?>
@@ -309,6 +315,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     </span>
                                                 <?php endif; ?>
                                             </div>
+                                            <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
                                             <div class="supplier-nota-actions">
                                                 <button type="button" class="<?= $hasNota ? 'ganti-nota-btn' : 'add-nota-btn' ?>"
                                                     data-id="<?= (int) $supplierData['sample_id'] ?>"
@@ -325,6 +332,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     </button>
                                                 <?php endif; ?>
                                             </div>
+                                            <?php endif; ?>
                                         </div>
                                         <?php if ($supplierData['total_biaya_admin'] > 0): ?>
                                             <div class="supplier-admin-summary">
@@ -577,7 +585,9 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
             </div>
             <div class="modal-actions">
                 <button type="button" class="cancel" onclick="closeDetailModal()">Tutup</button>
+                <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
                 <button type="submit" id="detail-edit-btn">Edit Transaksi</button>
+                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -6,6 +6,10 @@ ini_set('display_errors', 1);
 require_once '../database/auth.php';
 include '../database/koneksi.php';
 
+if (($_SESSION['role'] ?? '') !== 'admin') {
+    die("Akses ditolak: Hanya admin yang dapat mencetak faktur.");
+}
+
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 if ($id <= 0) {

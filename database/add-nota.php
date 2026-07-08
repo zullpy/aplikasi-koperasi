@@ -4,6 +4,16 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
+if (!isset($_SESSION['id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon'  => 'error',
+        'title' => 'Akses Ditolak',
+        'text'  => 'Hanya admin yang dapat mengupload nota pembelian.'
+    ];
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+
 $max_size = 2 * 1024 * 1024; // 2 MB
 
 if (!isset($_POST['id_barang']) || empty($_POST['id_barang'])) {

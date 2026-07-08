@@ -36,8 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Redirect based on role
             if ($_SESSION['role'] === 'admin') {
                 header("Location: ../selection-page/index.php");
-            } elseif (in_array($_SESSION['role'], ['bendahara', 'purchase'])) {
+            } elseif (in_array($_SESSION['role'], ['bendahara', 'ketua'])) {
                 header("Location: ../transaksi-pembelian-food/index.php");
+            } elseif ($_SESSION['role'] === 'purchase') {
+                header("Location: ../dompet-harian/index.php");
             } else {
                 // Fallback to selection page for unknown roles
                 header("Location: ../selection-page/index.php");

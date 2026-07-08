@@ -52,7 +52,7 @@ $userRole = $_SESSION['role'] ?? '';
                     </svg>
                 </button>
             </div>
-            <?php if ($userRole !== 'purchase'): ?>
+            <?php if (in_array($userRole, ['bendahara', 'ketua'])): ?>
             <a href="approve.php" class="btn-approval">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -60,7 +60,7 @@ $userRole = $_SESSION['role'] ?? '';
                 Approval
             </a>
             <?php endif; ?>
-            <?php if ($userRole !== 'purchase'): ?>
+            <?php if ($userRole === 'admin'): ?>
                 <button id="btnOpenModal" class="btn-add">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M8 3V13M3 8H13" stroke="#fff" stroke-width="2" stroke-linecap="round" />

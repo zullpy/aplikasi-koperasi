@@ -131,6 +131,14 @@ try {
 
             // ─── SAVE: Tambah atau Update ───────────────────────────────────────
         case 'save':
+            if ($userRole !== 'admin') {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Akses ditolak: Hanya admin yang dapat membuat atau mengedit data belanja.'
+                ]);
+                exit;
+            }
             if ($method !== 'POST') {
                 throw new Exception('Method not allowed');
             }
@@ -324,6 +332,14 @@ try {
 
             // ─── DELETE: Hapus pengajuan beserta detail ─────────────────────────
         case 'delete':
+            if ($userRole !== 'admin') {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Akses ditolak: Hanya admin yang dapat menghapus data belanja.'
+                ]);
+                exit;
+            }
             if ($method !== 'POST') {
                 throw new Exception('Method not allowed');
             }

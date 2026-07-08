@@ -242,3 +242,44 @@ tbody tr:hover {
 .swal2-container {
     z-index: 9999 !important;
 }
+
+@media print {
+    .no-print,
+    .navbar,
+    .footer,
+    #made-by,
+    .made-by {
+        display: none !important;
+    }
+    body {
+        background: #fff;
+        padding: 0;
+    }
+    .container-aset {
+        margin: 20px auto;
+    }
+    .card-header-aset {
+        box-shadow: none;
+        padding: 10px 0;
+        border-bottom: 2px solid #000;
+        border-radius: 0;
+    }
+    .card-table {
+        box-shadow: none;
+        padding: 0;
+    }
+    table {
+        border: 1px solid #000;
+    }
+    thead th {
+        background: #f1f5f9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        border-bottom: 2px solid #000;
+        color: #000;
+    }
+    tbody td {
+        border-bottom: 1px solid #000;
+        color: #000;
+    }
+}

@@ -39,9 +39,11 @@
                     <i class="ti ti-search"></i>
                     <input type="text" id="search-input" placeholder="Cari pelanggan..." />
                 </div>
+                <?php if ($_SESSION['role'] === 'admin'): ?>
                 <button class="btn-add" onclick="openModal()">
                     <i class="ti ti-plus"></i> Tambah Pelanggan
                 </button>
+                <?php endif; ?>
             </div>
         </div>
         <div class="card-grid" id="card-grid"></div>
@@ -97,7 +99,8 @@
     <script>
         initPage({
             apiUrl: '../database/add-pelanggan.php',
-            type: 'customer'
+            type: 'customer',
+            role: '<?php echo $_SESSION['role'] ?? ''; ?>'
         });
     </script>
     <?php include '../components/made-by.php'; ?>

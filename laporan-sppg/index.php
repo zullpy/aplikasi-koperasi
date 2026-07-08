@@ -310,15 +310,16 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                 </svg>
                                                 Detail
                                             </button>
+                                            <?php if ($role_login_saat_ini === 'bendahara'): ?>
                                             <button class="btn btn--success"
-                                                onclick="bukaSaldo(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>')">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                                onclick="bukaSaldo(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                                     <circle cx="12" cy="12" r="10" />
                                                     <line x1="12" y1="8" x2="12" y2="16" />
                                                     <line x1="8" y1="12" x2="16" y2="12" />
                                                 </svg>
                                                 Saldo
                                             </button>
+                                            <?php endif; ?>
                                             <?php if ($sisa > 0): ?>
                                                 <button class="btn btn--warning"
                                                     onclick="bukaKembalikan(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>', <?= (float) $row['sisa_uang'] ?>)">
@@ -345,6 +346,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                     <?= $ttdSaya ? 'Lihat TTD' : 'Tanda Tangan' ?>
                                                 </button>
                                             <?php endif; ?>
+                                            <?php if ($role_login_saat_ini === 'admin'): ?>
                                             <a class="btn btn--outline"
                                                 href="cetak-laporan-belanja.php?id=<?= $row['id'] ?>"
                                                 target="_blank" title="Ekspor / Cetak PDF Laporan Belanja">
@@ -356,6 +358,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                 </svg>
                                                 Cetak
                                             </a>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
@@ -372,6 +375,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                     </svg>
                                                     Detail Belanja — <?= htmlspecialchars($row['nama_menu']) ?>
                                                 </span>
+                                                <?php if ($role_login_saat_ini === 'admin'): ?>
                                                 <button type="button" class="btn btn--success" onclick="bukaTambahBarang(<?= $row['id'] ?>)">
                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                                         <circle cx="12" cy="12" r="10" />
@@ -380,6 +384,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                     </svg>
                                                     Tambah Barang
                                                 </button>
+                                                <?php endif; ?>
                                             </div>
                                             <div style="overflow-x:auto">
                                                 <table class="detail-table">
@@ -420,6 +425,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                                         <?php endif; ?>
                                                                     </td>
                                                                     <td>
+                                                                        <?php if ($role_login_saat_ini === 'admin'): ?>
                                                                         <div class="actions">
                                                                             <button type="button" class="btn btn--outline"
                                                                                 onclick="bukaEditHarga(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['nama_barang'])) ?>', <?= (float) $item['harga'] ?>)">
@@ -434,6 +440,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                                                 </button>
                                                                             </form>
                                                                         </div>
+                                                                        <?php endif; ?>
                                                                     </td>
                                                                 </tr>
                                                         <?php endforeach;

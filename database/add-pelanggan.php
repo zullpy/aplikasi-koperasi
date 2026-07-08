@@ -9,10 +9,40 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
+// Session Guard (API-safe)
+$isHttps = (
+    (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+);
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => '',
+    'secure'   => $isHttps,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+
+if (!isset($_SESSION['id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: silakan login']);
+    exit;
+}
+
+$userRole = $_SESSION['role'] ?? '';
+
 require_once '/srv/http/aplikasi_kopdes/database/koneksi.php';
 
 $method  = $_SERVER['REQUEST_METHOD'];
 $input   = json_decode(file_get_contents('php://input'), true);
+
+// Pastikan hanya admin yang bisa melakukan mutasi data (POST, PUT, DELETE)
+if (in_array($method, ['POST', 'PUT', 'DELETE']) && $userRole !== 'admin') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Hanya admin yang diperbolehkan mengubah data pelanggan.']);
+    exit;
+}
 
 switch ($method) {
 

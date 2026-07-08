@@ -4,6 +4,16 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
+if (!isset($_SESSION['id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon'  => 'error',
+        'title' => 'Akses Ditolak',
+        'text'  => 'Hanya admin yang dapat mengubah transaksi pembelian.'
+    ];
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+
 if (isset($_POST['id_pembelian'])) {
     $id_pembelian = mysqli_real_escape_string($koneksi, $_POST['id_pembelian']);
     $id_supplier  = mysqli_real_escape_string($koneksi, $_POST['id_supplier']);

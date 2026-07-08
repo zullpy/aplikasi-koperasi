@@ -4,6 +4,16 @@ ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
 
+if (!isset($_SESSION['id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+    $_SESSION['alert'] = [
+        'icon'  => 'error',
+        'title' => 'Akses Ditolak',
+        'text'  => 'Hanya admin yang dapat menambah transaksi pembelian.'
+    ];
+    header("Location: ../transaksi-pembelian-food/index.php");
+    exit;
+}
+
 $nama_barang   = $_POST['nama_barang'];
 $kategori      = $_POST['kategori'] ?? [];
 $keterangan    = $_POST['keterangan'];

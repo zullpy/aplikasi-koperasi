@@ -47,6 +47,9 @@ function formatQty($angka)
 $errorBayar = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['aksi'] === 'tambah_bayar') {
+    if (($_SESSION['role'] ?? '') !== 'admin') {
+        die("Akses ditolak: Hanya admin yang dapat menambah pembayaran.");
+    }
     $idPengambilanBayar = isset($_POST['id_pengambilan']) ? (int) $_POST['id_pengambilan'] : 0;
     $metodeBayar         = isset($_POST['metode_pembayaran']) ? $_POST['metode_pembayaran'] : '';
     $jumlahBayarMentah   = isset($_POST['jumlah_dibayar']) ? $_POST['jumlah_dibayar'] : '0';
@@ -446,7 +449,7 @@ $grandSisa = max($grandTotal - $grandDibayar, 0);
                                 <?php endif; ?>
                             </div>
 
-                            <?php if ($t['status'] === 'verified'): ?>
+                            <?php if ($t['status'] === 'verified' && ($_SESSION['role'] ?? '') === 'admin'): ?>
                                 <a href="cetak-faktur.php?id=<?= (int) $idPengambilan ?>"
                                     target="_blank"
                                     class="fc-btn-cetak"
@@ -505,7 +508,7 @@ $grandSisa = max($grandTotal - $grandDibayar, 0);
                             <div class="fc-pay-section">
                                 <div class="fc-pay-section-head">
                                     <span class="fc-pay-section-title">Riwayat Pembayaran</span>
-                                    <?php if ($t['sisa_bayar'] > 0): ?>
+                                    <?php if ($t['sisa_bayar'] > 0 && ($_SESSION['role'] ?? '') === 'admin'): ?>
                                         <button type="button" class="fc-btn-bayar"
                                             data-id="<?= (int) $idPengambilan ?>"
                                             data-no="<?= htmlspecialchars($t['no_pengambilan']) ?>"

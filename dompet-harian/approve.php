@@ -299,6 +299,9 @@ if ($userRole === 'purchase') {
     ══════════════════════════════════ -->
     <div id="pdfPreview" style="display:none;"></div>
 
+    <script>
+        window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
+    </script>
     <script src="approve.js"></script>
     <?php include '../components/made-by.php'; ?>
 </body>
