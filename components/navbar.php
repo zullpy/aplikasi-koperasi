@@ -323,16 +323,32 @@ $isPurchase = ($userRole === 'purchase');
                 <?php endif; ?>
 
                 <?php if (!$isPurchase): ?>
-                <!-- Laporan Keuangan -->
-                <li class="nav-item <?= $activePage == 'laporan-keuangan' ? 'active' : '' ?>">
-                    <a href="../laporan-keuangan-food/index.php" class="nav-link">
+                <!-- GROUP: Laporan Keuangan (dropdown desktop, flat mobile) -->
+                <li class="nav-item <?= in_array($activePage, ['laporan-keuangan', 'kas-koperasi']) ? 'active' : '' ?>" id="dd-laporan-keuangan">
+                    <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-laporan-keuangan">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                             <line x1="18" y1="20" x2="18" y2="10" />
                             <line x1="12" y1="20" x2="12" y2="4" />
                             <line x1="6" y1="20" x2="6" y2="14" />
                         </svg>
                         Laporan Keuangan
+                        <span class="dd-arrow">▾</span>
                     </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li class="dropdown-group-label">Laporan Keuangan</li>
+                        <li>
+                            <a href="../kas-koperasi/index.php"
+                                class="dropdown-item <?= $activePage == 'kas-koperasi' ? 'active' : '' ?>"
+                                role="menuitem">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <rect x="2" y="6" width="20" height="12" rx="2" />
+                                    <circle cx="12" cy="12" r="2" />
+                                    <path d="M6 6V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
+                                </svg>
+                                Kas Koperasi
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <?php endif; ?>
             </ul>

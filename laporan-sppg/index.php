@@ -449,7 +449,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                 </table>
                                             </div>
 
-                                            <!-- ─── Status Tanda Tangan Persetujuan (4 role) ─────────── -->
+                                            <!-- ─── Status Tanda Tangan Persetujuan (3 role) ─────────── -->
                                             <div class="detail-inner__title" style="margin-top:18px">
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                                     <path d="M12 19l7-7 3 3-7 7-3-3z" />
@@ -460,6 +460,14 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                             <div class="ttd-status-grid">
                                                 <?php foreach ($daftarRoleTtd as $roleKey => $roleLabel):
                                                     $ttdItem = $ttdMasuk[$roleKey] ?? null;
+                                                    $signerName = '';
+                                                    if ($roleKey === 'admin') {
+                                                        $signerName = 'Evin Yentiana';
+                                                    } elseif ($roleKey === 'ketua') {
+                                                        $signerName = 'Yudi Hendrian';
+                                                    } elseif ($roleKey === 'bendahara') {
+                                                        $signerName = 'Nancy Febi Yolla';
+                                                    }
                                                 ?>
                                                     <div class="ttd-status-item <?= $ttdItem ? 'ttd-status-item--signed' : '' ?>">
                                                         <div class="ttd-status-item__role"><?= htmlspecialchars($roleLabel) ?></div>
@@ -472,6 +480,9 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                             </div>
                                                         <?php else: ?>
                                                             <div class="ttd-status-item__empty">Belum tanda tangan</div>
+                                                        <?php endif; ?>
+                                                        <?php if ($signerName): ?>
+                                                            <div class="ttd-status-item__name"><?= htmlspecialchars($signerName) ?></div>
                                                         <?php endif; ?>
                                                     </div>
                                                 <?php endforeach; ?>

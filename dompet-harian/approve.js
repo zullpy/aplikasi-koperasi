@@ -387,9 +387,6 @@ function buildCard(item) {
                     class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer">
                     <i class="ph ph-image"></i> Lihat Bukti Transfer
                 </a>` : ''}` : ''}
-                <button class="btn btn-outline-primary btn-sm" onclick="exportPDF(${item.id})">
-                    <i class="ph ph-file-pdf"></i> Ekspor PDF
-                </button>
             </div>
         </div>
     </div>`;

@@ -23,7 +23,7 @@ $userRole = $_SESSION['role'] ?? '';
             <div class="add-btn-group">
                 <?php if ($userRole === 'admin'): ?>
                 <button class="btn add-type-btn btn-stok" onclick="openAdd('stok')"><i class="ti ti-package"></i> Stok</button>
-                <button class="btn add-type-btn btn-peralatan" onclick="openAdd('peralatan')"><i class="ti ti-tools"></i> Peralatan</button>
+                <button class="btn add-type-btn btn-peralatan" onclick="openAdd('peralatan')"><i class="ti ti-tools"></i> Penambahan Aset</button>
                 <button class="btn add-type-btn btn-operasional" onclick="openAdd('operasional')"><i class="ti ti-settings"></i> Operasional</button>
                 <?php endif; ?>
             </div>

@@ -51,6 +51,7 @@ body {
     border-radius: var(--radius-lg);
     padding: 24px 28px;
     margin-bottom: 20px;
+    margin-top: 55px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -454,4 +455,144 @@ footer.report-footer {
 
 .uc-btn {
     margin-top: 8px;
+}
+
+/* ================= MODAL ================= */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.modal-box {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+    animation: modalPop .15s ease;
+}
+
+@keyframes modalPop {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 22px 0;
+}
+
+.modal-header h3 {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 8px;
+}
+
+.modal-close:hover {
+    background: #f1f5f9;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 22px 22px;
+}
+
+/* Toggle Jenis Transaksi (Pemasukan / Pengeluaran) */
+.jenis-toggle {
+    display: flex;
+    gap: 10px;
+}
+
+.jenis-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1.5px solid var(--header-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    transition: all .15s ease;
+}
+
+.jenis-option input {
+    display: none;
+}
+
+.jenis-option.masuk:has(input:checked) {
+    border-color: var(--success);
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.jenis-option.keluar:has(input:checked) {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+/* Toast notifikasi */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--text-main);
+    color: var(--white);
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all .2s ease;
+    pointer-events: none;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast.success {
+    background: var(--success);
+}
+
+.toast.error {
+    background: var(--danger);
 }

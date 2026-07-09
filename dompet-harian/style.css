@@ -429,6 +429,15 @@ body {
     background: #fee2e2;
 }
 
+.btn-action-pdf {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.btn-action-pdf:hover {
+    background: #dcfce7;
+}
+
 .empty-state {
     display: flex;
     flex-direction: column;

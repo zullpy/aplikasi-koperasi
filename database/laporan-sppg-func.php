@@ -328,7 +328,6 @@ function daftarRoleTtdSppg()
 {
     return [
         'admin'     => labelRole('admin'),
-        'purchase'  => labelRole('purchase'),
         'ketua'     => labelRole('ketua'),
         'bendahara' => labelRole('bendahara'),
     ];

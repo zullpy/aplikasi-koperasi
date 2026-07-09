@@ -51,6 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
 
     // ── Upload Kwitansi/Nota — level pengajuan (jenis selain 'stok') ──
     if ($_POST['aksi'] === 'tambah_kwitansi') {
+        if (($_SESSION['role'] ?? '') !== 'admin') {
+            header('Location: index.php?status=gagal');
+            exit;
+        }
         $res = tambahKwitansiKoperasi(
             $koneksi,
             $_POST['pengajuan_id_kwitansi'],
@@ -464,58 +468,28 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                                 <th>Satuan</th>
                                                                 <th>Estimasi Harga</th>
                                                                 <th>Subtotal</th>
-                                                                <th>Nota</th>
                                                                 <th>Aksi</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             <?php
                                                             $items = getDetailItemKoperasi($koneksi, $row['id']);
-                                                            if (empty($items)): ?>
+                                                            ?>
+                                                            <?php if (empty($items)): ?>
                                                                 <tr>
-                                                                    <td colspan="7" style="text-align:center;color:var(--muted);padding:16px">Belum ada barang.</td>
+                                                                    <td colspan="6" style="text-align:center;color:var(--muted);padding:16px">Belum ada barang.</td>
                                                                 </tr>
-                                                                <?php else: foreach ($items as $item):
-                                                                    // Dukung dua bentuk data: array multi-nota ($item['notas']) atau kolom lama tunggal ($item['nota_path'])
-                                                                    $notaList = [];
-                                                                    if (!empty($item['notas']) && is_array($item['notas'])) {
-                                                                        $notaList = $item['notas'];
-                                                                    } elseif (!empty($item['nota_path'])) {
-                                                                        $notaList = [$item['nota_path']];
-                                                                    }
-                                                                ?>
+                                                            <?php else: ?>
+                                                                <?php foreach ($items as $item): ?>
                                                                     <tr>
                                                                         <td style="font-weight:500"><?= htmlspecialchars($item['keterangan']) ?></td>
                                                                         <td><?= rtrim(rtrim(number_format((float) $item['qty'], 2, ',', '.'), '0'), ',') ?></td>
                                                                         <td style="color:var(--muted)"><?= htmlspecialchars($item['satuan']) ?></td>
                                                                         <td style="font-variant-numeric:tabular-nums"><?= rupiah($item['harga_satuan']) ?></td>
                                                                         <td style="font-variant-numeric:tabular-nums;font-weight:600"><?= rupiah($item['subtotal']) ?></td>
-                                                                        <td class="center">
-                                                                            <?php if (!empty($notaList)): ?>
-                                                                                <button type="button" class="btn btn--outline btn-nota"
-                                                                                    onclick='bukaGaleriNota(<?= json_encode(array_values($notaList)) ?>, "Nota Belanja — <?= htmlspecialchars(addslashes($item['keterangan'])) ?>")'>
-                                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                                                                        <circle cx="12" cy="12" r="3" />
-                                                                                    </svg>
-                                                                                    Lihat<?= count($notaList) > 1 ? ' (' . count($notaList) . ')' : '' ?>
-                                                                                </button>
-                                                                            <?php else: ?>
-                                                                                <span style="color:var(--muted)">—</span>
-                                                                            <?php endif; ?>
-                                                                        </td>
                                                                         <td>
                                                                             <?php if ($roleLoginSaatIni === 'admin'): ?>
                                                                             <div class="actions">
-                                                                                <button type="button" class="btn btn--outline"
-                                                                                    onclick="bukaUploadNota(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['keterangan'])) ?>')">
-                                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                                                        <polyline points="17 8 12 3 7 8" />
-                                                                                        <line x1="12" y1="3" x2="12" y2="15" />
-                                                                                    </svg>
-                                                                                    + Nota
-                                                                                </button>
                                                                                 <button type="button" class="btn btn--outline"
                                                                                     onclick="bukaEditHarga('item', <?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['keterangan'])) ?>', <?= (float) $item['harga_satuan'] ?>)">
                                                                                     Edit
@@ -532,20 +506,31 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                                             <?php endif; ?>
                                                                         </td>
                                                                     </tr>
-                                                            <?php endforeach;
-                                                            endif; ?>
+                                                                <?php endforeach; ?>
+                                                            <?php endif; ?>
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             <?php else: ?>
-                                                <div class="detail-inner__title">
+                                                <?php if (!empty($row['keterangan'])): ?>
+                                                <div class="detail-inner__title" style="margin-bottom:6px">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5">
-                                                        <circle cx="12" cy="12" r="10" />
-                                                        <line x1="12" y1="16" x2="12" y2="12" />
-                                                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                        <polyline points="14 2 14 8 20 8"/>
+                                                        <line x1="16" y1="13" x2="8" y2="13"/>
+                                                        <line x1="16" y1="17" x2="8" y2="17"/>
+                                                        <polyline points="10 9 9 9 8 9"/>
                                                     </svg>
-                                                    Pengajuan operasional tidak memiliki rincian barang. Gunakan tombol "Edit Nominal" untuk mengubah jumlahnya.
+                                                    Keterangan
                                                 </div>
+                                                <div style="background:var(--bg-alt,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px 16px;font-size:13.5px;color:var(--text-main);line-height:1.6;margin-bottom:4px;white-space:pre-line">
+                                                    <?= htmlspecialchars($row['keterangan']) ?>
+                                                </div>
+                                                <?php else: ?>
+                                                <div class="detail-inner__title" style="color:var(--muted);font-weight:400">
+                                                    Tidak ada keterangan untuk pengajuan ini.
+                                                </div>
+                                                <?php endif; ?>
                                             <?php endif; ?>
 
                                             <?php if ($jenisStok): ?>
@@ -577,53 +562,7 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                         </div>
                                                     <?php endforeach; ?>
                                                 </div>
-                                            <?php else: ?>
-                                                <!-- ─── Kwitansi / Nota — jenis Peralatan & Operasional ─────── -->
-                                                <div class="detail-inner__title" style="margin-top:18px;justify-content:space-between">
-                                                    <span style="display:flex;align-items:center;gap:6px">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--navy)" stroke-width="2.5">
-                                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                                            <polyline points="14 2 14 8 20 8" />
-                                                        </svg>
-                                                        Kwitansi / Nota Belanja
-                                                    </span>
-                                                    <button type="button" class="btn btn--success"
-                                                        onclick="bukaUploadKwitansi(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['tujuan'])) ?>')">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                            <circle cx="12" cy="12" r="10" />
-                                                            <line x1="12" y1="8" x2="12" y2="16" />
-                                                            <line x1="8" y1="12" x2="16" y2="12" />
-                                                        </svg>
-                                                        Tambah Kwitansi/Nota
-                                                    </button>
-                                                </div>
-                                                <?php if (empty($row['kwitansi'])): ?>
-                                                    <div class="detail-inner__title" style="color:var(--muted);font-weight:400">
-                                                        Belum ada kwitansi/nota yang diunggah.
-                                                    </div>
-                                                <?php else: ?>
-                                                    <div class="nota-galeri-grid">
-                                                        <?php foreach ($row['kwitansi'] as $idx => $kwitansiPath):
-                                                            $isPdf = preg_match('/\.pdf(\?.*)?$/i', $kwitansiPath);
-                                                        ?>
-                                                            <div class="nota-galeri-item">
-                                                                <?php if ($isPdf): ?>
-                                                                    <a href="../uploads/<?= htmlspecialchars($kwitansiPath) ?>" target="_blank" rel="noopener" class="nota-galeri-pdf">
-                                                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                                                            <polyline points="14 2 14 8 20 8" />
-                                                                        </svg>
-                                                                        <span>Kwitansi <?= $idx + 1 ?> (PDF) — buka di tab baru</span>
-                                                                    </a>
-                                                                <?php else: ?>
-                                                                    <img src="../uploads/<?= htmlspecialchars($kwitansiPath) ?>" alt="Kwitansi <?= $idx + 1 ?>" loading="lazy" title="Klik untuk perbesar"
-                                                                        onclick="bukaGambar('../uploads/<?= htmlspecialchars($kwitansiPath) ?>', 'Kwitansi/Nota — <?= htmlspecialchars(addslashes($row['tujuan'])) ?> (<?= $idx + 1 ?>)')">
-                                                                <?php endif; ?>
-                                                            </div>
-                                                        <?php endforeach; ?>
-                                                    </div>
-                                                <?php endif; ?>
-                                            <?php endif; ?>
+                                            <?php endif; // jenisStok ?>
                                         </div>
                                     </td>
                                 </tr>

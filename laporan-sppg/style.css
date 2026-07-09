@@ -530,6 +530,15 @@ table.laporan td.mono {
     padding: 16px 0;
 }
 
+.ttd-status-item__name {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-top: 8px;
+    border-top: 1px dashed var(--border);
+    padding-top: 6px;
+}
+
 /* ─── Detail Row ─────────────────────────────────────── */
 tr.detail-row td {
     padding: 0;

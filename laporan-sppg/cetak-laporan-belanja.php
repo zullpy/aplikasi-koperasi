@@ -89,9 +89,8 @@ function formatWaktuIndo($ts)
     return date('d', $t) . ' ' . $bulanSingkat[(int) date('n', $t)] . ' ' . date('Y H:i', $t);
 }
 
-// ── PEMETAAN 4 ROLE PENANDA TANGAN SESUAI FORM ────────────────────
+// ── PEMETAAN ROLE PENANDA TANGAN SESUAI FORM ────────────────────
 $roleMapping = [
-    'purchase'  => ['label' => 'Purchasing',           'nama' => 'SAEPUL MISBAH'],
     'admin'     => ['label' => 'Juru Bayar',            'nama' => 'EVIN YENTIANA'],
     'bendahara' => ['label' => 'Bendahara<br>Koperasi', 'nama' => 'NANCY FEBI YOLLA'],
     'ketua'     => ['label' => 'Ketua<br>Koperasi',     'nama' => 'YUDI HENDRIAN'],
@@ -584,7 +583,6 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             <div class="uang-text"><?= $labelSisaUang ?> : <?= $textSisaUang ?></div>
 
             <div class="ttd-section">
-                <?= renderTtdBox('purchase', $roleMapping, $ttdData) ?>
                 <?= renderTtdBox('admin', $roleMapping, $ttdData) ?>
                 <?= renderTtdBox('bendahara', $roleMapping, $ttdData) ?>
                 <?= renderTtdBox('ketua', $roleMapping, $ttdData) ?>
