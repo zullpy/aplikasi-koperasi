@@ -511,6 +511,7 @@ try {
                 }
 
                 if (move_uploaded_file($files['tmp_name'][$i], $targetPath)) {
+                    compressImage($targetPath);
                     $filePath = $uploadDir . $fileName;
                     $stmt = $koneksi->prepare("
                         INSERT INTO upload_nota
@@ -694,6 +695,7 @@ try {
                 if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
                     throw new Exception('Gagal menyimpan file bukti transfer');
                 }
+                compressImage($targetPath);
                 $buktiPath = $fileName;
             }
 

@@ -88,6 +88,7 @@ if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] =
     if (in_array($bp_ext, $bp_allowed) && $_FILES['bukti_pembayaran']['size'] <= (2 * 1024 * 1024)) {
         $bp_name = uniqid('bayar_') . '.' . $bp_ext;
         if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], '../uploads/bukti_pembayaran/' . $bp_name)) {
+            compressImage('../uploads/bukti_pembayaran/' . $bp_name);
             $bukti_pembayaran_awal = $bp_name;
         }
     }
@@ -149,6 +150,7 @@ foreach ($all_files as $file) {
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     $nota_name = uniqid() . '.' . $ext;
     if (move_uploaded_file($file['tmp_name'], '../uploads/nota/' . $nota_name)) {
+        compressImage('../uploads/nota/' . $nota_name);
         $uploaded_files[] = $nota_name;
     }
 }

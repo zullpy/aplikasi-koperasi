@@ -75,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
                     }
                     $namaFile = 'bukti_' . $idPengambilanBayar . '_' . time() . '_' . mt_rand(1000, 9999) . '.' . $ext;
                     if (move_uploaded_file($_FILES['bukti_transfer']['tmp_name'], $folderUpload . $namaFile)) {
+                        compressImage($folderUpload . $namaFile);
                         $buktiPath = 'uploads/bukti-transfer/' . $namaFile;
                     } else {
                         $errorBayar = 'Gagal mengunggah bukti transfer. Silakan coba lagi.';

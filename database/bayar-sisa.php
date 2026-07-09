@@ -75,6 +75,7 @@ if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] =
 
     $bp_name = uniqid('bayar_') . '.' . $ext;
     if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], '../uploads/bukti_pembayaran/' . $bp_name)) {
+        compressImage('../uploads/bukti_pembayaran/' . $bp_name);
         $bukti_pembayaran = $bp_name;
     }
 }

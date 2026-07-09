@@ -107,6 +107,7 @@ foreach ($all_files as $file) {
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     $nota_name = uniqid() . '.' . $ext;
     if (move_uploaded_file($file['tmp_name'], '../uploads/nota/' . $nota_name)) {
+        compressImage('../uploads/nota/' . $nota_name);
         $uploaded_files[] = $nota_name;
     }
 }

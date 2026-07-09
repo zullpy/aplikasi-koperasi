@@ -26,7 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
 
                 $nama_file_baru = 'bukti_' . $id_pengajuan . '_' . time() . '_' . uniqid() . '.' . $ekstensi;
 
-                if (!move_uploaded_file($file['tmp_name'], $folderUpload . $nama_file_baru)) {
+                if (move_uploaded_file($file['tmp_name'], $folderUpload . $nama_file_baru)) {
+                    compressImage($folderUpload . $nama_file_baru);
+                } else {
                     $nama_file_baru = null; // gagal pindah file, jangan simpan nama filenya
                 }
             }

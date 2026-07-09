@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
                 if (!is_dir($folderUpload)) mkdir($folderUpload, 0755, true);
                 $nama_file = 'kembali_' . $id_kembali . '_' . time() . '_' . uniqid() . '.' . $ekstensi;
                 if (move_uploaded_file($file['tmp_name'], $folderUpload . $nama_file)) {
+                    compressImage($folderUpload . $nama_file);
                     $bukti_kembali = $nama_file;
                 }
             }

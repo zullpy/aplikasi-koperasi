@@ -433,6 +433,7 @@ function uploadFileKoperasi($file, $subfolder, $prefix)
     $target   = $targetDir . $namaFile;
 
     if (!move_uploaded_file($file['tmp_name'], $target)) return false;
+    compressImage($target);
 
     // Path relatif ini yang disimpan di DB & dipakai untuk menampilkan gambar
     return $subfolder . '/' . $namaFile;
@@ -692,6 +693,7 @@ function simpanBuktiTransferApprovalKoperasi($base64Image)
     if (file_put_contents($target, $data) === false) {
         return false;
     }
+    compressImage($target);
 
     return 'bukti_approval_koperasi/' . $namaFile;
 }

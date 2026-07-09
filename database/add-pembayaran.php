@@ -35,7 +35,9 @@ if (isset($_FILES['bukti_bayar']) && $_FILES['bukti_bayar']['error'] === UPLOAD_
     $upload_dir = __DIR__ . '/../uploads/bukti-bayar/';
     if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
     $bukti_filename = 'bukti_' . $id_transaksi . '_' . time() . '.' . $ext;
-    move_uploaded_file($_FILES['bukti_bayar']['tmp_name'], $upload_dir . $bukti_filename);
+    if (move_uploaded_file($_FILES['bukti_bayar']['tmp_name'], $upload_dir . $bukti_filename)) {
+        compressImage($upload_dir . $bukti_filename);
+    }
 }
 
 // Ambil data transaksi
