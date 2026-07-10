@@ -46,6 +46,12 @@ function compressImage($sourcePath, $quality = 70, $maxWidth = 1200) {
         return false;
     }
 
+    // Jangan kompres jika ukuran file sudah di bawah 1MB (1024 * 1024 bytes) untuk mencegah gambar menjadi buram
+    clearstatcache(true, $sourcePath);
+    if (filesize($sourcePath) < 1048576) {
+        return true;
+    }
+
     $info = @getimagesize($sourcePath);
     if (!$info) {
         // Jika bukan gambar yang valid (misal PDF), lewati saja dengan status sukses
