@@ -7,6 +7,7 @@ include '../components/navbar.php'; ?>
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stok Multi Gudang | Bina Usaha Sauyunan</title>
   <meta name="description" content="Dashboard stok 4 gudang: Pusat, Sodong, Sariwangi, Manonjaya">
   <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
@@ -30,23 +31,29 @@ include '../components/navbar.php'; ?>
     <div class="sb-cards">
       <div class="sb-card ic-pusat">
         <div class="sb-card-icon"><i class="ti ti-building-store"></i></div>
-        <div class="sb-card-label">Gudang Pusat</div>
-        <div class="sb-card-val" id="sum-pusat">Rp 0</div>
-        <div class="sb-card-sub" id="sub-pusat">0 item aktif</div>
+        <div class="sb-card-body">
+          <div class="sb-card-label">Gudang Pusat</div>
+          <div class="sb-card-val" id="sum-pusat">Rp 0</div>
+          <div class="sb-card-sub" id="sub-pusat">0 item aktif</div>
+        </div>
         <div class="sb-card-bar"></div>
       </div>
       <div class="sb-card ic-cabang">
         <div class="sb-card-icon"><i class="ti ti-building-warehouse"></i></div>
-        <div class="sb-card-label">Gudang Cabang</div>
-        <div class="sb-card-val" id="sum-cabang">Rp 0</div>
-        <div class="sb-card-sub">Sodong + Sariwangi + Manonjaya</div>
+        <div class="sb-card-body">
+          <div class="sb-card-label">Gudang Cabang</div>
+          <div class="sb-card-val" id="sum-cabang">Rp 0</div>
+          <div class="sb-card-sub">Sodong + Sariwangi + Manonjaya</div>
+        </div>
         <div class="sb-card-bar"></div>
       </div>
       <div class="sb-card ic-total">
         <div class="sb-card-icon"><i class="ti ti-coin-taka"></i></div>
-        <div class="sb-card-label">Total Nilai Barang</div>
-        <div class="sb-card-val" id="sum-total">Rp 0</div>
-        <div class="sb-card-sub" id="sub-total">0 barang · 0 unit</div>
+        <div class="sb-card-body">
+          <div class="sb-card-label">Total Nilai Barang</div>
+          <div class="sb-card-val" id="sum-total">Rp 0</div>
+          <div class="sb-card-sub" id="sub-total">0 barang · 0 unit</div>
+        </div>
         <div class="sb-card-bar"></div>
       </div>
     </div>
@@ -54,21 +61,23 @@ include '../components/navbar.php'; ?>
     <!-- FILTER -->
     <div class="sb-filter-bar">
       <input type="text" id="search-input" placeholder="Cari nama barang..." oninput="renderTable()">
-      <select id="filter-gudang" onchange="renderTable()">
-        <option value="">Semua gudang</option>
-        <option value="pusat">Ada di Pusat</option>
-        <option value="sodong">Ada di Sodong</option>
-        <option value="sariwangi">Ada di Sariwangi</option>
-        <option value="manonjaya">Ada di Manonjaya</option>
-        <option value="habis">Stok Habis (semua)</option>
-      </select>
-      <select id="filter-status" onchange="renderTable()">
-        <option value="">Semua status</option>
-        <option value="st-aman">Aman</option>
-        <option value="st-menipis">Menipis</option>
-        <option value="st-rendah">Rendah</option>
-        <option value="st-habis">Habis</option>
-      </select>
+      <div class="sb-filter-selects">
+        <select id="filter-gudang" onchange="renderTable()">
+          <option value="">Semua gudang</option>
+          <option value="pusat">Ada di Pusat</option>
+          <option value="sodong">Ada di Sodong</option>
+          <option value="sariwangi">Ada di Sariwangi</option>
+          <option value="manonjaya">Ada di Manonjaya</option>
+          <option value="habis">Stok Habis (semua)</option>
+        </select>
+        <select id="filter-status" onchange="renderTable()">
+          <option value="">Semua status</option>
+          <option value="st-aman">Aman</option>
+          <option value="st-menipis">Menipis</option>
+          <option value="st-rendah">Rendah</option>
+          <option value="st-habis">Habis</option>
+        </select>
+      </div>
       <button class="sb-btn sb-btn-outline" onclick="resetFilter()">Reset</button>
     </div>
 
@@ -95,6 +104,8 @@ include '../components/navbar.php'; ?>
           <tbody id="tb-body"></tbody>
         </table>
       </div>
+      <!-- MOBILE CARD LIST (tampil hanya di layar kecil) -->
+      <div class="sb-mobile-list" id="mobile-list"></div>
       <div class="sb-footer">
         <span><span id="item-count">0 barang</span> &nbsp;·&nbsp; <span id="page-info">Menampilkan 0–0 dari 0</span></span>
         <div class="sb-pagination" id="pagination"></div>

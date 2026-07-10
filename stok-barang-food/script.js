@@ -206,9 +206,74 @@ function draw() {
     if (currentPage < pages) html += `<button onclick="goPage(${currentPage + 1})"><i class="ti ti-chevron-right" style="font-size:12px"></i></button>`;
     
     pg.innerHTML = html;
+
+    // Render kartu mobile
+    drawMobileCards(slice, total);
 }
 
-// Format total qty jadi gabungan satuan besar + sisa satuan eceran.
+
+// ─── Mobile card renderer ─────────────────────────────────────────────
+function gudangCell(d, g, cls, labelText) {
+    const label = fmtStok(d, g);
+    const qty = label
+        ? `<span class="mc-gudang-qty">${label}</span>`
+        : `<span class="mc-gudang-qty zero">— Kosong</span>`;
+    return `<div class="mc-gudang-cell ${cls}">
+                <div class="mc-gudang-label">${labelText}</div>
+                ${qty}
+            </div>`;
+}
+
+function drawMobileCards(slice, total) {
+    const el = document.getElementById('mobile-list');
+    if (!el) return;
+
+    if (total === 0) {
+        el.innerHTML = `<div style="text-align:center;padding:32px 16px;color:#64748b;font-size:13px;">Tidak ada data barang</div>`;
+        return;
+    }
+
+    el.innerHTML = slice.map((d, i) => {
+        const tQty = totalQtyOf(d);
+        const st = getStatus(tQty);
+        const no = (currentPage - 1) * PAGE_SIZE + i + 1;
+
+        return `<div class="mc-item">
+            <div class="mc-top">
+                <span class="mc-no">${no}</span>
+                <div class="mc-info">
+                    <div class="mc-nama">${d.nama}</div>
+                    <div class="mc-satuan">
+                        ${ucSatuan(d.satuan_eceran)}
+                        <span class="sb-status ${st.cls}">${st.label}</span>
+                    </div>
+                </div>
+                <div class="mc-harga-wrap">
+                    <span class="mc-harga-label">Harga Eceran</span>
+                    <span class="mc-harga">${rupiah(d.harga_eceran)}</span>
+                </div>
+            </div>
+            <div class="mc-gudang-grid">
+                ${gudangCell(d, d.pusat,     'gd-pusat',     'Pusat')}
+                ${gudangCell(d, d.sodong,    'gd-sodong',    'Sodong')}
+                ${gudangCell(d, d.sariwangi, 'gd-sariwangi', 'Sariwangi')}
+                ${gudangCell(d, d.manonjaya, 'gd-manonjaya', 'Manonjaya')}
+            </div>
+            <div class="mc-bottom">
+                <div class="mc-total-wrap">
+                    <span class="mc-total-label">Total Stok</span>
+                    <span class="mc-total-qty">${fmtTotalQty(d, tQty)}</span>
+                </div>
+                <div class="mc-total-wrap mc-right">
+                    <span class="mc-total-label">Nilai Barang</span>
+                    <span class="mc-total-nilai">${rupiah(totalNilaiOf(d))}</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+
 function fmtTotalQty(d, totalQty) {
     if (!totalQty || totalQty <= 0) return `0 ${ucSatuan(d.satuan_eceran)}`;
     

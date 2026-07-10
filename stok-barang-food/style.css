@@ -43,46 +43,61 @@
 
 .sb-filter-bar {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
     margin-bottom: 20px;
-    flex-wrap: wrap;
-    align-items: center;
 }
 
-.sb-filter-bar input,
-.sb-filter-bar select {
+.sb-filter-bar input {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 13px;
-    padding: 8px 12px;
+    padding: 9px 14px;
     border: 1px solid #c8ddf4;
     border-radius: 8px;
     background: #fff;
     color: #1e293b;
     outline: none;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.sb-filter-bar input:focus,
-.sb-filter-bar select:focus {
+.sb-filter-bar input:focus {
     border-color: #2563a8;
 }
 
-.sb-filter-bar input {
-    flex: 1;
-    min-width: 160px;
+.sb-filter-selects {
+    display: flex;
+    gap: 8px;
 }
 
-.sb-filter-bar select {
-    min-width: 160px;
+.sb-filter-selects select {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    padding: 9px 12px;
+    border: 1px solid #c8ddf4;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+    outline: none;
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.sb-filter-selects select:focus {
+    border-color: #2563a8;
 }
 
 .sb-btn {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 13px;
     font-weight: 600;
-    padding: 8px 18px;
+    padding: 9px 18px;
     border-radius: 8px;
     border: none;
     cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .sb-btn-outline {
@@ -431,12 +446,299 @@ tbody td {
     background: #f0f6fc;
 }
 
-@media (max-width:768px) {
+/* ─── Mobile card list (tersembunyi di desktop) ─────────────────────── */
+.sb-mobile-list {
+    display: none;
+}
+
+/* ─── Mobile media query ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+    /* Wrap & spacing */
+    .sb-wrap {
+        padding: 14px 12px;
+        margin: 8px;
+    }
+
+    /* Header */
+    .sb-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .sb-header-left h1 {
+        font-size: 17px;
+    }
+
+    .sb-header-left p {
+        font-size: 12px;
+    }
+
+    .sb-badge {
+        align-self: flex-start;
+        font-size: 10px;
+        padding: 4px 10px;
+    }
+
+    /* Summary cards → 1 kolom */
     .sb-cards {
         grid-template-columns: 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .sb-card {
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .sb-card-icon {
+        margin-bottom: 0;
+        flex-shrink: 0;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+    }
+
+    .sb-card-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .sb-card-label {
+        font-size: 10px;
     }
 
     .sb-card-val {
         font-size: 18px;
+    }
+
+    .sb-card-sub {
+        font-size: 11px;
+        margin-top: 2px;
+    }
+
+
+    /* Sembunyikan tabel di mobile, tampilkan kartu */
+    .sb-table-scroll {
+        display: none;
+    }
+
+    .sb-mobile-list {
+        display: block;
+        padding: 8px 10px 4px;
+    }
+
+    /* ── Item card ──────────────────────────────────────────────────── */
+    .mc-item {
+        background: #fff;
+        border: 1px solid #e2ecf9;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 4px rgba(37, 99, 168, 0.06);
+        transition: box-shadow 0.15s;
+    }
+
+    .mc-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .mc-item:active {
+        box-shadow: 0 2px 8px rgba(37, 99, 168, 0.14);
+    }
+
+    /* Baris atas: nomor + nama + status */
+    .mc-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .mc-no {
+        font-size: 11px;
+        color: #94a3b8;
+        font-weight: 600;
+        min-width: 22px;
+        padding-top: 2px;
+    }
+
+    .mc-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mc-nama {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.3;
+    }
+
+    .mc-satuan {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    /* Harga eceran */
+    .mc-harga-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+        flex-shrink: 0;
+    }
+
+    .mc-harga-label {
+        font-size: 9px;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .mc-harga {
+        font-size: 13px;
+        font-weight: 700;
+        color: #2563a8;
+        white-space: nowrap;
+    }
+
+    /* Grid 2×2 stok per gudang */
+    .mc-gudang-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        margin-bottom: 10px;
+    }
+
+    .mc-gudang-cell {
+        background: #f8faff;
+        border-radius: 8px;
+        padding: 8px 10px;
+        border-left: 3px solid transparent;
+    }
+
+    .mc-gudang-cell.gd-pusat    { border-left-color: #1d4ed8; background: #eff6ff; }
+    .mc-gudang-cell.gd-sodong   { border-left-color: #b45309; background: #fffbeb; }
+    .mc-gudang-cell.gd-sariwangi{ border-left-color: #7c3aed; background: #f5f3ff; }
+    .mc-gudang-cell.gd-manonjaya{ border-left-color: #be185d; background: #fdf2f8; }
+
+    .mc-gudang-label {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+    }
+
+    .gd-pusat     .mc-gudang-label { color: #1d4ed8; }
+    .gd-sodong    .mc-gudang-label { color: #b45309; }
+    .gd-sariwangi .mc-gudang-label { color: #7c3aed; }
+    .gd-manonjaya .mc-gudang-label { color: #be185d; }
+
+    .mc-gudang-qty {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .mc-gudang-qty.zero {
+        color: #cbd5e1;
+        font-weight: 500;
+        font-size: 12px;
+    }
+
+    /* Baris bawah: total qty + nilai */
+    .mc-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding-top: 10px;
+        border-top: 1px solid #f0f6fc;
+        gap: 6px;
+    }
+
+    .mc-total-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mc-center {
+        align-items: center;
+        text-align: center;
+    }
+
+    .mc-right {
+        align-items: flex-end;
+        text-align: right;
+    }
+
+    .mc-total-label {
+        font-size: 9px;
+        color: #94a3b8;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+    }
+
+    .mc-total-qty {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .mc-total-modal {
+        font-size: 13px;
+        font-weight: 700;
+        color: #b45309;
+        font-family: 'Courier New', monospace;
+        white-space: nowrap;
+    }
+
+    .mc-total-nilai {
+        font-size: 13px;
+        font-weight: 700;
+        color: #15803d;
+        font-family: 'Courier New', monospace;
+        white-space: nowrap;
+    }
+
+
+    /* Footer pagination di mobile */
+    .sb-footer {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 12px 14px;
+    }
+
+    .sb-table-head span:first-child {
+        font-size: 13px;
+    }
+}
+
+/* Pastikan card body ada di HTML kita bungkus konten sb-card */
+@media (max-width: 768px) {
+    .sb-card {
+        flex-direction: row;
+    }
+
+    .sb-wrap{
+        margin-top: 30px;
     }
 }

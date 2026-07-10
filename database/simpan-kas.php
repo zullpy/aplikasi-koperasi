@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(false, 'Metode tidak diizinkan.');
 }
 
-if (($_SESSION['role'] ?? '') !== 'admin') {
+if (($_SESSION['role'] ?? '') !== 'bendahara') {
     http_response_code(403);
     respond(false, 'Akses ditolak. Hanya admin yang dapat melakukan transaksi kas.');
 }

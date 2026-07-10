@@ -3,6 +3,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 $base_url = '';
 $userRole = $_SESSION['role'] ?? null;
 $isPurchase = ($userRole === 'purchase');
+$isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
 ?>
 
 <head>
@@ -123,57 +124,69 @@ $isPurchase = ($userRole === 'purchase');
                 <?php endif; ?>
 
                 <?php if (!$isPurchase): ?>
-                <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
-                <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
-                    <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                            <ellipse cx="12" cy="5" rx="9" ry="3" />
-                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                        </svg>
-                        Data Master
-                        <span class="dd-arrow">▾</span>
-                    </a>
-                    <ul class="dropdown-menu" role="menu">
-                        <li class="dropdown-group-label">Data Master</li>
-                        <li>
-                            <a href="../data-pelanggan/index.php"
-                                class="dropdown-item <?= $activePage == 'daftar-pelanggan' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                    <circle cx="9" cy="7" r="4" />
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                                </svg>
-                                Data Pelanggan
-                            </a>
-                        </li>
-                        <li>
-                            <a href="../data-supplier/index.php"
-                                class="dropdown-item <?= $activePage == 'daftar-supplier' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                                    <rect x="1" y="3" width="15" height="13" rx="1" />
-                                    <path d="M16 8h4l3 5v3h-7V8z" />
-                                    <circle cx="5.5" cy="18.5" r="2.5" />
-                                    <circle cx="18.5" cy="18.5" r="2.5" />
-                                </svg>
-                                Data Supplier
-                            </a>
-                        </li>
-                        <li>
-                            <a href="../stok-barang-food/index.php"
-                                class="dropdown-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                    <?php if ($isBendaharaOrKetua): ?>
+                        <!-- Direct link to Stok Barang for Bendahara and Ketua -->
+                        <li class="nav-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>">
+                            <a href="../stok-barang-food/index.php" class="nav-link">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                                 </svg>
                                 Stok Barang
                             </a>
                         </li>
-                    </ul>
-                </li>
+                    <?php else: ?>
+                        <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
+                        <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
+                            <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                                </svg>
+                                Data Master
+                                <span class="dd-arrow">▾</span>
+                            </a>
+                            <ul class="dropdown-menu" role="menu">
+                                <li class="dropdown-group-label">Data Master</li>
+                                <li>
+                                    <a href="../data-pelanggan/index.php"
+                                        class="dropdown-item <?= $activePage == 'daftar-pelanggan' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                            <circle cx="9" cy="7" r="4" />
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                        </svg>
+                                        Data Pelanggan
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="../data-supplier/index.php"
+                                        class="dropdown-item <?= $activePage == 'daftar-supplier' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <rect x="1" y="3" width="15" height="13" rx="1" />
+                                            <path d="M16 8h4l3 5v3h-7V8z" />
+                                            <circle cx="5.5" cy="18.5" r="2.5" />
+                                            <circle cx="18.5" cy="18.5" r="2.5" />
+                                        </svg>
+                                        Data Supplier
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="../stok-barang-food/index.php"
+                                        class="dropdown-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                        </svg>
+                                        Stok Barang
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if (!$isPurchase): ?>
