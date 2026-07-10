@@ -76,25 +76,100 @@ body {
 
 .header-actions {
     display: flex;
-    gap: 10px;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+/* Filter baris: kompak inline */
+.filter-row {
+    display: flex;
     align-items: center;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
-select,
-button {
-    font-family: var(--font-main);
-    font-size: 14px;
+.filter-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
 }
 
-select#tahunFilter {
-    padding: 10px 16px;
+.filter-sep {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* Input tanggal rentang */
+.filter-rentang input[type="date"] {
+    padding: 8px 10px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--header-border);
+    border: 1.5px solid var(--header-border);
+    background: var(--white);
+    color: var(--text-main);
+    font-family: var(--font-main);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+
+.filter-rentang input[type="date"]:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Aktif = ada rentang yang diterapkan */
+.filter-rentang.aktif input[type="date"] {
+    border-color: var(--primary);
+    background: #eff6ff;
+}
+
+/* Tombol filter */
+.btn-filter-apply {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--primary-gradient);
+    color: var(--white);
+    font-family: var(--font-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .15s;
+}
+
+.btn-filter-apply:hover { opacity: .9; }
+
+.btn-filter-reset {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid #dc2626;
+    background: #fee2e2;
+    color: #dc2626;
+    font-family: var(--font-main);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+}
+
+.btn-filter-reset:hover { background: #fecaca; }
+
+select#tahunFilter,
+select#bulanFilter {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--header-border);
     background: var(--white);
     color: var(--text-main);
     font-weight: 600;
     cursor: pointer;
+    font-family: var(--font-main);
+    font-size: 13px;
 }
 
 .btn {
@@ -404,13 +479,105 @@ footer.report-footer {
     }
 }
 
+/* ─── Table scroll wrapper (tabel bisa digeser horizontal) ─── */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 720px) {
+
+    body {
+        padding: 10px 12px;
+    }
+
     .page-header {
         flex-direction: column;
         align-items: flex-start;
+        padding: 16px 18px;
+        margin-top: 50px;
+        gap: 12px;
     }
 
+    .page-header h1 {
+        font-size: 18px;
+    }
+
+    .header-actions {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .filter-row {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .filter-row select,
+    .filter-row button {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .filter-rentang input[type="date"] {
+        flex: 1;
+        min-width: 0;
+        width: auto;
+    }
+
+    /* Summary cards → stack vertikal, icon inline */
+    .summary-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .card {
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .card .icon-badge {
+        margin-bottom: 0;
+        flex-shrink: 0;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+    }
+
+    .card-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .card .label {
+        font-size: 10px;
+        margin-bottom: 2px;
+    }
+
+    .card .value {
+        font-size: 18px;
+    }
+
+    /* Panel tidak sembunyikan tabel, biarkan scroll */
+    .panel {
+        overflow: hidden;
+    }
+
+    /* Tabel lebih kecil di mobile agar muat */
     table {
+        font-size: 12px;
+        min-width: 560px; /* pastikan bisa digeser */
+    }
+
+    thead th {
+        padding: 10px 12px;
+        font-size: 11px;
+    }
+
+    tbody td {
+        padding: 10px 12px;
         font-size: 12px;
     }
 }

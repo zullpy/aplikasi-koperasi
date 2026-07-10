@@ -181,7 +181,7 @@ if (empty($items)) {
 <head>
     <meta charset="UTF-8">
     <title>Faktur <?= htmlspecialchars($displayNoFaktur) ?></title>
-    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <style>
         /* ===== PAGE SETUP A5 ===== */
         @page {

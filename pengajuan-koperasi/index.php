@@ -11,7 +11,7 @@ $userRole = $_SESSION['role'] ?? '';
     <title>Pengajuan Anggaran Koperasi</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
     <link rel="stylesheet" href="style.css">
-    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
 </head>
 
 <body>

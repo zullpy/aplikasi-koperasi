@@ -49,22 +49,26 @@ $yearLabel   = ($startYear && (int)$startYear < (int)$currentYear)
 
 <footer class="developer-credit-footer">
     <p class="developer-credit-line">
-        &copy; <?= $yearLabel ?>
-        <span class="developer-credit-appname"><?= htmlspecialchars($appName) ?></span>
-        &nbsp;&middot;&nbsp;
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-            fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="16 18 22 12 16 6"></polyline>
-            <polyline points="8 6 2 12 8 18"></polyline>
-        </svg>
-        Created By
-        <?php if (!empty($developerUrl)): ?>
-            <a href="<?= htmlspecialchars($developerUrl) ?>" target="_blank" rel="noopener noreferrer">
-                <?= htmlspecialchars($developerName) ?>
-            </a>
-        <?php else: ?>
-            <span class="developer-credit-name"><?= htmlspecialchars($developerName) ?></span>
-        <?php endif; ?>
+        <span class="credit-left">
+            &copy; <?= $yearLabel ?>
+            <span class="developer-credit-appname"><?= htmlspecialchars($appName) ?></span>
+        </span>
+        <span class="developer-credit-sep">&nbsp;&middot;&nbsp;</span>
+        <span class="credit-right">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            Created By
+            <?php if (!empty($developerUrl)): ?>
+                <a href="<?= htmlspecialchars($developerUrl) ?>" target="_blank" rel="noopener noreferrer">
+                    <?= htmlspecialchars($developerName) ?>
+                </a>
+            <?php else: ?>
+                <span class="developer-credit-name"><?= htmlspecialchars($developerName) ?></span>
+            <?php endif; ?>
+        </span>
     </p>
 </footer>
 
@@ -117,5 +121,35 @@ $yearLabel   = ($startYear && (int)$startYear < (int)$currentYear)
     .developer-credit-line a:hover {
         color: #1d4ed8;
         text-decoration: underline;
+    }
+
+    .credit-left,
+    .credit-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+
+    /* Mobile: 2 baris yang rapi */
+    @media (max-width: 600px) {
+        .developer-credit-footer {
+            padding: 8px 12px;
+        }
+
+        .developer-credit-line {
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        /* Sembunyikan titik pemisah di mobile */
+        .developer-credit-sep {
+            display: none;
+        }
+
+        .credit-left,
+        .credit-right {
+            justify-content: center;
+        }
     }
 </style>

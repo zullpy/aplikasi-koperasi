@@ -52,7 +52,7 @@ $item_count = count($items);
 <head>
 <meta charset="UTF-8">
 <title>Faktur <?= $trx['no_faktur'] ?></title>
-<link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
+<link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
 <style>
 
 /* ===== PAGE SETUP A5 ===== */

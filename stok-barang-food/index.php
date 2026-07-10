@@ -10,7 +10,7 @@ include '../components/navbar.php'; ?>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stok Multi Gudang | Bina Usaha Sauyunan</title>
   <meta name="description" content="Dashboard stok 4 gudang: Pusat, Sodong, Sariwangi, Manonjaya">
-  <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 </head>
