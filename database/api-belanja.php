@@ -42,6 +42,17 @@ if (!$userRole) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized: role tidak ditemukan di sesi']);
     exit;
 }
+
+// Hanya bendahara dan admin yang boleh approve, update_status, dan upload_bukti
+$approvalActions = ['approve', 'update_status', 'upload_bukti'];
+if (in_array($action, $approvalActions, true)) {
+    if ($userRole !== 'bendahara' && $userRole !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Akses ditolak: Hanya bendahara yang dapat melakukan aksi ini']);
+        exit;
+    }
+}
+
 $isPurchase = ($userRole === 'purchase');
 
 // ─── Purchase Whitelist Guard ──────────────────────────────────────────────
@@ -659,6 +670,46 @@ try {
                 'message' => 'Tanda tangan berhasil disimpan',
                 'pengajuan_id' => $pengajuanId,
                 'role_penanda' => $rolePenanda,
+            ]);
+            exit;
+
+            // ─── UPLOAD BUKTI: Unggah bukti transfer langsung dari card ───────
+        case 'upload_bukti':
+            if ($method !== 'POST') throw new Exception('Method not allowed');
+            $id = intval($_POST['id'] ?? 0);
+            if (!$id) throw new Exception('ID pengajuan tidak valid');
+
+            if (!isset($_FILES['bukti_transfer']) || $_FILES['bukti_transfer']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('File bukti transfer wajib diunggah');
+            }
+
+            $uploadDir = '../uploads/bukti_transfer/';
+            if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
+
+            $file     = $_FILES['bukti_transfer'];
+            $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowed  = ['jpg', 'jpeg', 'png', 'pdf', 'webp'];
+            if (!in_array($ext, $allowed)) throw new Exception('Tipe file bukti transfer tidak diizinkan');
+            if ($file['size'] > 5 * 1024 * 1024) throw new Exception('Ukuran file melebihi 5 MB');
+
+            $fileName  = 'bukti_' . $id . '_' . time() . '.' . $ext;
+            $targetPath = $uploadDir . $fileName;
+            if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+                throw new Exception('Gagal menyimpan file bukti transfer');
+            }
+            compressImage($targetPath);
+            $buktiPath = $fileName;
+
+            // Update database
+            $stmt = $koneksi->prepare("UPDATE pengajuan_belanja SET bukti_transfer = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->bind_param('si', $buktiPath, $id);
+            if (!$stmt->execute()) throw new Exception('Gagal update bukti transfer: ' . $stmt->error);
+            $stmt->close();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Bukti transfer berhasil diunggah',
+                'bukti_transfer' => $buktiPath
             ]);
             exit;
 

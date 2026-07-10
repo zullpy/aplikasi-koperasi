@@ -390,7 +390,7 @@ function renderRow(i, no = 1) {
         <td style="text-align:center">${saldoCell}</td>
         <td>
             <div class="actions" style="justify-content:center">
-                ${(['ketua','bendahara'].includes(SESSION_ROLE)) ? `<button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>` : ''}
+                ${(SESSION_ROLE === 'bendahara') ? `<button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>` : ''}
                 <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"><i class="ti ti-pencil" aria-hidden="true"></i> TTD</button>
                 ${SESSION_ROLE === 'admin' ? `<button class="btn sm icon-only action-menu-btn" onclick="toggleActionMenu(event, ${i.id})" title="Aksi lainnya"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>` : ''}
             </div>
@@ -852,6 +852,10 @@ function exportPDF(id) {
 
 // ===== MODAL APPROVAL =====
 function openApproval(id) {
+    if (SESSION_ROLE !== 'bendahara') {
+        showToast('Akses ditolak: Hanya bendahara yang memiliki akses approval.', 'error');
+        return;
+    }
     const i = data.find(x => x.id === id);
     if (!i) return;
     document.getElementById('approvalId').value = id;

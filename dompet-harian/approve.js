@@ -331,7 +331,8 @@ function buildCard(item) {
             <span><strong>Catatan:</strong> ${item.catatan_bendahara}</span>
         </div>` : '';
 
-    const footerActions = isPending ? `
+    const canApprove = (USER_ROLE === 'bendahara' || USER_ROLE === 'admin');
+    const footerActions = (isPending && canApprove) ? `
         <div class="card-actions">
             <button class="btn btn-danger btn-sm" onclick="openRejectModal(${item.id})">
                 <i class="ph ph-x-circle"></i> Tolak
@@ -376,7 +377,7 @@ function buildCard(item) {
             </div>
             <div class="card-footer-right">
                 ${footerActions}
-                ${isApproved ? `
+                ${isApproved ? (canApprove ? `
                 <label class="btn ${item.bukti_transfer ? 'btn-ghost' : 'btn-outline-secondary'} btn-sm" title="${item.bukti_transfer ? 'Ganti Bukti Transfer' : 'Upload Bukti Transfer'}" style="cursor:pointer;margin:0;">
                     <i class="ph ph-${item.bukti_transfer ? 'arrows-clockwise' : 'upload-simple'}"></i> ${item.bukti_transfer ? 'Ganti BT' : 'Bukti TF'}
                     <input type="file" accept="image/*,.pdf" style="display:none"
@@ -386,7 +387,11 @@ function buildCard(item) {
                 <a href="../uploads/bukti_transfer/${item.bukti_transfer}" target="_blank"
                     class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer">
                     <i class="ph ph-image"></i> Lihat Bukti Transfer
-                </a>` : ''}` : ''}
+                </a>` : ''}` : (item.bukti_transfer ? `
+                <a href="../uploads/bukti_transfer/${item.bukti_transfer}" target="_blank"
+                    class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer">
+                    <i class="ph ph-image"></i> Lihat Bukti Transfer
+                </a>` : '')) : ''}
             </div>
         </div>
     </div>`;
@@ -463,6 +468,10 @@ function buildTtdSection(item) {
 // + FITUR: SISA UANG OTOMATIS DARI MENU SEBELUMNYA
 // ═════════════════════════════════════════════════
 function openApproveModal(id, totalBelanja) {
+    if (USER_ROLE !== 'bendahara' && USER_ROLE !== 'admin') {
+        showToast('Akses ditolak: Hanya bendahara yang memiliki akses approval.', 'error');
+        return;
+    }
     approveTargetId = id;
     approveTargetTotal = totalBelanja;
 
@@ -655,6 +664,10 @@ async function submitApprove() {
 // MODAL: REJECT
 // ═════════════════════════════════════════════════
 function openRejectModal(id) {
+    if (USER_ROLE !== 'bendahara' && USER_ROLE !== 'admin') {
+        showToast('Akses ditolak: Hanya bendahara yang memiliki akses approval.', 'error');
+        return;
+    }
     rejectTargetId = id;
     document.getElementById('rejectionReason').value = '';
     document.getElementById('rejectModal').classList.add('active');
@@ -845,6 +858,10 @@ function hapusTtd(pengajuanId, role) {
 // UPLOAD BUKTI TRANSFER (dari card langsung)
 // ═════════════════════════════════════════════════
 async function uploadBuktiTransfer(event, id) {
+    if (USER_ROLE !== 'bendahara' && USER_ROLE !== 'admin') {
+        showToast('Akses ditolak: Hanya bendahara yang dapat mengunggah bukti transfer.', 'error');
+        return;
+    }
     const file = event.target.files[0];
     if (!file) return;
 
