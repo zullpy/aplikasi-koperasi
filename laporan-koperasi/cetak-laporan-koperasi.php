@@ -99,11 +99,10 @@ function formatWaktuIndo($ts)
     return date('d', $t) . ' ' . $bulanSingkat[(int) date('n', $t)] . ' ' . date('Y H:i', $t);
 }
 
-// ── PEMETAAN 4 ROLE PENANDA TANGAN SESUAI FORM (samain kayak laporan belanja) ──
-// Urutan tampil dari kiri ke kanan: Purchase, Admin, Bendahara, Ketua.
-$urutanRoleTtd = ['purchase', 'admin', 'bendahara', 'ketua'];
+// ── PEMETAAN ROLE PENANDA TANGAN SESUAI FORM ──
+// Urutan tampil dari kiri ke kanan: Admin, Bendahara, Ketua.
+$urutanRoleTtd = ['admin', 'bendahara', 'ketua'];
 $roleMapping = [
-    'purchase'  => ['label' => 'Purchasing',           'nama' => 'SAEPUL MISBAH'],
     'admin'     => ['label' => 'Juru Bayar',            'nama' => 'EVIN YENTIANA'],
     'bendahara' => ['label' => 'Bendahara<br>Koperasi', 'nama' => 'NANCY FEBI YOLLA'],
     'ketua'     => ['label' => 'Ketua<br>Koperasi',     'nama' => 'YUDI HENDRIAN'],

@@ -8,8 +8,7 @@
 require_once '../database/auth.php';
 include '../database/koneksi.php';
 
-$activePage = 'penjualan-sppg-addcost';
-include '../components/navbar.php';
+
 
 // ----------------------------------------------------------
 // FUNGSI BANTU
@@ -116,6 +115,8 @@ $tanggalAwal  = isset($_GET['tanggal_awal']) ? $_GET['tanggal_awal'] : '';
 $tanggalAkhir = isset($_GET['tanggal_akhir']) ? $_GET['tanggal_akhir'] : '';
 $keyword      = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
+$activePage = 'penjualan-sppg-addcost';
+include '../components/navbar.php';
 // ----------------------------------------------------------
 // QUERY UTAMA
 // Karena db_mbg & db_draft_barang ada di server yang sama,

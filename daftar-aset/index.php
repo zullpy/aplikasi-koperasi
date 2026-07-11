@@ -58,6 +58,24 @@ if (isset($_POST['aksi']) && $_POST['aksi'] === 'edit') {
     exit;
 }
 
+// ===================== PROSES UPDATE PENGECEKAN =====================
+if (isset($_POST['aksi']) && $_POST['aksi'] === 'update_pengecekan') {
+    $id                 = (int) $_POST['id'];
+    $tanggal_pengecekan = $_POST['tanggal_pengecekan'];
+    $kondisi            = $_POST['kondisi_cek'];
+
+    $stmt = $koneksi->prepare("UPDATE aset_koperasi SET tanggal_pengecekan = ?, kondisi = ? WHERE id = ?");
+    $stmt->bind_param('ssi', $tanggal_pengecekan, $kondisi, $id);
+
+    if ($stmt->execute()) {
+        echo json_encode(['status' => 'success', 'message' => 'Pengecekan aset berhasil diperbarui']);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Gagal memperbarui pengecekan aset']);
+    }
+    $stmt->close();
+    exit;
+}
+
 // ===================== PROSES HAPUS ASET =====================
 if (isset($_POST['aksi']) && $_POST['aksi'] === 'hapus') {
     if ($userRole !== 'admin') {
@@ -138,6 +156,7 @@ include '../components/navbar.php';
                         <th>Jumlah</th>
                         <th>Tanggal Beli</th>
                         <th>Kondisi</th>
+                        <th>Tanggal Pengecekan</th>
                         <?php if ($userRole === 'admin'): ?>
                         <th class="no-print">Aksi</th>
                         <?php endif; ?>
@@ -154,16 +173,24 @@ include '../components/navbar.php';
                                 default => 'badge-baik'
                             };
                             ?>
+                            <?php
+                            $tglCek = $row['tanggal_pengecekan'];
+                            $tglCekLabel = $tglCek ? date('d M Y', strtotime($tglCek)) : '<span class="badge-cek-belum">Belum dicek</span>';
+                            ?>
                             <tr>
                                 <td><?= $no++; ?></td>
                                 <td><?= htmlspecialchars($row['nama_aset']); ?></td>
                                 <td><?= htmlspecialchars($row['jumlah']); ?></td>
                                 <td><?= date('d M Y', strtotime($row['tanggal_beli'])); ?></td>
                                 <td><span class="badge <?= $badgeClass; ?>"><?= $row['kondisi']; ?></span></td>
+                                <td><?= $tglCekLabel; ?></td>
                                 <?php if ($userRole === 'admin'): ?>
                                 <td class="no-print">
                                     <button class="aksi-btn btn-edit" onclick="bukaModalEdit(<?= $row['id']; ?>)" title="Edit">
                                         <i class="ph ph-pencil-simple"></i>
+                                    </button>
+                                    <button class="aksi-btn btn-cek" onclick="bukaModalPengecekan(<?= $row['id']; ?>, '<?= htmlspecialchars($row['nama_aset']); ?>', '<?= $tglCek; ?>', '<?= htmlspecialchars($row['kondisi']); ?>')" title="Update Pengecekan">
+                                        <i class="ph ph-clipboard-text"></i>
                                     </button>
                                     <button class="aksi-btn btn-hapus" onclick="hapusAset(<?= $row['id']; ?>)" title="Hapus">
                                         <i class="ph ph-trash"></i>
@@ -174,7 +201,7 @@ include '../components/navbar.php';
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="<?= $userRole === 'admin' ? 6 : 5; ?>" class="empty-state">
+                            <td colspan="<?= $userRole === 'admin' ? 7 : 6; ?>" class="empty-state">
                                 <i class="ph ph-package" style="font-size: 32px;"></i>
                                 <p>Belum ada data aset koperasi</p>
                             </td>
@@ -220,6 +247,41 @@ include '../components/navbar.php';
                 <div class="modal-actions">
                     <button type="button" class="btn-batal" onclick="tutupModal()">Batal</button>
                     <button type="submit" class="btn-simpan">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Update Pengecekan -->
+    <div class="modal-overlay" id="modalPengecekan">
+        <div class="modal-box">
+            <h3 id="modalPengecekanTitle"><i class="ph ph-clipboard-text"></i> Update Pengecekan</h3>
+            <form id="formPengecekan">
+                <input type="hidden" id="pengecekan_id" name="id">
+                <input type="hidden" name="aksi" value="update_pengecekan">
+
+                <div class="form-group">
+                    <label>Nama Aset</label>
+                    <input type="text" id="pengecekan_nama" readonly style="background:#f1f5f9; cursor:not-allowed;">
+                </div>
+
+                <div class="form-group">
+                    <label>Tanggal Pengecekan</label>
+                    <input type="date" id="tanggal_pengecekan" name="tanggal_pengecekan" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Kondisi Aset</label>
+                    <select id="kondisi_cek" name="kondisi_cek" required>
+                        <option value="Baik">Baik</option>
+                        <option value="Rusak Ringan">Rusak Ringan</option>
+                        <option value="Rusak Berat">Rusak Berat</option>
+                    </select>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-batal" onclick="tutupModalPengecekan()">Batal</button>
+                    <button type="submit" class="btn-simpan btn-cek-submit"><i class="ph ph-check"></i> Simpan</button>
                 </div>
             </form>
         </div>

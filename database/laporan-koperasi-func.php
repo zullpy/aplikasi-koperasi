@@ -489,7 +489,6 @@ function daftarRoleTtdKoperasi()
 {
     return [
         'admin'     => 'Admin',
-        'purchase'  => 'Purchase',
         'ketua'     => 'Ketua Koperasi',
         'bendahara' => 'Bendahara',
     ];

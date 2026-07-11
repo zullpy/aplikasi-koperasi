@@ -1,0 +1,234 @@
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #ea580c;
+    --bg-soft: #f8fafc;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --radius: 12px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg-soft);
+    color: var(--text);
+    margin-top: 25px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.subtitle {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+/* SUMMARY CARDS */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.summary-card.danger {
+    border-left: 4px solid var(--danger);
+}
+
+.summary-card.danger .card-icon {
+    background: rgba(220, 38, 38, 0.1);
+    color: var(--danger);
+}
+
+.summary-card.success {
+    border-left: 4px solid var(--success);
+}
+
+.summary-card.success .card-icon {
+    background: rgba(22, 163, 74, 0.1);
+    color: var(--success);
+}
+
+.summary-card.primary {
+    border-left: 4px solid var(--primary);
+}
+
+.summary-card.primary .card-icon {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary);
+}
+
+.summary-card.warning {
+    border-left: 4px solid var(--warning);
+}
+
+.summary-card.warning .card-icon {
+    background: rgba(234, 88, 12, 0.1);
+    color: var(--warning);
+}
+
+.card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.card-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-content .label {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.card-content .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* GRID DETAILS */
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 24px;
+}
+
+@media (max-width: 768px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.card h2 {
+    font-size: 15px;
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+thead th {
+    background: var(--bg-soft);
+    padding: 12px 8px;
+    text-align: center;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+tbody td {
+    padding: 12px 8px;
+    border: 1px solid var(--border);
+    text-align: center;
+    color: var(--text);
+}
+
+tbody tr:hover {
+    background: #fafbfc;
+}
+
+.nominal-cell {
+    text-align: right;
+    padding-right: 15px;
+    font-weight: 600;
+}
+
+.danger-text {
+    color: var(--danger);
+}
+
+.success-text {
+    color: var(--success);
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.nota-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #eff6ff;
+    color: var(--primary);
+    border: 1px solid #dbeafe;
+    font-size: 11px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    margin-right: 4px;
+    margin-bottom: 4px;
+}
+.nota-link:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+.no-nota {
+    color: var(--text-muted);
+    font-size: 12px;
+}
