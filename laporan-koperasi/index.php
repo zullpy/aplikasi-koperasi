@@ -139,6 +139,7 @@ $total = getTotalRingkasanKoperasi($rows);
 $ttdSemua      = getTtdSemuaPengajuanKoperasi($koneksi); // [pengajuan_id => [role => row]]
 $daftarRoleTtd = daftarRoleTtdKoperasi();                // [role_key => Label]
 unset($daftarRoleTtd['purchase']);                      // Pastikan purchase terhapus meskipun cache server aktif
+unset($daftarRoleTtd['purchase_stok']);
 $roleLoginSaatIni = $_SESSION['role'] ?? '';
 $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
 ?>

@@ -53,7 +53,7 @@ if (in_array($action, $approvalActions, true)) {
     }
 }
 
-$isPurchase = ($userRole === 'purchase');
+$isPurchase = ($userRole === 'purchase' || $userRole === 'purchase_stok');
 
 // ─── Purchase Whitelist Guard ──────────────────────────────────────────────
 // PENDEKATAN WHITELIST (bukan blacklist) — lebih aman:
@@ -454,6 +454,30 @@ try {
                 $koneksi->query("ALTER TABLE detail_item_belanja ADD COLUMN status_beli ENUM('belum','sudah') DEFAULT 'belum' AFTER status_bendahara");
             }
 
+            // Fetch current item details to determine transition and update stock if needed
+            $stmtItem = $koneksi->prepare("
+                SELECT d.id_barang, d.nama_barang, d.qty, d.satuan, d.harga, d.status_beli, p.tanggal
+                FROM detail_item_belanja d
+                JOIN pengajuan_belanja p ON d.pengajuan_id = p.id
+                WHERE d.id = ?
+            ");
+            if (!$stmtItem) {
+                throw new Exception('Prepare select item error: ' . $koneksi->error);
+            }
+            $stmtItem->bind_param("i", $id);
+            if (!$stmtItem->execute()) {
+                throw new Exception('Execute select item error: ' . $stmtItem->error);
+            }
+            $resItem = $stmtItem->get_result();
+            $itemRow = $resItem->fetch_assoc();
+            $stmtItem->close();
+
+            if (!$itemRow) {
+                throw new Exception('Item tidak ditemukan');
+            }
+
+            $oldStatusBeli = $itemRow['status_beli'] ?? 'belum';
+
             $stmt = $koneksi->prepare("
                 UPDATE detail_item_belanja
                 SET status_beli = ?
@@ -465,6 +489,88 @@ try {
             $stmt->bind_param("si", $statusBeli, $id);
 
             if ($stmt->execute()) {
+                // If the status update was successful, check if we need to update stock
+                if ($userRole === 'purchase_stok' && $oldStatusBeli !== $statusBeli) {
+                    $qty = intval($itemRow['qty']);
+                    $namaBarang = $itemRow['nama_barang'];
+                    $satuan = $itemRow['satuan'];
+                    $harga = floatval($itemRow['harga']);
+                    $tanggal = $itemRow['tanggal'];
+
+                    $namaBarangEsc = $koneksi->real_escape_string(trim($namaBarang));
+
+                    // Try to find the item in `barang` table
+                    $barangQuery = $koneksi->query("SELECT id_barang, stok_akhir FROM barang WHERE LOWER(TRIM(nama_barang)) = LOWER('$namaBarangEsc') LIMIT 1");
+
+                    if ($statusBeli === 'sudah') {
+                        // Transitions from 'belum' to 'sudah': Increase Stock
+                        if ($barangQuery && $barangQuery->num_rows > 0) {
+                            $barangRow = $barangQuery->fetch_assoc();
+                            $idBarang = intval($barangRow['id_barang']);
+                            $stok_lama = intval($barangRow['stok_akhir']);
+                            $stok_baru = $stok_lama + $qty;
+
+                            // Update stock in barang table
+                            $koneksi->query("UPDATE barang SET stok_akhir = $stok_baru WHERE id_barang = $idBarang");
+
+                            // Log in mutasi_stok
+                            $ket_mutasi = 'Belanja Harian (Sudah Dibeli)';
+                            $stmtMutasi = $koneksi->prepare("
+                                INSERT INTO mutasi_stok (id_barang, tanggal, jenis, qty, stok_sebelum, stok_sesudah, keterangan)
+                                VALUES (?, NOW(), 'masuk', ?, ?, ?, ?)
+                            ");
+                            $stmtMutasi->bind_param("iiiis", $idBarang, $qty, $stok_lama, $stok_baru, $ket_mutasi);
+                            $stmtMutasi->execute();
+                            $stmtMutasi->close();
+                        } else {
+                            // Item not found: Auto-register in barang table
+                            $insertBarangQuery = "
+                                INSERT INTO barang (
+                                    nama_barang, stok_akhir, harga_beli, satuan, tanggal_terupdate_baru
+                                ) VALUES (
+                                    ?, ?, ?, ?, ?
+                                )
+                            ";
+                            $stmtInsBarang = $koneksi->prepare($insertBarangQuery);
+                            $stmtInsBarang->bind_param("sidss", $namaBarang, $qty, $harga, $satuan, $tanggal);
+                            $stmtInsBarang->execute();
+                            $idBarang = $stmtInsBarang->insert_id;
+                            $stmtInsBarang->close();
+
+                            // Log in mutasi_stok
+                            $ket_mutasi = 'Belanja Harian (Barang Baru)';
+                            $stmtMutasi = $koneksi->prepare("
+                                INSERT INTO mutasi_stok (id_barang, tanggal, jenis, qty, stok_sebelum, stok_sesudah, keterangan)
+                                VALUES (?, NOW(), 'masuk', ?, 0, ?, ?)
+                            ");
+                            $stmtMutasi->bind_param("iiis", $idBarang, $qty, $qty, $ket_mutasi);
+                            $stmtMutasi->execute();
+                            $stmtMutasi->close();
+                        }
+                    } else if ($statusBeli === 'belum' && $oldStatusBeli === 'sudah') {
+                        // Transitions from 'sudah' to 'belum': Decrease Stock (Rollback)
+                        if ($barangQuery && $barangQuery->num_rows > 0) {
+                            $barangRow = $barangQuery->fetch_assoc();
+                            $idBarang = intval($barangRow['id_barang']);
+                            $stok_lama = intval($barangRow['stok_akhir']);
+                            $stok_baru = max(0, $stok_lama - $qty);
+
+                            // Update stock in barang table
+                            $koneksi->query("UPDATE barang SET stok_akhir = $stok_baru WHERE id_barang = $idBarang");
+
+                            // Log in mutasi_stok
+                            $ket_mutasi = 'Batal Belanja Harian (Batal Dibeli)';
+                            $stmtMutasi = $koneksi->prepare("
+                                INSERT INTO mutasi_stok (id_barang, tanggal, jenis, qty, stok_sebelum, stok_sesudah, keterangan)
+                                VALUES (?, NOW(), 'keluar', ?, ?, ?, ?)
+                            ");
+                            $stmtMutasi->bind_param("iiiis", $idBarang, $qty, $stok_lama, $stok_baru, $ket_mutasi);
+                            $stmtMutasi->execute();
+                            $stmtMutasi->close();
+                        }
+                    }
+                }
+
                 if ($stmt->affected_rows > 0) {
                     echo json_encode([
                         'success' => true,
@@ -629,7 +735,8 @@ try {
                 throw new Exception('role_penanda tidak valid: ' . $rolePenanda);
             }
             // Cegah user menandatangani atas nama role lain (admin dikecualikan)
-            if ($userRole !== 'admin' && $rolePenanda !== $userRole) {
+            $actualRole = ($userRole === 'purchase_stok') ? 'purchase' : $userRole;
+            if ($userRole !== 'admin' && $rolePenanda !== $actualRole) {
                 throw new Exception('Anda hanya dapat menandatangani sebagai role Anda sendiri (' . $userRole . ')');
             }
 

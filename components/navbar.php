@@ -2,7 +2,7 @@
 $currentPage = basename($_SERVER['PHP_SELF']);
 $base_url = '';
 $userRole = $_SESSION['role'] ?? null;
-$isPurchase = ($userRole === 'purchase');
+$isPurchase = ($userRole === 'purchase' || $userRole === 'purchase_stok');
 $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
 ?>
 
@@ -259,6 +259,16 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                         Dompet Belanja Harian SPPG
                     </a>
                 </li>
+                <?php if ($userRole === 'purchase_stok'): ?>
+                <li class="nav-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>">
+                    <a href="../stok-barang-food/index.php" class="nav-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" style="margin-right: 6px; display: inline-block; vertical-align: middle;">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        </svg>
+                        Stok Barang
+                    </a>
+                </li>
+                <?php endif; ?>
                 <?php else: ?>
                 <li class="nav-item <?= in_array($activePage, ['dompet-belanja-harian', 'pengajuan-koperasi']) ? 'active' : '' ?>" id="dd-pengajuan">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-pengajuan">

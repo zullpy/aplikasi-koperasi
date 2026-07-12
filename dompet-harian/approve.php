@@ -1,11 +1,11 @@
 <?php
 require_once '../database/auth.php';
 // Halaman Approval hanya untuk bendahara, admin, ketua – bukan purchase
-$userRole = $_SESSION['role'] ?? 'admin';
-if ($userRole === 'purchase') {
-    header("Location: index.php");
-    exit;
-}
+    $userRole = $_SESSION['role'] ?? 'admin';
+    if ($userRole === 'purchase' || $userRole === 'purchase_stok') {
+        header("Location: index.php");
+        exit;
+    }
 ?>
 <!DOCTYPE html>
 <html lang="id">

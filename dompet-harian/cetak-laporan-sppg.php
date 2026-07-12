@@ -5,7 +5,7 @@ require_once '../database/auth.php';
 
 // Halaman Cetak Laporan SPPG hanya untuk bendahara, admin, ketua – bukan purchase
 $userRole = $_SESSION['role'] ?? 'admin';
-if ($userRole === 'purchase') {
+if ($userRole === 'purchase' || $userRole === 'purchase_stok') {
     header("Location: index.php");
     exit;
 }

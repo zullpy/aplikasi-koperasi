@@ -84,7 +84,7 @@ $userRole = $_SESSION['role'] ?? '';
             <div class="empty-desc">Klik "Tambah Belanja" untuk mulai mencatat pengeluaran harian.</div>
         </div>
     </main>
-    <?php if ($userRole !== 'purchase'): ?>
+    <?php if ($userRole !== 'purchase' && $userRole !== 'purchase_stok'): ?>
     <!-- ============ MODAL BELANJA ============ -->
     <div id="modalOverlay" class="modal-overlay">
         <div class="modal modal-wide">
@@ -165,7 +165,7 @@ $userRole = $_SESSION['role'] ?? '';
         </div>
     </div>
     <?php endif; ?>
-    <?php if ($userRole !== 'purchase'): ?>
+    <?php if ($userRole !== 'purchase' && $userRole !== 'purchase_stok'): ?>
     <!-- ============ MODAL TOLAK ============ -->
     <div id="rejectModal" class="modal-overlay">
         <div class="modal" style="max-width:480px;">

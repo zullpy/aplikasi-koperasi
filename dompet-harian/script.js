@@ -12,6 +12,7 @@ let searchQuery = '';
 let editingId = null;
 let barangRowCount = 0;
 const USER_ROLE = window.CURRENT_USER_ROLE || 'admin';
+const IS_PURCHASE_ROLE = USER_ROLE === 'purchase' || USER_ROLE === 'purchase_stok';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatRupiah(num) {
@@ -112,7 +113,7 @@ function renderTable() {
     grouped[item.tanggal].push(item);
   });
 
-  const isPurchase = USER_ROLE === 'purchase';
+  const isPurchase = IS_PURCHASE_ROLE;
   let html = '';
 
   Object.keys(grouped)
@@ -363,14 +364,14 @@ async function markItemAsBought(detailId) {
 // ─── Approval Functions ───────────────────────────────────────────────────────
 async function approveItem(id) {
   // Guard: role purchase tidak boleh approve
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] approveItem: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] approveItem: role purchase tidak memiliki akses'); return; }
   if (!confirm('Setujui pengajuan ini?')) return;
   await updateStatus(id, 'approved', '');
 }
 
 function openRejectModal(id) {
   // Guard: role purchase tidak boleh reject
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openRejectModal: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] openRejectModal: role purchase tidak memiliki akses'); return; }
   document.getElementById('rejectTargetId').value = id;
   document.getElementById('rejectionReason').value = '';
   document.getElementById('rejectModal').classList.add('active');
@@ -386,7 +387,7 @@ function closeRejectModal() {
 
 async function confirmReject() {
   // Guard: role purchase tidak boleh reject
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] confirmReject: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] confirmReject: role purchase tidak memiliki akses'); return; }
   const id = document.getElementById('rejectTargetId').value;
   const reason = document.getElementById('rejectionReason').value.trim();
   if (!reason) {
@@ -399,7 +400,7 @@ async function confirmReject() {
 
 async function updateStatus(id, status, catatan) {
   // Guard: role purchase tidak boleh update status pengajuan
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] updateStatus: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] updateStatus: role purchase tidak memiliki akses'); return; }
   try {
     const res = await fetch('../database/api-belanja.php?action=update_status', {
       method: 'POST',
@@ -858,7 +859,7 @@ function closeNotaModal() {
 // ─── Bukti Transfer Preview ──────────────────────────────────────────────────
 function openBuktiTF(url) {
   // Guard: role purchase tidak boleh melihat bukti transfer
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openBuktiTF: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] openBuktiTF: role purchase tidak memiliki akses'); return; }
   const overlay = document.getElementById('notaModalOverlay');
   const title = document.getElementById('notaModalTitle');
   const body = document.getElementById('notaModalBody');
