@@ -181,6 +181,7 @@ try {
             $sisaUang  = $uangMasuk - $totalBelanja;
             $status    = $data['status'] ?? 'pending';
             $createdBy = $data['created_by'] ?? 1;
+            $keterangan = isset($data['keterangan']) ? trim($data['keterangan']) : null;
 
             $koneksi->begin_transaction();
             try {
@@ -195,6 +196,7 @@ try {
                         total_belanja = ?,
                         sisa_uang = ?,
                         status = ?,
+                        keterangan = ?,
                         updated_at = NOW()
                         WHERE id = ?
                     ");
@@ -202,7 +204,7 @@ try {
                         throw new Exception('Prepare UPDATE error: ' . $koneksi->error);
                     }
                     $stmt->bind_param(
-                        "ssidsisi",
+                        "ssidsissi",
                         $tanggal,
                         $namaMenu,
                         $jumlahPorsi,
@@ -210,6 +212,7 @@ try {
                         $totalBelanja,
                         $sisaUang,
                         $status,
+                        $keterangan,
                         $idPengajuan
                     );
                     if (!$stmt->execute()) {
@@ -223,14 +226,14 @@ try {
                     // INSERT
                     $stmt = $koneksi->prepare("
                         INSERT INTO pengajuan_belanja
-                        (tanggal, nama_menu, jumlah_porsi, uang_masuk, total_belanja, sisa_uang, status, created_by, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                        (tanggal, nama_menu, jumlah_porsi, uang_masuk, total_belanja, sisa_uang, status, keterangan, created_by, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                     ");
                     if (!$stmt) {
                         throw new Exception('Prepare INSERT error: ' . $koneksi->error);
                     }
                     $stmt->bind_param(
-                        "ssidsisi",
+                        "ssidsissi",
                         $tanggal,
                         $namaMenu,
                         $jumlahPorsi,
@@ -238,6 +241,7 @@ try {
                         $totalBelanja,
                         $sisaUang,
                         $status,
+                        $keterangan,
                         $createdBy
                     );
                     if (!$stmt->execute()) {

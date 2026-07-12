@@ -135,6 +135,17 @@ $userRole = $_SESSION['role'] ?? '';
                         </div>
                     </div>
                 </div>
+                <div class="form-row" style="margin-top: 15px; margin-bottom: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" for="inputKeterangan">Keterangan (Opsional)</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="inputKeterangan" class="form-input" placeholder="Contoh: sudah termasuk B3" style="flex: 1; height: 38px; box-sizing: border-box;" />
+                            <button type="button" class="btn-mini btn-mini-primary" id="btnIncludeB3" style="white-space: nowrap; height: 38px; display: inline-flex; align-items: center; justify-content: center; background: #64748b; color: #fff; border: none; border-radius: 6px; padding: 0 12px; cursor: pointer; font-size: 13px; font-weight: 500; font-family: inherit;">
+                                Termasuk B3
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <!-- Daftar Barang -->
                 <div class="form-section-title">
                     <span>Daftar Barang</span>

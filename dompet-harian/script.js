@@ -195,6 +195,16 @@ function renderTable() {
                           </svg>
                           ${escHtml(item.jumlah_porsi || '-')} porsi
                         </span>
+                        ${item.keterangan ? `
+                        <span class="menu-keterangan" style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info" style="vertical-align: middle;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                          </svg>
+                          ${escHtml(item.keterangan)}
+                        </span>
+                        ` : ''}
                         ${statusBadge(status)}
                         ${status === 'approved' || status === 'completed' ? (() => {
             const uangMasuk = parseFloat(item.uang_masuk) || 0;
@@ -442,6 +452,8 @@ function openEditModal(id) {
   document.getElementById('inputTanggal').value = item.tanggal;
   document.getElementById('inputPorsi').value = item.jumlah_porsi || '';
   document.getElementById('inputNamaMenu').value = item.nama_menu;
+  const elKet = document.getElementById('inputKeterangan');
+  if (elKet) elKet.value = item.keterangan || '';
 
   const detailItems = item.items || item.detail_items || [];
   if (detailItems.length > 0) {
@@ -471,8 +483,9 @@ function closeModal() {
 }
 
 function resetForm() {
-  ['inputTanggal', 'inputPorsi', 'inputNamaMenu'].forEach(id => {
-    document.getElementById(id).value = '';
+  ['inputTanggal', 'inputPorsi', 'inputNamaMenu', 'inputKeterangan'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
   });
   ['errorTanggal', 'errorNamaMenu', 'errorBarang'].forEach(id => {
     document.getElementById(id).textContent = '';
@@ -737,6 +750,7 @@ async function saveItem() {
     tanggal: document.getElementById('inputTanggal').value,
     nama_menu: document.getElementById('inputNamaMenu').value.trim(),
     jumlah_porsi: parseInt(document.getElementById('inputPorsi').value) || 0,
+    keterangan: document.getElementById('inputKeterangan') ? document.getElementById('inputKeterangan').value.trim() : '',
     total_belanja: totalBelanja,
     uang_masuk: currentUangMasuk, // ✅ KIRIM KEMBALI SALDO MASUK AGAR TIDAK HILANG
     status: currentStatus,        // ✅ STATUS TETAP TERJAGA
@@ -1266,6 +1280,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeModal(); closeRejectModal(); closeNotaModal(); closeUploadNotaModal(); }
+  });
+
+  bindIfExists('btnIncludeB3', 'click', () => {
+    const input = document.getElementById('inputKeterangan');
+    if (input) {
+      if (input.value.includes('sudah termasuk B3')) {
+        // Toggle off: remove it and clean up delimiters if any
+        input.value = input.value.replace('sudah termasuk B3', '').replace(/^\s*-\s*|\s*-\s*$/, '').trim();
+      } else {
+        // Toggle on: append it
+        input.value = (input.value ? input.value + ' - ' : '') + 'sudah termasuk B3';
+      }
+    }
   });
 
   initSearch();
