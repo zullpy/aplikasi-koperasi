@@ -7,7 +7,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
 ?>
 
 <head>
-    <link rel="stylesheet" href="../components/style.css">
+    <link rel="stylesheet" href="../components/style.css?v=1.1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -266,6 +266,15 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                         </svg>
                         Stok Barang
+                    </a>
+                </li>
+                <li class="nav-item <?= $activePage == 'daftar-harga-barang' ? 'active' : '' ?>">
+                    <a href="../daftar-harga-barang-food/index.php" class="nav-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" style="margin-right: 6px; display: inline-block; vertical-align: middle;">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                            <line x1="7" y1="7" x2="7.01" y2="7" />
+                        </svg>
+                        Daftar Harga Barang
                     </a>
                 </li>
                 <?php endif; ?>

@@ -45,38 +45,34 @@ function ucSatuan(s) {
 // Contoh: qty_grosir=2, qty_eceran=48, isi=24 -> "2 Dus" (karena 48/24=2, tidak ada sisa)
 // Contoh: qty_grosir=1, qty_eceran=47, isi=24 -> "1 Dus 23 Pcs" (karena 47-24=23 sisa)
 function fmtStok(d, g) {
+    const totalEceran = stokEceranOf(g);
     const stokGrosir = stokGrosirOf(g);
-    const stokEceran = stokEceranOf(g);
     
-    if (stokGrosir <= 0 && stokEceran <= 0) return null;
+    if (totalEceran <= 0 && stokGrosir <= 0) return null;
     
     const isi = d.isi_per_satuan;
     
     // Jika tidak ada konversi satuan, tampilkan polos
     if (!isi || isi <= 0) {
-        if (stokEceran > 0) {
-            return `${fmtQty(stokEceran)} ${ucSatuan(d.satuan_eceran || d.satuan)}`;
+        if (totalEceran > 0) {
+            return `${fmtQty(totalEceran)} ${ucSatuan(d.satuan_eceran || d.satuan)}`;
         }
         return `${fmtQty(stokGrosir)} ${ucSatuan(d.satuan)}`;
     }
     
-    // Hitung sisa eceran setelah dikurangi yang sudah dalam bentuk grosir
-    // qty_eceran adalah total, jadi kita kurangi dengan (grosir × isi)
-    const totalDariGrosir = stokGrosir * isi;
-    let sisaEceran = stokEceran - totalDariGrosir;
+    // Hitung dari total eceran langsung
+    const besar = Math.floor(totalEceran / isi);
+    let sisa = totalEceran - (besar * isi);
     
-    // Jika sisa negatif atau sangat kecil (karena floating point), set ke 0
-    if (sisaEceran < 0.01) sisaEceran = 0;
-    sisaEceran = Math.round(sisaEceran * 100) / 100;
+    if (sisa < 0.01) sisa = 0;
+    sisa = Math.round(sisa * 100) / 100;
     
     const parts = [];
-    
-    if (stokGrosir > 0) {
-        parts.push(`${fmtQty(stokGrosir)} ${ucSatuan(d.satuan)}`);
+    if (besar > 0) {
+        parts.push(`${fmtQty(besar)} ${ucSatuan(d.satuan)}`);
     }
-    
-    if (sisaEceran > 0) {
-        parts.push(`${fmtQty(sisaEceran)} ${ucSatuan(d.satuan_eceran)}`);
+    if (sisa > 0) {
+        parts.push(`${fmtQty(sisa)} ${ucSatuan(d.satuan_eceran)}`);
     }
     
     if (parts.length === 0) return null;
