@@ -194,24 +194,26 @@ foreach ($items as $it) {
     // Total barang dibeli (dalam eceran), minimal sisa + pengambilan
     $totalBarangEceran = max($totalPembelianEceran, $totalSisaEceran + $totalPengambilanEceran);
     
-    $totalNilaiEceran = $totalSisaEceran * $it['harga_eceran'];
+    $totalNilaiEceran      = $totalSisaEceran * $it['harga_eceran'];
+    $totalNilaiPengambilan = $totalPengambilanEceran * $it['harga_eceran'];
     
     $rows[] = [
-        'id_barang'          => $it['id_barang'],
-        'nama'               => $it['nama'],
-        'satuan'             => $it['satuan'],
-        'satuan_eceran'      => $it['satuan_eceran'],
-        'isi_per_satuan'     => $it['isi_per_satuan'],
-        'harga_beli'         => $it['harga_beli'],
-        'harga_eceran'       => $it['harga_eceran'],
-        'pusat'              => $it['pusat'],
-        'sodong'             => $it['sodong'],
-        'sariwangi'          => $it['sariwangi'],
-        'manonjaya'          => $it['manonjaya'],
-        'total_barang'       => $totalBarangEceran,
-        'total_pengambilan'  => $totalPengambilanEceran,
-        'total_qty_eceran'   => $totalSisaEceran,
-        'total_nilai_eceran' => $totalNilaiEceran,
+        'id_barang'              => $it['id_barang'],
+        'nama'                   => $it['nama'],
+        'satuan'                 => $it['satuan'],
+        'satuan_eceran'          => $it['satuan_eceran'],
+        'isi_per_satuan'         => $it['isi_per_satuan'],
+        'harga_beli'             => $it['harga_beli'],
+        'harga_eceran'           => $it['harga_eceran'],
+        'pusat'                  => $it['pusat'],
+        'sodong'                 => $it['sodong'],
+        'sariwangi'              => $it['sariwangi'],
+        'manonjaya'              => $it['manonjaya'],
+        'total_barang'           => $totalBarangEceran,
+        'total_pengambilan'      => $totalPengambilanEceran,
+        'total_nilai_pengambilan'=> $totalNilaiPengambilan,
+        'total_qty_eceran'       => $totalSisaEceran,
+        'total_nilai_eceran'     => $totalNilaiEceran,
     ];
 }
 

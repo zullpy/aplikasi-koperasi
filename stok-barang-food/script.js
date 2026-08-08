@@ -184,7 +184,14 @@ function draw() {
                 </td>
                 <td class="center"><span class="num-harga">${rupiah(d.harga_eceran)}</span></td>
                 <td class="center">${tBarangLabel ? `<span class="num-stok num-total-barang">${tBarangLabel}</span>` : `<span class="num-zero">0</span>`}</td>
-                <td class="center">${tAmbilLabel ? `<span class="num-stok num-pengambilan">${tAmbilLabel}</span>` : `<span class="num-zero">0</span>`}</td>
+                <td class="center">
+                    ${tAmbilLabel
+                        ? `<div class="cell-pengambilan-wrap">
+                               <span class="num-stok num-pengambilan">${tAmbilLabel}</span>
+                               <span class="cell-nilai-omset">${rupiah(d.total_nilai_pengambilan || 0)}</span>
+                           </div>`
+                        : `<span class="num-zero">0</span>`}
+                </td>
                 ${cellGudang(d, d.pusat, 'c-pusat')}
                 ${cellGudang(d, d.sodong, 'c-sodong')}
                 ${cellGudang(d, d.sariwangi, 'c-sariwangi')}
@@ -266,10 +273,11 @@ function drawMobileCards(slice, total) {
                     <span class="mc-stat-label">Total Barang</span>
                     <span class="mc-stat-val">${tBarangLabel}</span>
                 </div>
-                <div class="mc-stat-item mc-stat-ambil">
-                    <span class="mc-stat-label">Jumlah Pengambilan</span>
-                    <span class="mc-stat-val">${tAmbilLabel}</span>
-                </div>
+                 <div class="mc-stat-item mc-stat-ambil">
+                     <span class="mc-stat-label">Jumlah Pengambilan</span>
+                     <span class="mc-stat-val">${tAmbilLabel}</span>
+                     ${d.total_nilai_pengambilan > 0 ? `<span class="mc-stat-omset">${rupiah(d.total_nilai_pengambilan)}</span>` : ''}
+                 </div>
             </div>
             <div class="mc-gudang-grid">
                 ${gudangCell(d, d.pusat, 'gd-pusat', 'Pusat')}

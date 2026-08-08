@@ -24,8 +24,8 @@ try {
         SELECT role_penanda, signature_data, timestamp
         FROM tanda_tangan_digital
         WHERE pengajuan_id = ?
-        AND role_penanda IN ('bendahara', 'ketua')
-        ORDER BY role_penanda ASC
+        AND role_penanda = 'purchase'
+        ORDER BY timestamp DESC LIMIT 1
     ");
     $stmt->bind_param("i", $id);
     $stmt->execute();
@@ -714,6 +714,10 @@ try {
             });
 
             const roleMapping = {
+                'purchase': {
+                    label: 'Pembuat,<br>Staf Pengadaan',
+                    nama: 'SAEPUL MISBAH'
+                },
                 'bendahara': {
                     label: 'Menyetujui,<br>Bendahara Koperasi',
                     nama: 'NANCY FEBI YOLLA'
@@ -781,6 +785,11 @@ try {
             </div>
         </div>
         ${item.catatan_bendahara ? `<div style="font-size: 11px; margin-top: 10px; color: #444;">Catatan: ${item.catatan_bendahara}</div>` : ''}
+        <div class="ttd-section" style="justify-content: flex-end;">
+            <div style="width: 220px;">
+                ${renderTtdBox('purchase')}
+            </div>
+        </div>
     `;
 
             document.getElementById('pdfContent').innerHTML = html;

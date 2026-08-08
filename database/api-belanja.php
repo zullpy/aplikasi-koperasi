@@ -1153,19 +1153,27 @@ try {
 
             $checkTbl = $koneksi->query("SHOW TABLES LIKE 'tanda_tangan_digital'");
             if (!$checkTbl || $checkTbl->num_rows === 0) {
-                $koneksi->query("
-                    CREATE TABLE tanda_tangan_digital (
-                        id            INT AUTO_INCREMENT PRIMARY KEY,
-                        pengajuan_id  INT NOT NULL,
-                        role_penanda  ENUM('bendahara','purchase','ketua') NOT NULL,
-                        user_id       INT DEFAULT 0,
-                        signature_data LONGTEXT NOT NULL,
-                        nama          VARCHAR(100) DEFAULT NULL,
-                        timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        update_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        UNIQUE KEY uq_pengajuan_role (pengajuan_id, role_penanda)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                ");
+                $checkAlt = $koneksi->query("SHOW TABLES LIKE 'ttd_digital_belanja_sppg'");
+                if (!$checkAlt || $checkAlt->num_rows === 0) {
+                    $checkAlt = $koneksi->query("SHOW TABLES LIKE 'ttd_diigital_belanja_sppg'");
+                }
+                if ($checkAlt && $checkAlt->num_rows > 0) {
+                    $koneksi->query("RENAME TABLE " . $checkAlt->fetch_row()[0] . " TO tanda_tangan_digital");
+                } else {
+                    $koneksi->query("
+                        CREATE TABLE tanda_tangan_digital (
+                            id            INT AUTO_INCREMENT PRIMARY KEY,
+                            pengajuan_id  INT NOT NULL,
+                            role_penanda  ENUM('bendahara','purchase','ketua') NOT NULL,
+                            user_id       INT DEFAULT 0,
+                            signature_data LONGTEXT NOT NULL,
+                            nama          VARCHAR(100) DEFAULT NULL,
+                            timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            update_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            UNIQUE KEY uq_pengajuan_role (pengajuan_id, role_penanda)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    ");
+                }
             }
 
             $res = $koneksi->query("
@@ -1212,19 +1220,27 @@ try {
 
             $checkTbl = $koneksi->query("SHOW TABLES LIKE 'tanda_tangan_digital'");
             if (!$checkTbl || $checkTbl->num_rows === 0) {
-                $koneksi->query("
-                    CREATE TABLE tanda_tangan_digital (
-                        id            INT AUTO_INCREMENT PRIMARY KEY,
-                        pengajuan_id  INT NOT NULL,
-                        role_penanda  ENUM('bendahara','purchase','ketua') NOT NULL,
-                        user_id       INT DEFAULT 0,
-                        signature_data LONGTEXT NOT NULL,
-                        nama          VARCHAR(100) DEFAULT NULL,
-                        timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        update_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        UNIQUE KEY uq_pengajuan_role (pengajuan_id, role_penanda)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                ");
+                $checkAlt = $koneksi->query("SHOW TABLES LIKE 'ttd_digital_belanja_sppg'");
+                if (!$checkAlt || $checkAlt->num_rows === 0) {
+                    $checkAlt = $koneksi->query("SHOW TABLES LIKE 'ttd_diigital_belanja_sppg'");
+                }
+                if ($checkAlt && $checkAlt->num_rows > 0) {
+                    $koneksi->query("RENAME TABLE " . $checkAlt->fetch_row()[0] . " TO tanda_tangan_digital");
+                } else {
+                    $koneksi->query("
+                        CREATE TABLE tanda_tangan_digital (
+                            id            INT AUTO_INCREMENT PRIMARY KEY,
+                            pengajuan_id  INT NOT NULL,
+                            role_penanda  ENUM('bendahara','purchase','ketua') NOT NULL,
+                            user_id       INT DEFAULT 0,
+                            signature_data LONGTEXT NOT NULL,
+                            nama          VARCHAR(100) DEFAULT NULL,
+                            timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            update_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                            UNIQUE KEY uq_pengajuan_role (pengajuan_id, role_penanda)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                    ");
+                }
             }
 
             $stmt = $koneksi->prepare("
@@ -1233,7 +1249,8 @@ try {
                 VALUES (?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                 signature_data = VALUES(signature_data),
-                user_id        = VALUES(user_id)
+                user_id        = VALUES(user_id),
+                timestamp      = CURRENT_TIMESTAMP
             ");
             if (!$stmt) throw new Exception('Prepare save_ttd error: ' . $koneksi->error);
             $stmt->bind_param('isis', $pengajuanId, $rolePenanda, $userId, $signatureData);

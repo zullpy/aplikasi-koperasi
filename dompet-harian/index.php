@@ -364,6 +364,65 @@ $userRole = $_SESSION['role'] ?? '';
     </div>
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
+
+    <?php if ($userRole === 'admin' || $userRole === 'purchase_stok'): ?>
+    <!-- ============ MODAL TANDA TANGAN DIGITAL ============ -->
+    <div id="signatureModalOverlay" class="modal-overlay">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon" style="background:rgba(255,255,255,0.15);">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="modal-title">Tanda Tangan Digital</div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">Pembuat · Saepul Misbah</div>
+                    </div>
+                </div>
+                <button class="modal-close" aria-label="Tutup" onclick="closeSignatureModal()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding-bottom: 8px;">
+                <div class="sig-instruction">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    Gambar tanda tangan Anda di area di bawah ini
+                </div>
+                <div class="sig-canvas-wrap">
+                    <canvas id="signatureCanvas" class="sig-canvas"></canvas>
+                    <div class="sig-guide-line"></div>
+                    <div class="sig-name-label">Saepul Misbah</div>
+                </div>
+                <button type="button" class="sig-btn-clear" onclick="clearSignatureCanvas()">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1 4 1 10 7 10"/>
+                        <path d="M3.51 15a9 9 0 1 0 .49-3.05"/>
+                    </svg>
+                    Ulangi
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeSignatureModal()" class="btn-cancel">Batal</button>
+                <button id="btnSaveSignature" onclick="saveSignature()" class="btn-save" style="background:linear-gradient(135deg,#1e293b,#334155);">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Simpan TTD
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <script>
         window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
     </script>

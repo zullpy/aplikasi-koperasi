@@ -117,8 +117,8 @@ function statusBadge(status) {
 async function fetchData() {
   try {
     const [resBelanja, resBarang] = await Promise.all([
-      fetch('../database/api-belanja.php?action=list'),
-      fetch('../database/api-belanja.php?action=list_barang')
+      fetch('../database/api-belanja.php?action=list&_t=' + Date.now()),
+      fetch('../database/api-belanja.php?action=list_barang&_t=' + Date.now())
     ]);
     const dataBelanja = await resBelanja.json();
     const dataBarang = await resBarang.json();
@@ -127,8 +127,31 @@ async function fetchData() {
         ...item,
         id_pengajuan: item.id || item.id_pengajuan,
         total_harga: item.total_belanja || item.total_harga || 0,
-        items: item.items || item.detail_items || []
+        items: item.items || item.detail_items || [],
+        ttd_map: {}
       }));
+
+      const ids = allData.map(d => d.id).filter(Boolean).join(',');
+      if (ids) {
+        try {
+          const resTtd = await fetch(`../database/api-belanja.php?action=get_ttd&ids=${ids}&_t=${Date.now()}`);
+          const dataTtd = await resTtd.json();
+          if (dataTtd.success && Array.isArray(dataTtd.data)) {
+            const ttdMap = {};
+            dataTtd.data.forEach(t => {
+              if (!ttdMap[t.pengajuan_id]) ttdMap[t.pengajuan_id] = {};
+              if (!ttdMap[t.pengajuan_id][t.role_penanda]) {
+                ttdMap[t.pengajuan_id][t.role_penanda] = t;
+              }
+            });
+            allData.forEach(item => {
+              if (ttdMap[item.id]) item.ttd_map = ttdMap[item.id];
+            });
+          }
+        } catch (e) {
+          console.error('Gagal fetch TTD:', e);
+        }
+      }
     }
     if (dataBarang.success) masterBarang = dataBarang.data;
     renderTable();
@@ -202,7 +225,23 @@ function renderTable() {
           sum + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
         const status = item.status || 'pending';
 
-        // Tombol aksi di level MENU CARD (hanya untuk admin)
+        const isSigned = item.ttd_map && (item.ttd_map.purchase || item.ttd_map.admin);
+        const ttdBtnHtml = isSigned
+          ? `<button class="btn-action btn-action-ttd btn-action-ttd-done" onclick="openSignatureModal(${item.id})" title="Edit Tanda Tangan Pembuat (Saepul Misbah)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                    ${USER_ROLE === 'admin' ? '✓ TTD' : 'Sudah TTD'}
+                  </button>`
+          : `<button class="btn-action btn-action-ttd" onclick="openSignatureModal(${item.id})" title="Tanda Tangan Pembuat (Saepul Misbah)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 20h9"/>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                    ${USER_ROLE === 'admin' ? 'TTD' : 'Tanda Tangan'}
+                  </button>`;
+
+        // Tombol aksi di level MENU CARD
         let menuActionsHtml = '';
         if (USER_ROLE === 'admin') {
           menuActionsHtml = `
@@ -220,6 +259,7 @@ function renderTable() {
                     </svg>
                     Hapus
                   </button>
+                  ${ttdBtnHtml}
                   <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -230,6 +270,8 @@ function renderTable() {
                     PDF
                   </button>
                 `;
+        } else if (USER_ROLE === 'purchase_stok') {
+          menuActionsHtml = ttdBtnHtml;
         } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua') {
           menuActionsHtml = `
                   <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
@@ -1899,6 +1941,167 @@ async function saveDirectSaldo() {
       btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                         <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg> Simpan Saldo`;
+    }
+  }
+}
+// ═══════════════════════════════════════════════════════════════
+//  SIGNATURE / TANDA TANGAN DIGITAL — Pembuat (Saepul Misbah)
+// ═══════════════════════════════════════════════════════════════
+
+let _sigPengajuanId = null;
+let _sigCanvas      = null;
+let _sigCtx         = null;
+let _sigDrawing     = false;
+let _sigHasStroke   = false;
+
+function openSignatureModal(pengajuanId) {
+  if (!['admin', 'purchase_stok'].includes(window.CURRENT_USER_ROLE || '')) {
+    showToast('Anda tidak memiliki akses untuk tanda tangan', 'error');
+    return;
+  }
+  _sigPengajuanId = pengajuanId;
+  _sigHasStroke   = false;
+
+  const targetItem = allData.find(it => (it.id || it.id_pengajuan) == pengajuanId);
+  const existingTtd = (targetItem && targetItem.ttd_map)
+    ? (targetItem.ttd_map.purchase || targetItem.ttd_map.admin)
+    : null;
+
+  const overlay = document.getElementById('signatureModalOverlay');
+  if (!overlay) return;
+  overlay.classList.add('active');
+
+  requestAnimationFrame(() => {
+    _sigCanvas = document.getElementById('signatureCanvas');
+    if (!_sigCanvas) return;
+    _sigCtx = _sigCanvas.getContext('2d');
+
+    const rect = _sigCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    _sigCanvas.width  = rect.width  * dpr;
+    _sigCanvas.height = rect.height * dpr;
+    _sigCtx.scale(dpr, dpr);
+    _sigCtx.strokeStyle = '#1e293b';
+    _sigCtx.lineWidth   = 2.5;
+    _sigCtx.lineCap     = 'round';
+    _sigCtx.lineJoin    = 'round';
+    _sigCtx.clearRect(0, 0, rect.width, rect.height);
+
+    if (existingTtd && existingTtd.signature_data) {
+      const img = new Image();
+      img.onload = () => {
+        _sigCtx.drawImage(img, 0, 0, rect.width, rect.height);
+        _sigHasStroke = true;
+      };
+      img.src = existingTtd.signature_data;
+    }
+
+    _sigCanvas.onmousedown  = _sigStart;
+    _sigCanvas.onmousemove  = _sigMove;
+    _sigCanvas.onmouseup    = _sigEnd;
+    _sigCanvas.onmouseleave = _sigEnd;
+    _sigCanvas.ontouchstart = (e) => { e.preventDefault(); _sigStart(e.touches[0]); };
+    _sigCanvas.ontouchmove  = (e) => { e.preventDefault(); _sigMove(e.touches[0]); };
+    _sigCanvas.ontouchend   = _sigEnd;
+  });
+}
+
+function closeSignatureModal() {
+  const overlay = document.getElementById('signatureModalOverlay');
+  if (overlay) overlay.classList.remove('active');
+  _sigPengajuanId = null;
+  _sigHasStroke   = false;
+}
+
+function clearSignatureCanvas() {
+  if (!_sigCanvas || !_sigCtx) return;
+  const rect = _sigCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  _sigCanvas.width  = rect.width  * dpr;
+  _sigCanvas.height = rect.height * dpr;
+  _sigCtx.scale(dpr, dpr);
+  _sigCtx.strokeStyle = '#1e293b';
+  _sigCtx.lineWidth   = 2.5;
+  _sigCtx.lineCap     = 'round';
+  _sigCtx.lineJoin    = 'round';
+  _sigCtx.clearRect(0, 0, rect.width, rect.height);
+  _sigHasStroke = false;
+}
+
+function _sigStart(e) {
+  const r = _sigCanvas.getBoundingClientRect();
+  _sigDrawing = true;
+  _sigCtx.beginPath();
+  _sigCtx.moveTo(e.clientX - r.left, e.clientY - r.top);
+}
+
+function _sigMove(e) {
+  if (!_sigDrawing) return;
+  const r = _sigCanvas.getBoundingClientRect();
+  _sigCtx.lineTo(e.clientX - r.left, e.clientY - r.top);
+  _sigCtx.stroke();
+  _sigCtx.beginPath();
+  _sigCtx.moveTo(e.clientX - r.left, e.clientY - r.top);
+  _sigHasStroke = true;
+}
+
+function _sigEnd() {
+  _sigDrawing = false;
+  if (_sigCtx) _sigCtx.beginPath();
+}
+
+async function saveSignature() {
+  if (!_sigHasStroke) {
+    showToast('Silakan buat tanda tangan terlebih dahulu', 'error');
+    return;
+  }
+  if (!_sigPengajuanId) {
+    showToast('ID pengajuan tidak ditemukan', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btnSaveSignature');
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+
+  try {
+    const dataUrl = _sigCanvas.toDataURL('image/png');
+    const res = await fetch('../database/api-belanja.php?action=save_ttd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pengajuan_id:   _sigPengajuanId,
+        role_penanda:   'purchase',
+        signature_data: dataUrl,
+        nama:           'Saepul Misbah',
+        user_id:        0
+      })
+    });
+    const result = await res.json();
+    if (result.success) {
+      // Update memory lokal langsung
+      const targetItem = allData.find(it => (it.id || it.id_pengajuan) == _sigPengajuanId);
+      if (targetItem) {
+        if (!targetItem.ttd_map) targetItem.ttd_map = {};
+        targetItem.ttd_map.purchase = {
+          pengajuan_id: _sigPengajuanId,
+          role_penanda: 'purchase',
+          signature_data: dataUrl,
+          timestamp: new Date().toISOString()
+        };
+      }
+      showToast('Tanda tangan berhasil disimpan! ✓', 'success');
+      closeSignatureModal();
+      fetchData();
+    } else {
+      showToast(result.message || 'Gagal menyimpan tanda tangan', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Terjadi kesalahan saat menyimpan tanda tangan', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Simpan TTD`;
     }
   }
 }
