@@ -279,7 +279,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                     </a>
                 </li>
                 <?php if ($userRole === 'purchase_stok'): ?>
-                <li class="nav-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>">
+                <!-- <li class="nav-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>">
                     <a href="../laporan-sppg/index.php" class="nav-link">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -289,7 +289,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                         </svg>
                         Laporan Belanja SPPG
                     </a>
-                </li>
+                </li> -->
                 <li class="nav-item <?= $activePage == 'daftar-harga-barang' ? 'active' : '' ?>">
                     <a href="../daftar-harga-barang-food/index.php" class="nav-link">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -360,7 +360,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                     </a>
                     <ul class="dropdown-menu" role="menu">
                         <li class="dropdown-group-label">Laporan</li>
-                        <li>
+                        <!-- <li>
                             <a href="../laporan-sppg/index.php"
                                 class="dropdown-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>"
                                 role="menuitem">
@@ -372,7 +372,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                                 </svg>
                                 Laporan Belanja SPPG
                             </a>
-                        </li>
+                        </li> -->
                         <li>
                             <a href="../laporan-koperasi/index.php"
                                 class="dropdown-item <?= $activePage == 'laporan-koperasi' ? 'active' : '' ?>"

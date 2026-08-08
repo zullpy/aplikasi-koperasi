@@ -2097,6 +2097,78 @@ body {
     overflow: hidden;
 }
 
+.menu-card-body-header {
+    display: flex;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #475569;
+    background: #eef4ff;
+    border-bottom: 1.5px solid #c7d9f8;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* ====== TOMBOL TAMBAH BARANG DI LUAR CARD ====== */
+.card-add-barang-wrap {
+    margin-top: 8px;
+}
+
+.btn-card-add-barang {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 2px dashed rgba(37, 99, 168, 0.3);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: #6e8fc9;
+    font-family: var(--font);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.22s var(--ease);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-card-add-barang-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(37, 99, 168, 0.1);
+    color: #2563a8;
+    flex-shrink: 0;
+    transition: all 0.22s var(--ease);
+}
+
+.btn-card-add-barang:hover {
+    border-color: #2563a8;
+    border-style: solid;
+    background: linear-gradient(135deg, rgba(37, 99, 168, 0.06) 0%, rgba(74, 159, 212, 0.1) 100%);
+    color: #1d5fad;
+    box-shadow: 0 3px 12px rgba(37, 99, 168, 0.15);
+    transform: translateY(-1px);
+}
+
+.btn-card-add-barang:hover .btn-card-add-barang-icon {
+    background: #2563a8;
+    color: #fff;
+    transform: rotate(90deg);
+}
+
+.btn-card-add-barang:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
 .rincian-table {
     width: 100%;
     border-collapse: collapse;

@@ -362,48 +362,6 @@ $userRole = $_SESSION['role'] ?? '';
             </div>
         </div>
     </div>
-    <?php if (in_array($userRole, ['admin'])): ?>
-    <!-- ============ MODAL INPUT SALDO ============ -->
-    <div id="inputSaldoModalOverlay" class="modal-overlay">
-        <div class="modal" style="max-width:400px;">
-            <div class="modal-header">
-                <div class="modal-header-left">
-                    <div class="modal-header-icon" style="background:#059669;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="12" y1="1" x2="12" y2="23"/>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                        </svg>
-                    </div>
-                    <div class="modal-title">Input Saldo Masuk</div>
-                </div>
-                <button id="btnCloseSaldoModal" class="modal-close" aria-label="Tutup">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="saldoTargetId" />
-                <div class="form-group">
-                    <label class="form-label" for="inputSaldoDirect">Nominal Saldo Masuk (Rp)</label>
-                    <div class="input-icon-wrapper" style="position: relative;">
-                        <span class="input-icon-text" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; font-weight: 600; pointer-events: none;">Rp</span>
-                        <input type="text" id="inputSaldoDirect" class="form-input" placeholder="0" style="padding-left: 36px; height: 38px; box-sizing: border-box; width: 100%;" />
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="btnCancelSaldo" class="btn-cancel">Batal</button>
-                <button id="btnSaveSaldo" class="btn-save" style="background:linear-gradient(135deg,#059669,#047857); box-shadow:0 4px 14px rgba(5,150,105,0.35); display: inline-flex; align-items: center; gap: 6px;">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                    Simpan Saldo
-                </button>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
     <script>

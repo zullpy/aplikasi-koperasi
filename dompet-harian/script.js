@@ -213,13 +213,6 @@ function renderTable() {
                     </svg>
                     Edit
                   </button>
-                  <button class="btn-action btn-action-saldo" onclick="openInputSaldoModal(${item.id}, ${item.uang_masuk || 0})">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="12" y1="1" x2="12" y2="23"/>
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                    </svg>
-                    ${parseFloat(item.uang_masuk) > 0 ? 'Edit Saldo' : 'Input Saldo'}
-                  </button>
                   <button class="btn-action btn-action-delete" onclick="deleteItem(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                       <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -353,16 +346,8 @@ function renderTable() {
 
                   <!-- Tabel rincian barang -->
                   <div class="menu-card-body">
-                    <div class="menu-card-body-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.6rem;">
-                      <span style="font-weight:600; font-size:0.85rem; color:#475569;">Rincian Barang</span>
-                      ${USER_ROLE === 'admin' ? `
-                        <button class="btn-mini btn-mini-primary" onclick="openAddItemModal(${item.id})" style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; padding:3px 10px;">
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-                          </svg>
-                          Tambah Barang
-                        </button>
-                      ` : ''}
+                    <div class="menu-card-body-header">
+                      <span>Rincian Barang</span>
                     </div>
                     ${detailItems.length > 0 ? `
                       <table class="rincian-table">
@@ -487,6 +472,18 @@ function renderTable() {
                     ` : `<p class="no-barang">Belum ada rincian barang.</p>`}
                   </div>
                 </div>
+                ${USER_ROLE === 'admin' ? `
+                  <div class="card-add-barang-wrap">
+                    <button class="btn-card-add-barang" onclick="openAddItemModal(${item.id})">
+                      <span class="btn-card-add-barang-icon">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                      </span>
+                      Tambah Barang
+                    </button>
+                  </div>
+                ` : ''}
               `;
       }).join('')}
           </div>
