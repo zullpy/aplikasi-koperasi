@@ -360,19 +360,6 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                     </a>
                     <ul class="dropdown-menu" role="menu">
                         <li class="dropdown-group-label">Laporan</li>
-                        <!-- <li>
-                            <a href="../laporan-sppg/index.php"
-                                class="dropdown-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                                    <rect x="1" y="3" width="15" height="13" rx="1" />
-                                    <path d="M16 8h4l3 5v3h-7V8z" />
-                                    <circle cx="5.5" cy="18.5" r="2.5" />
-                                    <circle cx="18.5" cy="18.5" r="2.5" />
-                                </svg>
-                                Laporan Belanja SPPG
-                            </a>
-                        </li> -->
                         <li>
                             <a href="../laporan-koperasi/index.php"
                                 class="dropdown-item <?= $activePage == 'laporan-koperasi' ? 'active' : '' ?>"
@@ -391,7 +378,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
 
                 <?php if (!$isPurchase): ?>
                 <!-- GROUP: Laporan Keuangan (dropdown desktop, flat mobile) -->
-                <li class="nav-item <?= in_array($activePage, ['kas-koperasi', 'rekap-kpm','omset-sppg', 'rekap-hutang-piutang', 'laporan-barang', 'profit-koperasi']) ? 'active' : '' ?>" id="dd-laporan-keuangan">
+                <li class="nav-item <?= in_array($activePage, ['rekap-kpm', 'rekap-hutang-piutang', 'laporan-barang', 'profit-koperasi']) ? 'active' : '' ?>" id="dd-laporan-keuangan">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-laporan-keuangan">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                             <line x1="18" y1="20" x2="18" y2="10" />
@@ -403,26 +390,6 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                     </a>
                     <ul class="dropdown-menu dropdown-menu-right" role="menu">
                         <li class="dropdown-group-label">Laporan Keuangan</li>
-                        <li>
-                            <a href="../kas-koperasi/index.php"
-                                class="dropdown-item <?= $activePage == 'kas-koperasi' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                                    <rect x="2" y="6" width="20" height="12" rx="2" />
-                                    <circle cx="12" cy="12" r="2" />
-                                    <path d="M6 6V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
-                                </svg>
-                                Kas Koperasi
-                            </a>
-                        </li>
-                        <li>
-                            <a href="../omset-sppg/index.php"
-                                class="dropdown-item <?= $activePage == 'omset-sppg' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 256 256"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"></path></svg>
-                                Data KPM
-                            </a>
-                        </li>
                         <li>
                             <a href="../rekap-hutang-piutang/index.php"
                                 class="dropdown-item <?= $activePage == 'rekap-hutang-piutang' ? 'active' : '' ?>"
@@ -444,7 +411,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                                     <path d="M21 16V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" />
                                     <polyline points="3 10 21 10" />
                                 </svg>
-                                Laporan Barang
+                                Laporan Stok Barang
                             </a>
                         </li>
                         <li>
@@ -455,7 +422,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                                     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                                     <polyline points="17 6 23 6 23 12" />
                                 </svg>
-                                Profit Koperasi
+                                Fee & Pajak Koperasi
                             </a>
                         </li>
                     </ul>
