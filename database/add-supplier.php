@@ -32,7 +32,8 @@ if (!isset($_SESSION['id'])) {
 
 $userRole = $_SESSION['role'] ?? '';
 
-require_once '/srv/http/aplikasi_kopdes/database/koneksi.php';
+require_once __DIR__ . '/koneksi.php';
+
 
 $method  = $_SERVER['REQUEST_METHOD'];
 $input   = json_decode(file_get_contents('php://input'), true);

@@ -56,11 +56,25 @@ $data_supplier = mysqli_fetch_assoc($cek_supplier);
 $nama_supplier_val = $data_supplier['nama_supplier'];
 $no_telepon_val    = $data_supplier['no_telepon'];
 
-// ✅ FIX UTAMA: pastikan biaya_admin selalu integer, minimal 0
+// ✅ Auto-migrate kolom diskon jika belum ada
+$checkCol1 = mysqli_query($koneksi, "SHOW COLUMNS FROM transaksi_pembelian LIKE 'diskon'");
+if ($checkCol1 && mysqli_num_rows($checkCol1) == 0) {
+    @mysqli_query($koneksi, "ALTER TABLE transaksi_pembelian ADD COLUMN diskon INT DEFAULT 0 AFTER biaya_admin");
+}
+$checkCol2 = mysqli_query($koneksi, "SHOW COLUMNS FROM pembayaran_pembelian LIKE 'diskon'");
+if ($checkCol2 && mysqli_num_rows($checkCol2) == 0) {
+    @mysqli_query($koneksi, "ALTER TABLE pembayaran_pembelian ADD COLUMN diskon INT DEFAULT 0 AFTER total_tagihan");
+}
+
+// ✅ FIX UTAMA: pastikan biaya_admin & diskon selalu integer, minimal 0
 $biaya_admin_raw = $_POST['biaya_admin'] ?? '';
 $biaya_admin     = preg_replace('/[^0-9]/', '', $biaya_admin_raw);
 $biaya_admin     = ($biaya_admin === '' || $biaya_admin === null) ? '0' : $biaya_admin;
 $biaya_admin     = (int) $biaya_admin;
+
+$diskon_raw = $_POST['diskon'] ?? '';
+$diskon_val = preg_replace('/[^0-9]/', '', $diskon_raw);
+$diskon_val = ($diskon_val === '' || $diskon_val === null) ? 0 : (int) $diskon_val;
 
 $kode_transaksi = 'TRX' . date('YmdHis');
 
@@ -86,9 +100,13 @@ if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] =
     $bp_ext = strtolower(pathinfo($_FILES['bukti_pembayaran']['name'], PATHINFO_EXTENSION));
     $bp_allowed = ['jpg', 'jpeg', 'png', 'pdf'];
     if (in_array($bp_ext, $bp_allowed) && $_FILES['bukti_pembayaran']['size'] <= (2 * 1024 * 1024)) {
+        $bp_target_dir = '../uploads/bukti_transfer/';
+        if (!is_dir($bp_target_dir)) {
+            @mkdir($bp_target_dir, 0777, true);
+        }
         $bp_name = uniqid('bayar_') . '.' . $bp_ext;
-        if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], '../uploads/bukti_pembayaran/' . $bp_name)) {
-            compressImage('../uploads/bukti_pembayaran/' . $bp_name);
+        if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], $bp_target_dir . $bp_name)) {
+            compressImage($bp_target_dir . $bp_name);
             $bukti_pembayaran_awal = $bp_name;
         }
     }
@@ -180,10 +198,10 @@ if (!is_array($nama_barang)) {
 }
 
 foreach ($nama_barang as $i => $barang_nama) {
-    $harga_item          = preg_replace('/[^0-9]/', '', $harga[$i] ?? '0');
-    $harga_eceran_item   = preg_replace('/[^0-9]/', '', $harga_eceran[$i] ?? '0');
-    $keuntungan_dus_item    = preg_replace('/[^0-9]/', '', $keuntungan_dus[$i] ?? '0');
-    $keuntungan_eceran_item = preg_replace('/[^0-9]/', '', $keuntungan_eceran[$i] ?? '0');
+    $harga_item          = (int) preg_replace('/[^0-9]/', '', $harga[$i] ?? '0');
+    $harga_eceran_item   = (int) preg_replace('/[^0-9]/', '', $harga_eceran[$i] ?? '0');
+    $keuntungan_dus_item    = (int) preg_replace('/[^0-9]/', '', $keuntungan_dus[$i] ?? '0');
+    $keuntungan_eceran_item = (int) preg_replace('/[^0-9]/', '', $keuntungan_eceran[$i] ?? '0');
     $volume_item         = $volume[$i];
     $satuan_item         = $satuan[$i];
     $keterangan_item     = $keterangan[$i];
@@ -199,10 +217,12 @@ foreach ($nama_barang as $i => $barang_nama) {
         $satuan_eceran_terdeteksi = strtoupper($matches[2]);
     }
 
-    // ✅ BARU: isi per satuan & satuan eceran — input manual (dari form) diprioritaskan,
-    // kalau kosong baru fallback ke hasil deteksi otomatis dari kolom "Isi".
+    // ✅ isi per satuan & satuan eceran — input manual diprioritaskan,
+    // kalau kosong fallback ke hasil deteksi otomatis dari kolom "Isi".
     $isi_manual_raw = preg_replace('/[^0-9]/', '', $isi_per_satuan_manual[$i] ?? '');
     $isi_manual_item = ($isi_manual_raw === '') ? 0 : (int) $isi_manual_raw;
+
+    // Jika kolom keterangan/Isi secara eksplisit diisi, gunakan nilainya; jika kosong, fallback 0
     $jumlah_isi_final = $isi_manual_item > 0 ? $isi_manual_item : $jumlah_isi;
 
     $satuan_eceran_manual_item = trim($satuan_eceran_manual[$i] ?? '');
@@ -210,10 +230,7 @@ foreach ($nama_barang as $i => $barang_nama) {
         ? strtoupper($satuan_eceran_manual_item)
         : $satuan_eceran_terdeteksi;
 
-    // FIX: harga jual dus = harga beli + keuntungan dus saja (sinkron dengan
-    // preview di form / hitungHargaJualDus() di script.js). Sebelumnya keuntungan_dus
-    // dikali jumlah_isi_final kalau isi per satuan terisi, sehingga harga_jual yang
-    // tersimpan di DB jauh lebih besar dari yang ditampilkan ke user di form.
+    // FIX: harga jual dus = harga beli + keuntungan dus saja (sinkron dengan preview di form)
     $harga_jual_item = $harga_item + $keuntungan_dus_item;
 
     $harga_jual_eceran_item = $harga_eceran_item + $keuntungan_eceran_item;
@@ -235,7 +252,7 @@ foreach ($nama_barang as $i => $barang_nama) {
     $biaya_admin_item      = ($i == 0) ? $biaya_admin : 0;
     $biaya_admin_esc       = (int) $biaya_admin_item;
 
-    // Konversi grosir->eceran (manual diutamakan, fallback ke hasil deteksi dari keterangan)
+    // Konversi grosir->eceran (jika diisi, gunakan angka; jika kosong, NULL untuk barang baru / pertahankan untuk barang lama)
     $isi_per_satuan_sql = $jumlah_isi_final > 0 ? (int) $jumlah_isi_final : null;
     $satuan_eceran_esc  = ($satuan_eceran_final !== null && $satuan_eceran_final !== '')
         ? mysqli_real_escape_string($koneksi, $satuan_eceran_final)
@@ -290,12 +307,15 @@ foreach ($nama_barang as $i => $barang_nama) {
     $nota_item = $nota;
     $nota_sql  = $nota_item !== null ? "'" . mysqli_real_escape_string($koneksi, $nota_item) . "'" : "NULL";
 
+    $diskon_item = ($i == 0) ? $diskon_val : 0;
+    $diskon_item_esc = (int) $diskon_item;
+
     // ✅ INSERT TRANSAKSI PEMBELIAN
     mysqli_query($koneksi, "
         INSERT INTO transaksi_pembelian(
             kode_transaksi, id_supplier, nama_barang, kategori, tanggal_pembelian,
             harga, harga_eceran, harga_jual_dus, harga_jual_eceran, volume, satuan, keterangan, nota,
-            metode_pembayaran, biaya_admin
+            metode_pembayaran, biaya_admin, diskon
         ) VALUES(
             '$kode_transaksi_esc', '$id_supplier_esc', '$barang_nama_esc',
             " . ($kategori_esc !== '' ? "'$kategori_esc'" : "NULL") . ",
@@ -303,7 +323,7 @@ foreach ($nama_barang as $i => $barang_nama) {
             '$harga_esc', '$harga_eceran_esc', '$harga_jual_esc', '$harga_jual_eceran_esc',
             '$volume_esc', '$satuan_esc', '$keterangan_esc',
             $nota_sql,
-            '$metode_esc', $biaya_admin_esc
+            '$metode_esc', $biaya_admin_esc, $diskon_item_esc
         )
     ") or die('INSERT Error: ' . mysqli_error($koneksi));
 
@@ -361,11 +381,23 @@ foreach ($nama_barang as $i => $barang_nama) {
         )
     ");
 
+    // ✅ SYNC KE TABEL estimasi_harga (Dompet Belanja Harian)
+    if ($harga_esc > 0 && !empty($barang_nama_esc)) {
+        $chkEst = mysqli_query($koneksi, "SELECT id FROM estimasi_harga WHERE LOWER(TRIM(nama_barang)) = LOWER(TRIM('$barang_nama_esc')) LIMIT 1");
+        if ($chkEst && mysqli_num_rows($chkEst) > 0) {
+            $rowEst = mysqli_fetch_assoc($chkEst);
+            $idEst = (int)$rowEst['id'];
+            mysqli_query($koneksi, "UPDATE estimasi_harga SET harga_beli = '$harga_esc', satuan = '$satuan_esc', tanggal_terupdate = CURDATE() WHERE id = '$idEst'");
+        } else {
+            mysqli_query($koneksi, "INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate) VALUES ('$barang_nama_esc', '$harga_esc', '$satuan_esc', CURDATE())");
+        }
+    }
+
     $total_tagihan += ($harga_esc * $volume_esc);
 }
 
-// ✅ Tambahkan biaya admin (hanya sekali) ke total tagihan
-$total_tagihan += $biaya_admin;
+// ✅ Kurangi diskon & tambahkan biaya admin ke total tagihan
+$total_tagihan = max(0, $total_tagihan - $diskon_val + $biaya_admin);
 
 /*
 |--------------------------------------------------------------------------
@@ -385,13 +417,13 @@ $status_final = ($jumlah_dibayar_final <= 0)
 $id_supplier_int = (int) $id_supplier;
 mysqli_query($koneksi, "
     INSERT INTO pembayaran_pembelian(
-        kode_transaksi, id_supplier, total_tagihan, jumlah_dibayar, status_pembayaran, tanggal_transaksi
+        kode_transaksi, id_supplier, total_tagihan, jumlah_dibayar, status_pembayaran, tanggal_transaksi, diskon
     ) VALUES(
-        '$kode_transaksi_esc', '$id_supplier_int', '$total_tagihan', '$jumlah_dibayar_final', '$status_final', '$tanggal_esc'
+        '$kode_transaksi_esc', '$id_supplier_int', '$total_tagihan', '$jumlah_dibayar_final', '$status_final', '$tanggal_esc', '$diskon_val'
     )
 ") or die('INSERT pembayaran Error: ' . mysqli_error($koneksi));
 
-if ($jumlah_dibayar_final > 0) {
+if ($jumlah_dibayar_final > 0 || $bukti_pembayaran_awal !== null) {
     $bukti_sql = $bukti_pembayaran_awal !== null
         ? "'" . mysqli_real_escape_string($koneksi, $bukti_pembayaran_awal) . "'"
         : "NULL";

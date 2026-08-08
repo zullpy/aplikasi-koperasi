@@ -2,7 +2,7 @@
 require_once '../database/auth.php';
 // Halaman Approval hanya untuk bendahara, admin, ketua – bukan purchase
 $userRole = $_SESSION['role'] ?? 'admin';
-if ($userRole === 'purchase') {
+if ($userRole === 'purchase' || $userRole === 'purchase_stok') {
     header("Location: index.php");
     exit;
 }
@@ -17,7 +17,7 @@ if ($userRole === 'purchase') {
     <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link rel="stylesheet" href="approve.css">
+    <link rel="stylesheet" href="approve.css?v=<?php echo filemtime('approve.css'); ?>">
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
 </head>
 
@@ -146,7 +146,7 @@ if ($userRole === 'purchase') {
          MODAL: SETUJUI + SALDO MASUK + BUKTI TRANSFER
     ══════════════════════════════════ -->
     <!-- ═══════════════════════════════════════════════════════════
-     MODAL APPROVE (Saldo Masuk + Bukti Transfer)
+     MODAL APPROVE (Saldo Masuk + Bukti Transfer, multi-file)
 ═══════════════════════════════════════════════════════════ -->
     <div id="approveModal" class="modal">
         <div class="modal-content modal-content-lg">
@@ -219,33 +219,27 @@ if ($userRole === 'purchase') {
                     <span class="approve-info-value sisa-value" id="approveInfoSisa">Rp 0</span>
                 </div>
 
-                <!-- Upload Bukti Transfer -->
+                <!-- Upload Bukti Transfer (bisa lebih dari 1 foto) -->
                 <div class="form-group">
                     <label class="form-label">
-                        Bukti Transfer <span style="color:var(--text-muted);font-weight:400;font-size:12px;">(opsional)</span>
+                        Bukti Transfer <span style="color:var(--text-muted);font-weight:400;font-size:12px;">(opsional, bisa lebih dari 1 foto)</span>
                     </label>
                     <div class="upload-area" id="uploadArea" onclick="document.getElementById('inputBuktiTransfer').click()">
                         <input
                             type="file"
                             id="inputBuktiTransfer"
                             accept="image/*,.pdf"
+                            multiple
                             style="display:none"
-                            onchange="previewFile(this)" />
+                            onchange="handleFileSelect(this.files)" />
                         <div class="upload-placeholder" id="uploadPlaceholder">
                             <i class="ph ph-upload-simple"></i>
                             <span>Klik atau seret foto/file ke sini</span>
-                            <small>JPG, PNG, PDF — maks. 5 MB</small>
-                        </div>
-                        <div class="upload-preview" id="uploadPreview" style="display:none;">
-                            <img id="previewImg" src="" alt="Preview" style="display:none;" />
-                            <div class="upload-preview-info">
-                                <span id="previewName"></span>
-                                <button class="btn-remove-file" onclick="removeFile(event)">
-                                    <i class="ph ph-x-circle"></i>
-                                </button>
-                            </div>
+                            <small>JPG, PNG, PDF — bisa pilih beberapa file sekaligus, maks. 5 MB/file</small>
                         </div>
                     </div>
+                    <div class="upload-preview-count" id="uploadPreviewCount"></div>
+                    <div class="upload-preview-grid" id="uploadPreviewGrid"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -302,7 +296,7 @@ if ($userRole === 'purchase') {
     <script>
         window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
     </script>
-    <script src="approve.js"></script>
+    <script src="approve.js?v=<?php echo filemtime('approve.js'); ?>"></script>
     <?php include '../components/made-by.php'; ?>
 </body>
 

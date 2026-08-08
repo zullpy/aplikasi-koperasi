@@ -33,6 +33,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
     }
 
     if ($_POST['aksi'] === 'kembalikan_saldo') {
+        $role_login_saat_ini = $_SESSION['role'] ?? '';
+        if (in_array($role_login_saat_ini, ['purchase_stok', 'bendahara'])) {
+            http_response_code(403);
+            die('Akses ditolak: role ' . htmlspecialchars($role_login_saat_ini) . ' tidak diizinkan mengembalikan saldo.');
+        }
         $id_kembali     = (int) ($_POST['id_pengajuan'] ?? 0);
         $jumlah_kembali = (float) str_replace(['.', ','], ['', '.'], $_POST['jumlah_kembali'] ?? '0');
 
@@ -108,7 +113,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= filemtime(__DIR__ . '/style.css') ?>">
 </head>
 
 <body>
@@ -288,11 +293,18 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                         </span>
                                     </td>
                                     <td class="center">
-                                        <?php if (!empty($row['bukti_transfer'])): ?>
-                                            <img src="../uploads/bukti_transfer/<?= htmlspecialchars($row['bukti_transfer']) ?>"
-                                                class="thumb"
-                                                onclick="bukaGambar('../uploads/bukti_transfer/<?= htmlspecialchars($row['bukti_transfer']) ?>', 'Bukti Transfer')"
-                                                alt="bukti transfer">
+                                        <?php if (!empty($row['bukti_transfer'])):
+                                            $extBukti  = strtolower(pathinfo($row['bukti_transfer'], PATHINFO_EXTENSION));
+                                            $pathBukti = '../uploads/bukti_transfer/' . htmlspecialchars($row['bukti_transfer']);
+                                                                           ?>
+                                            <button type="button" class="btn btn--outline"
+                                                onclick="bukaGambar('<?= $pathBukti ?>', 'Bukti Transfer', <?= $extBukti === 'pdf' ? 'true' : 'false' ?>)">
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                    <circle cx="12" cy="12" r="3" />
+                                                </svg>
+                                                Lihat
+                                            </button>
                                         <?php else: ?>
                                             <span style="color:var(--muted); font-size:13px">—</span>
                                         <?php endif; ?>
@@ -311,17 +323,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                 </svg>
                                                 Detail
                                             </button>
-                                            <?php if ($role_login_saat_ini === 'bendahara'): ?>
-                                            <button class="btn btn--success"
-                                                onclick="bukaSaldo(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                    <circle cx="12" cy="12" r="10" />
-                                                    <line x1="12" y1="8" x2="12" y2="16" />
-                                                    <line x1="8" y1="12" x2="16" y2="12" />
-                                                </svg>
-                                                Saldo
-                                            </button>
-                                            <?php endif; ?>
-                                            <?php if ($sisa > 0): ?>
+                                            <?php if ($sisa > 0 && $role_login_saat_ini !== 'purchase_stok' && $role_login_saat_ini !== 'bendahara'): ?>
                                                 <button class="btn btn--warning"
                                                     onclick="bukaKembalikan(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>', <?= (float) $row['sisa_uang'] ?>)">
                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -410,17 +412,20 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                             <?php else: foreach ($items as $item): ?>
                                                                 <tr>
                                                                     <td style="font-weight:500"><?= htmlspecialchars($item['nama_barang']) ?></td>
-                                                                    <td><?= (int) $item['qty'] ?></td>
+                                                                    <td><?= formatQty($item['qty']) ?></td>
                                                                     <td style="color:var(--muted)"><?= htmlspecialchars($item['satuan']) ?></td>
                                                                     <td style="font-variant-numeric:tabular-nums" id="hargaTampil<?= $item['id'] ?>"><?= rupiah($item['harga']) ?></td>
                                                                     <td style="font-variant-numeric:tabular-nums;font-weight:600"><?= rupiah($item['subtotal']) ?></td>
-                                                                    <td>
-                                                                        <?php if (!empty($item['file_path'])): ?>
-                                                                            <img src="<?= htmlspecialchars($item['file_path']) ?>"
-                                                                                class="thumb"
-                                                                                onclick="bukaGambar('<?= htmlspecialchars($item['file_path']) ?>', 'Nota Belanja')"
-                                                                                alt="nota" style="width:32px;height:32px"
-                                                                                onerror="this.replaceWith(Object.assign(document.createElement('span'),{style:'color:var(--minus);font-size:11px',textContent:'File tidak ditemukan'}))">
+                                                                    <td class="center">
+                                                                        <?php if (!empty($item['notas'])): ?>
+                                                                            <button type="button" class="btn btn--outline"
+                                                                                onclick='bukaNota(<?= json_encode($item["notas"]) ?>, "<?= htmlspecialchars(addslashes($item['nama_barang'])) ?>")'>
+                                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                                                    <circle cx="12" cy="12" r="3" />
+                                                                                </svg>
+                                                                                Lihat Nota (<?= count($item['notas']) ?>)
+                                                                            </button>
                                                                         <?php else: ?>
                                                                             <span style="color:var(--muted)">—</span>
                                                                         <?php endif; ?>
@@ -475,7 +480,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
                                                         <?php if ($ttdItem): ?>
                                                             <img src="<?= htmlspecialchars($ttdItem['signature_data']) ?>"
                                                                 alt="Tanda tangan <?= htmlspecialchars($roleLabel) ?>" class="ttd-status-item__img"
-                                                                onclick="bukaGambar('<?= htmlspecialchars($ttdItem['signature_data']) ?>', 'Tanda Tangan — <?= htmlspecialchars(addslashes($roleLabel)) ?>')">
+                                                                onclick="bukaGambar('<?= htmlspecialchars($ttdItem['signature_data']) ?>', 'Tanda Tangan — <?= htmlspecialchars(addslashes($roleLabel)) ?>', false)">
                                                             <div class="ttd-status-item__meta">
                                                                 <?= !empty($ttdItem['created_at']) ? date('d M Y, H:i', strtotime($ttdItem['created_at'])) : '' ?>
                                                             </div>
@@ -714,7 +719,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
         </div>
     </div>
 
-    <!-- ─── Modal Lihat Gambar ───────────────────────────────────────── -->
+    <!-- ─── Modal Lihat Gambar / PDF ───────────────────────────────────── -->
     <div class="modal-overlay" id="modalGambar" onclick="tutupModal('modalGambar', event)">
         <div class="modal modal--img" role="dialog" aria-modal="true" aria-labelledby="titleGambar">
             <div class="modal__header">
@@ -728,9 +733,28 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
             </div>
             <div class="modal__body" style="text-align:center">
                 <img id="gambarBesar" src="" alt="gambar" style="max-width:100%; border-radius:var(--radius-sm); max-height:70vh; object-fit:contain">
+                <iframe id="pdfBesar" src="" style="width:100%; height:70vh; border:none; border-radius:var(--radius-sm); display:none"></iframe>
             </div>
         </div>
     </div>
+    
+    <!-- ─── Modal Galeri Nota ───────────────────────────────────────── -->
+<div class="modal-overlay" id="modalNotaGaleri" onclick="tutupModal('modalNotaGaleri', event)">
+    <div class="modal modal--img" role="dialog" aria-modal="true" aria-labelledby="titleNotaGaleri">
+        <div class="modal__header">
+            <div class="modal__title" id="titleNotaGaleri">Nota Belanja</div>
+            <button type="button" class="modal__close" onclick="tutupModalById('modalNotaGaleri')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+        <div class="modal__body">
+            <div class="nota-gallery-grid" id="notaGaleriGrid"></div>
+        </div>
+    </div>
+</div>
 
     <!-- ─── Modal Edit Harga ─────────────────────────────────────────── -->
     <div class="modal-overlay" id="modalEditHarga" onclick="tutupModal('modalEditHarga', event)">
@@ -834,6 +858,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
         function tutupModalById(id) {
             document.getElementById(id).classList.remove('open');
             if (id === 'modalTandaTangan') resetModalTtd();
+            if (id === 'modalGambar') resetModalGambar();
             document.body.style.overflow = '';
         }
 
@@ -908,11 +933,40 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
             bukaModal('modalSaldo');
         }
 
-        /* ─── Gambar Modal ──────────────────────────────────────────── */
-        function bukaGambar(src, judul) {
-            document.getElementById('gambarBesar').src = src;
+        /* ─── Gambar / PDF Modal ────────────────────────────────────────
+         * isPdf = true  -> tampilkan lewat <iframe> (PDF gak bisa dirender <img>)
+         * isPdf = false -> tampilkan lewat <img> seperti biasa
+         * ──────────────────────────────────────────────────────────── */
+        function bukaGambar(src, judul, isPdf) {
             document.getElementById('titleGambar').textContent = judul;
+            const img = document.getElementById('gambarBesar');
+            const pdf = document.getElementById('pdfBesar');
+
+            if (isPdf) {
+                img.style.display = 'none';
+                img.src = '';
+                pdf.src = src;
+                pdf.style.display = 'block';
+            } else {
+                pdf.style.display = 'none';
+                pdf.src = '';
+                img.src = src;
+                img.style.display = 'block';
+            }
             bukaModal('modalGambar');
+        }
+
+        function resetModalGambar() {
+            const img = document.getElementById('gambarBesar');
+            const pdf = document.getElementById('pdfBesar');
+            if (img) {
+                img.src = '';
+                img.style.display = 'block';
+            }
+            if (pdf) {
+                pdf.src = '';
+                pdf.style.display = 'none';
+            }
         }
 
         /* ─── Edit Harga Modal ──────────────────────────────────────── */
@@ -1057,7 +1111,7 @@ $bisaTtd       = array_key_exists($role_login_saat_ini, $daftarRoleTtd);
             if (drawMode) drawMode.style.display = 'none';
         }
     </script>
-    <script src="script.js"></script>
+    <script src="script.js?v=<?= filemtime(__DIR__ . '/script.js') ?>"></script>
 
     <?php include '../components/made-by.php'; ?>
 </body>

@@ -21,7 +21,10 @@ function initTambahForm() {
 
     const cashRadio = document.getElementById('add_metode_cash');
     if (cashRadio) cashRadio.checked = true;
+    const diskonTidakRadio = document.getElementById('add_diskon_tidak');
+    if (diskonTidakRadio) diskonTidakRadio.checked = true;
     toggleBiayaAdmin('add');
+    toggleDiskon('add');
 }
 
 /* ============================================================
@@ -70,8 +73,13 @@ function hitungHargaEceran(idx) {
     const hargaRaw = (row.querySelector('.item-harga-input').value || '').replace(/\D/g, '');
     const ketInput = row.querySelector('.item-ket-input');
     const eceranInput = row.querySelector('.item-harga-eceran-input');
-    if (!ketInput || !eceranInput) return;
-    const jumlahIsi = extractJumlahIsi(ketInput.value);
+    const isiHiddenInput = row.querySelector('.item-isi-per-satuan-input');
+    if (!eceranInput) return;
+
+    let jumlahIsi = ketInput ? extractJumlahIsi(ketInput.value) : 0;
+    if (jumlahIsi <= 0 && isiHiddenInput && parseInt(isiHiddenInput.value) > 0) {
+        jumlahIsi = parseInt(isiHiddenInput.value);
+    }
     const harga = parseInt(hargaRaw) || 0;
 
     if (jumlahIsi > 0 && harga > 0) {
@@ -80,6 +88,9 @@ function hitungHargaEceran(idx) {
     } else {
         eceranInput.value = '';
     }
+
+    // ✅ Panggil hitungHargaJualEceran otomatis agar Harga Jual Eceran selalu up-to-date!
+    hitungHargaJualEceran(idx);
 }
 
 function hitungHargaJualEceran(idx) {
@@ -92,9 +103,14 @@ function hitungHargaJualEceran(idx) {
 
     const hargaEceran = parseInt(eceranRaw) || 0;
     const keuntunganEceran = parseInt(keuntunganEceranRaw) || 0;
-    const hargaJualEceran = hargaEceran + keuntunganEceran;
 
-    hargaJualEceranInput.value = hargaJualEceran > 0 ? 'Rp ' + hargaJualEceran.toLocaleString('id-ID') : '';
+    // ✅ Hanya hitung jika harga eceran modal > 0
+    if (hargaEceran > 0) {
+        const hargaJualEceran = hargaEceran + keuntunganEceran;
+        hargaJualEceranInput.value = 'Rp ' + hargaJualEceran.toLocaleString('id-ID');
+    } else {
+        hargaJualEceranInput.value = '';
+    }
 }
 
 function hitungHargaJualDus(idx) {
@@ -107,9 +123,14 @@ function hitungHargaJualDus(idx) {
 
     const harga = parseInt(hargaRaw) || 0;
     const keuntungan = parseInt(keuntunganDusRaw) || 0;
-    const hargaJualDus = harga + keuntungan;
 
-    hargaJualDusInput.value = hargaJualDus > 0 ? 'Rp ' + hargaJualDus.toLocaleString('id-ID') : '';
+    // ✅ Hanya hitung jika harga beli > 0
+    if (harga > 0) {
+        const hargaJualDus = harga + keuntungan;
+        hargaJualDusInput.value = 'Rp ' + hargaJualDus.toLocaleString('id-ID');
+    } else {
+        hargaJualDusInput.value = '';
+    }
 }
 
 function addItemRow() {
@@ -371,7 +392,16 @@ function pilihBarangInline(nama, idx) {
                     satuanEceranInputPilih.value = data.satuan_eceran;
                 }
 
+                // ✅ Auto-fill keterangan "Isi" jika belum terisi
+                const ketInput = row.querySelector('.item-ket-input');
+                if (ketInput && !ketInput.value && parseInt(data.isi_per_satuan) > 0) {
+                    const satEceran = data.satuan_eceran || 'PCS';
+                    const satDus = data.satuan || 'DUS';
+                    ketInput.value = `ISI ${data.isi_per_satuan} ${satEceran} PER ${satDus}`;
+                }
+
                 hitungHargaEceran(idx);
+                hitungHargaJualDus(idx);
                 hitungHargaJualEceran(idx);
                 recalcSubtotal(idx);
 
@@ -412,20 +442,141 @@ function recalcSubtotal(idx) {
     updateGrandTotal();
 }
 
+/* ============================================================
+DISKON TRANSAKSI — toggle & hitung nominal
+============================================================ */
+function getDiskonNominal() {
+    const adaRadio = document.querySelector('input[name="ada_diskon"]:checked');
+    if (!adaRadio || adaRadio.value === 'tidak') return 0;
+
+    const tipe = document.getElementById('add_tipe_diskon')?.value || 'nominal';
+    const inputVal = (document.getElementById('add_diskon_input')?.value || '').replace(/\D/g, '');
+    const num = parseFloat(inputVal) || 0;
+
+    if (num <= 0) return 0;
+
+    if (tipe === 'persen') {
+        let subtotalBarang = 0;
+        document.querySelectorAll('.item-input-row').forEach(row => {
+            const hargaRaw = (row.querySelector('.item-harga-input')?.value || '').replace(/\D/g, '');
+            const volume = parseFloat(row.querySelector('.item-volume-input')?.value) || 0;
+            subtotalBarang += (parseFloat(hargaRaw) || 0) * volume;
+        });
+        const persen = Math.min(num, 100);
+        return Math.round((subtotalBarang * persen) / 100);
+    } else {
+        return num;
+    }
+}
+
+function checkConditionalInputsGrid() {
+    const grid = document.getElementById('conditional_inputs_grid');
+    const jumlahGroup = document.getElementById('add_jumlah_dibayar_group');
+    const diskonGroup = document.getElementById('add_diskon_group');
+    if (!grid) return;
+
+    const showJumlah = jumlahGroup && jumlahGroup.style.display !== 'none';
+    const showDiskon = diskonGroup && diskonGroup.style.display !== 'none';
+
+    if (showJumlah || showDiskon) {
+        grid.style.display = 'grid';
+    } else {
+        grid.style.display = 'none';
+    }
+}
+
+function toggleDiskon(prefix) {
+    const selected = document.querySelector(`input[name="ada_diskon"]:checked`);
+    const group = document.getElementById(`${prefix}_diskon_group`);
+    const input = document.getElementById(`${prefix}_diskon_input`);
+
+    document.querySelectorAll('.diskon-radio-label').forEach(lbl => {
+        const inp = lbl.querySelector('input[type="radio"]');
+        if (inp && inp.checked) {
+            lbl.classList.add('active');
+        } else {
+            lbl.classList.remove('active');
+        }
+    });
+
+    if (group) {
+        const adaDiskon = selected ? selected.value : 'tidak';
+        if (adaDiskon === 'tidak') {
+            group.style.display = 'none';
+            if (input) input.value = '';
+        } else {
+            group.style.display = 'flex';
+            group.style.flexDirection = 'column';
+        }
+    }
+    updateGrandTotal();
+}
+
 function updateGrandTotal() {
-    let total = 0;
+    let subtotalBarang = 0;
     document.querySelectorAll('.item-input-row').forEach(row => {
         const hargaRaw = (row.querySelector('.item-harga-input')?.value || '').replace(/\D/g, '');
         const volume = parseFloat(row.querySelector('.item-volume-input')?.value) || 0;
-        total += (parseFloat(hargaRaw) || 0) * volume;
+        subtotalBarang += (parseFloat(hargaRaw) || 0) * volume;
     });
+
     const biayaAdminEl = document.getElementById('add_biaya_admin');
+    let biayaAdmin = 0;
     if (biayaAdminEl && biayaAdminEl.closest('#tambah-form')) {
         const biayaRaw = (biayaAdminEl.value || '').replace(/\D/g, '');
-        total += parseFloat(biayaRaw) || 0;
+        biayaAdmin = parseFloat(biayaRaw) || 0;
     }
+
+    const diskonRp = getDiskonNominal();
+    const finalDiskonInput = document.getElementById('add_diskon_final');
+    if (finalDiskonInput) finalDiskonInput.value = diskonRp;
+
+    const total = Math.max(0, subtotalBarang - diskonRp + biayaAdmin);
+
     const el = document.getElementById('grand-total-display');
     if (el) el.textContent = 'Rp ' + total.toLocaleString('id-ID');
+
+    const subtotalEl = document.getElementById('subtotal-barang-display');
+    if (subtotalEl) subtotalEl.textContent = 'Rp ' + subtotalBarang.toLocaleString('id-ID');
+
+    const diskonRow = document.getElementById('breakdown-diskon-row');
+    const diskonEl = document.getElementById('diskon-display');
+    if (diskonRow && diskonEl) {
+        if (diskonRp > 0) {
+            diskonRow.style.display = 'flex';
+            diskonEl.textContent = '- Rp ' + diskonRp.toLocaleString('id-ID');
+        } else {
+            diskonRow.style.display = 'none';
+        }
+    }
+
+    const adminRow = document.getElementById('breakdown-admin-row');
+    const adminEl = document.getElementById('biaya-admin-display');
+    if (adminRow && adminEl) {
+        if (biayaAdmin > 0) {
+            adminRow.style.display = 'flex';
+            adminEl.textContent = '+ Rp ' + biayaAdmin.toLocaleString('id-ID');
+        } else {
+            adminRow.style.display = 'none';
+        }
+    }
+
+    const hint = document.getElementById('add_diskon_hint');
+    if (hint) {
+        const adaRadio = document.querySelector('input[name="ada_diskon"]:checked');
+        if (adaRadio && adaRadio.value === 'ada') {
+            const tipe = document.getElementById('add_tipe_diskon')?.value || 'nominal';
+            if (tipe === 'persen') {
+                const inputVal = (document.getElementById('add_diskon_input')?.value || '').replace(/\D/g, '');
+                hint.textContent = `Diskon ${inputVal}% = Rp ${diskonRp.toLocaleString('id-ID')} dari Subtotal Rp ${subtotalBarang.toLocaleString('id-ID')}`;
+            } else {
+                hint.textContent = `Potongan diskon Rp ${diskonRp.toLocaleString('id-ID')} akan mengurangi total belanja.`;
+            }
+        } else {
+            hint.textContent = 'Potongan diskon akan mengurangi total belanja.';
+        }
+    }
+
     updateSisaBayarHint();
 }
 
@@ -442,15 +593,18 @@ function toggleBiayaAdmin(prefix) {
     const selected = document.querySelector(`input[name="metode_pembayaran"]:checked`);
     const adminGroup = document.getElementById(`${prefix}_biaya_admin_group`);
     const adminInput = document.getElementById(`${prefix}_biaya_admin`);
+    const buktiWrapper = document.getElementById(`${prefix}_bukti_bayar_wrapper`);
     if (!adminGroup) return;
 
     const metode = selected ? selected.value : 'cash';
     if (metode === 'cash') {
         adminGroup.style.display = 'none';
         if (adminInput) adminInput.value = '';
+        if (buktiWrapper) buktiWrapper.style.display = 'none';
     } else {
         adminGroup.style.display = 'flex';
         adminGroup.style.flexDirection = 'column';
+        if (buktiWrapper) buktiWrapper.style.display = 'block';
     }
     if (prefix === 'add') {
         updateGrandTotal();
@@ -468,17 +622,28 @@ function toggleStatusPembayaran() {
     const buktiWrapper = document.getElementById('add_bukti_bayar_wrapper');
     const jumlahInput = document.getElementById('add_jumlah_dibayar');
     const buktiInput = document.getElementById('add_bukti_pembayaran');
-    if (!jumlahGroup) return;
+
+    document.querySelectorAll('.status-radio-label').forEach(lbl => {
+        const inp = lbl.querySelector('input[type="radio"]');
+        if (inp && inp.checked) {
+            lbl.classList.add('active');
+        } else {
+            lbl.classList.remove('active');
+        }
+    });
 
     const status = selected ? selected.value : 'lunas';
     const metode = metodeSelected ? metodeSelected.value : 'cash';
 
-    if (status === 'sebagian') {
-        jumlahGroup.style.display = 'flex';
-        jumlahGroup.style.flexDirection = 'column';
-    } else {
-        jumlahGroup.style.display = 'none';
-        if (jumlahInput) jumlahInput.value = '';
+    if (jumlahGroup) {
+        const status = selected ? selected.value : 'lunas';
+        if (status === 'sebagian') {
+            jumlahGroup.style.display = 'flex';
+            jumlahGroup.style.flexDirection = 'column';
+        } else {
+            jumlahGroup.style.display = 'none';
+            if (jumlahInput) jumlahInput.value = '';
+        }
     }
 
     // Bukti pembayaran hanya relevan untuk QRIS/Transfer. Kalau cash, sembunyikan & kosongkan.
@@ -491,6 +656,7 @@ function toggleStatusPembayaran() {
             buktiWrapper.style.display = 'block';
         }
     }
+    checkConditionalInputsGrid();
     updateSisaBayarHint();
 }
 
@@ -504,6 +670,48 @@ function updateSisaBayarHint() {
     const sisa = Math.max(total - dibayar, 0);
     hint.textContent = `Sisa: Rp ${sisa.toLocaleString('id-ID')} dari total Rp ${total.toLocaleString('id-ID')}`;
 }
+
+/* ============================================================
+EVENT LISTENERS — DISKON TRANSAKSI
+============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+    const diskonInput = document.getElementById('add_diskon_input');
+    const diskonTipe = document.getElementById('add_tipe_diskon');
+    const diskonRadios = document.querySelectorAll('input[name="ada_diskon"]');
+
+    diskonRadios.forEach(radio => {
+        radio.addEventListener('change', () => toggleDiskon('add'));
+    });
+
+    if (diskonTipe) {
+        diskonTipe.addEventListener('change', () => {
+            if (diskonInput) {
+                let raw = diskonInput.value.replace(/\D/g, '');
+                if (diskonTipe.value === 'persen') {
+                    let num = Math.min(parseInt(raw) || 0, 100);
+                    diskonInput.value = raw === '' ? '' : num + '%';
+                } else {
+                    diskonInput.value = raw === '' ? '' : 'Rp ' + Number(raw).toLocaleString('id-ID');
+                }
+            }
+            updateGrandTotal();
+        });
+    }
+
+    if (diskonInput) {
+        diskonInput.addEventListener('input', function () {
+            let raw = this.value.replace(/\D/g, '');
+            const tipe = document.getElementById('add_tipe_diskon')?.value || 'nominal';
+            if (tipe === 'persen') {
+                let num = Math.min(parseInt(raw) || 0, 100);
+                this.value = raw === '' ? '' : num + '%';
+            } else {
+                this.value = raw === '' ? '' : 'Rp ' + Number(raw).toLocaleString('id-ID');
+            }
+            updateGrandTotal();
+        });
+    }
+});
 
 /* ============================================================
 MODAL BAYAR SISA
@@ -692,7 +900,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    ['add_nota_kamera', 'add_nota_file', 'nota_kamera_only', 'nota_file_only', 'add_bukti_pembayaran'].forEach(bindDropzone);
+    /* BUKTI TRANSFER FORM VALIDATION */
+    const buktiTransferForm = document.getElementById('bukti-transfer-form');
+    if (buktiTransferForm) {
+        buktiTransferForm.addEventListener('submit', (e) => {
+            const fileInput = document.getElementById('bukti_transfer_file');
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                e.preventDefault();
+                Swal.fire({ icon: 'warning', title: 'Oops...', text: 'Silakan pilih atau seret file bukti transfer terlebih dahulu!', width: window.innerWidth < 768 ? '280px' : '400px' });
+            }
+        });
+    }
+
+    ['add_nota_kamera', 'add_nota_file', 'nota_kamera_only', 'nota_file_only', 'add_bukti_pembayaran', 'bukti_transfer_file'].forEach(bindDropzone);
 
     const hargaInput = document.getElementById('harga');
     if (hargaInput) {
@@ -873,6 +1093,7 @@ document.addEventListener('click', (e) => {
     const deleteBtn = e.target.closest('.delete-btn');
     const addNotaBtn = e.target.closest('.add-nota-btn');
     const gantiNotaBtn = e.target.closest('.ganti-nota-btn');
+    const addBuktiTransferBtn = e.target.closest('.add-bukti-transfer-btn');
     const detailBtn = e.target.closest('.detail-btn');
     const lihatNotaBtn = e.target.closest('.lihat-nota-btn');
 
@@ -916,6 +1137,14 @@ document.addEventListener('click', (e) => {
         if (id) openNotaModal(id, supplier, true);
     }
 
+    if (addBuktiTransferBtn) {
+        e.preventDefault();
+        const id = addBuktiTransferBtn.getAttribute('data-id') || '';
+        const kode = addBuktiTransferBtn.getAttribute('data-kode') || '';
+        const supplier = addBuktiTransferBtn.getAttribute('data-supplier') || '';
+        openBuktiTransferModal(id, kode, supplier);
+    }
+
     if (detailBtn) {
         e.preventDefault();
         openDetailModal(detailBtn);
@@ -935,6 +1164,34 @@ if (detailEditBtn) {
         closeDetailModal();
         loadEditData(id);
     });
+}
+
+/* ============================================================
+BUKTI TRANSFER MODAL — per supplier
+============================================================ */
+function openBuktiTransferModal(idBarang = '', kodeTransaksi = '', supplierName = '') {
+    const form = document.getElementById('bukti-transfer-form');
+    if (form) form.reset();
+    const idInput = document.getElementById('bukti_transfer_id_barang');
+    if (idInput) idInput.value = idBarang;
+    const kodeInput = document.getElementById('bukti_transfer_kode_transaksi');
+    if (kodeInput) kodeInput.value = kodeTransaksi;
+    resetDropzone('bukti_transfer_file');
+
+    const subtitleEl = document.getElementById('bukti-transfer-supplier-name');
+    if (subtitleEl) {
+        subtitleEl.innerHTML = supplierName
+            ? `<i class="ph ph-storefront"></i> Supplier: <strong>${supplierName}</strong>`
+            : '';
+    }
+
+    const modal = document.getElementById('buktiTransferModal');
+    if (modal) modal.style.display = 'block';
+}
+
+function closeBuktiTransferModal() {
+    const modal = document.getElementById('buktiTransferModal');
+    if (modal) modal.style.display = 'none';
 }
 
 /* ============================================================

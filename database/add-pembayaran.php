@@ -21,7 +21,7 @@ function respond($success, $icon, $title, $text, $isAjax) {
 }
 
 $id_transaksi = intval($_POST['id_transaksi']);
-$jumlah_bayar = preg_replace('/[^0-9]/', '', $_POST['jumlah_bayar']);
+$jumlah_bayar = (int) preg_replace('/[^0-9]/', '', $_POST['jumlah_bayar']);
 $keterangan = mysqli_real_escape_string($koneksi, $_POST['keterangan'] ?? '');
 
 // Upload bukti

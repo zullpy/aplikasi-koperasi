@@ -478,10 +478,18 @@ body {
 .supplier-nota-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex-wrap: wrap;
     flex: 1;
     min-width: 0;
+}
+
+.nota-group,
+.transfer-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .supplier-nota-label {
@@ -516,6 +524,17 @@ body {
     transform: translateY(-1px);
 }
 
+.transfer-thumb-btn {
+    border-color: #bae6fd !important;
+    background: #e0f2fe !important;
+    color: #0369a1 !important;
+}
+
+.transfer-thumb-btn:hover {
+    background: #bae6fd !important;
+    transform: translateY(-1px);
+}
+
 .nota-thumb-btn i {
     font-size: 1rem;
 }
@@ -541,6 +560,27 @@ body {
     display: flex;
     gap: 8px;
     flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.add-bukti-transfer-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid #bae6fd;
+    background: #f0f9ff;
+    color: #0284c7;
+    transition: all 0.18s ease;
+}
+
+.add-bukti-transfer-btn:hover {
+    background: #e0f2fe;
+    transform: translateY(-1px);
 }
 
 .ganti-nota-btn {
@@ -958,6 +998,14 @@ body {
 
 .metode-radio-label:has(input[value="transfer"]:checked) .metode-radio-btn,
 .metode-radio-label[data-metode="transfer"].active .metode-radio-btn {
+    border-color: #0284c7;
+    background: #e0f2fe;
+    color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+}
+
+.metode-radio-label:has(input[value="ada"]:checked) .metode-radio-btn,
+.metode-radio-label[data-diskon="ada"].active .metode-radio-btn {
     border-color: #1d4ed8;
     background: #dbeafe;
     color: #1d4ed8;

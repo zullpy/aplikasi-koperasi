@@ -22,6 +22,8 @@ require_once '../database/auth.php';
         href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#1e3a5f">
 </head>
 
 <body>

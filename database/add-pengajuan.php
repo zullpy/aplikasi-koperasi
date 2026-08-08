@@ -6,6 +6,30 @@ error_reporting(E_ALL);
 // ===============================================================
 
 header('Content-Type: application/json');
+
+// Session Guard (API-safe)
+$isHttps = (
+    (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+);
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path'     => '/',
+    'domain'   => '',
+    'secure'   => $isHttps,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+
+if (!isset($_SESSION['id'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: silakan login']);
+    exit;
+}
+
+$userRole = $_SESSION['role'] ?? '';
+
 require_once 'koneksi.php';
 require_once __DIR__ . '/laporan-koperasi-func.php';
 
@@ -26,6 +50,11 @@ if (!is_array($input)) {
 
 // ===== HANDLE DELETE =====
 if (($input['action'] ?? '') === 'delete') {
+    if ($userRole !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Forbidden: hanya admin yang dapat menghapus pengajuan.']);
+        exit;
+    }
     $id = (int)($input['id'] ?? 0);
     if (!$id) {
         echo json_encode(['success' => false, 'message' => 'ID tidak valid.']);
@@ -86,6 +115,11 @@ if (($input['action'] ?? '') === 'delete') {
 
 // ===== HANDLE APPROVAL (Setuju / Tidak Setuju) =====
 if (($input['action'] ?? '') === 'approval') {
+    if ($userRole !== 'bendahara') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Forbidden: hanya bendahara yang dapat melakukan approval pengajuan.']);
+        exit;
+    }
     $id     = (int)($input['id'] ?? 0);
     $status = trim($input['status'] ?? '');
 
@@ -172,6 +206,11 @@ if (($input['action'] ?? '') === 'approval') {
 }
 
 // ===== VALIDASI INPUT UTAMA =====
+if ($userRole !== 'admin') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Forbidden: hanya admin yang dapat membuat/mengubah pengajuan.']);
+    exit;
+}
 $id         = isset($input['id']) && $input['id'] !== null ? (int)$input['id'] : null;
 $jenis      = trim($input['jenis'] ?? '');
 $tanggal    = trim($input['tanggal'] ?? '');

@@ -121,3 +121,44 @@ function hapusTandaTangan() {
     const hidden = document.getElementById('inputSignatureData');
     if (hidden) hidden.value = '';
 }
+
+// ===================== GALERI NOTA (MULTI FOTO PER ITEM) =====================
+function bukaNota(notas, namaBarang) {
+    document.getElementById('titleNotaGaleri').textContent = 'Nota — ' + namaBarang;
+    const grid = document.getElementById('notaGaleriGrid');
+    grid.innerHTML = '';
+
+    if (!notas || notas.length === 0) {
+        grid.innerHTML = '<div class="nota-gallery-empty">Tidak ada nota.</div>';
+        bukaModal('modalNotaGaleri');
+        return;
+    }
+
+    notas.forEach(function(nota) {
+        if (!nota.file_path) return;
+        const ext = nota.file_path.split('.').pop().toLowerCase();
+        const item = document.createElement('div');
+        item.className = 'nota-gallery-item';
+
+        if (ext === 'pdf') {
+            item.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+            item.onclick = function() {
+                bukaGambar(nota.file_path, 'Nota Belanja', true);
+            };
+        } else {
+            const img = document.createElement('img');
+            img.src = nota.file_path;
+            img.alt = 'nota';
+            img.onerror = function() {
+                item.innerHTML = '<span style="color:var(--minus);font-size:10px;text-align:center;padding:4px">File tidak ditemukan</span>';
+            };
+            item.appendChild(img);
+            item.onclick = function() {
+                bukaGambar(nota.file_path, 'Nota Belanja', false);
+            };
+        }
+        grid.appendChild(item);
+    });
+
+    bukaModal('modalNotaGaleri');
+}

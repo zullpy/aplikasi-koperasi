@@ -2,14 +2,26 @@
 $currentPage = basename($_SERVER['PHP_SELF']);
 $base_url = '';
 $userRole = $_SESSION['role'] ?? null;
-$isPurchase = ($userRole === 'purchase');
+$isPurchase = ($userRole === 'purchase' || $userRole === 'purchase_stok');
+$isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
 ?>
 
 <head>
-    <link rel="stylesheet" href="../components/style.css">
+    <link rel="stylesheet" href="../components/style.css?v=1.1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="manifest" href="../manifest.json">
+    <meta name="theme-color" content="#1e3a5f">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('../sw.js').catch(function(err) {
+                    console.error('SW registration failed:', err);
+                });
+            });
+        }
+    </script>
 </head>
 
 <!-- Overlay for mobile drawer -->
@@ -31,6 +43,18 @@ $isPurchase = ($userRole === 'purchase');
 
         <!-- Nav -->
         <nav class="nav-menu" id="nav-menu" aria-label="Menu utama">
+            <!-- Fitur Pencarian Menu/Halaman (Khusus Mobile) -->
+            <div class="nav-search-container">
+                <div class="nav-search-input-wrapper">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" class="search-icon">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="nav-search-input" placeholder="Cari halaman...." autocomplete="off">
+                    <button type="button" id="nav-search-clear" style="display: none;">&times;</button>
+                </div>
+            </div>
+
             <ul class="nav-list">
 
                 <?php if (!$isPurchase): ?>
@@ -123,57 +147,69 @@ $isPurchase = ($userRole === 'purchase');
                 <?php endif; ?>
 
                 <?php if (!$isPurchase): ?>
-                <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
-                <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
-                    <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                            <ellipse cx="12" cy="5" rx="9" ry="3" />
-                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                        </svg>
-                        Data Master
-                        <span class="dd-arrow">▾</span>
-                    </a>
-                    <ul class="dropdown-menu" role="menu">
-                        <li class="dropdown-group-label">Data Master</li>
-                        <li>
-                            <a href="../data-pelanggan/index.php"
-                                class="dropdown-item <?= $activePage == 'daftar-pelanggan' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                    <circle cx="9" cy="7" r="4" />
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                                </svg>
-                                Data Pelanggan
-                            </a>
-                        </li>
-                        <li>
-                            <a href="../data-supplier/index.php"
-                                class="dropdown-item <?= $activePage == 'daftar-supplier' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                                    <rect x="1" y="3" width="15" height="13" rx="1" />
-                                    <path d="M16 8h4l3 5v3h-7V8z" />
-                                    <circle cx="5.5" cy="18.5" r="2.5" />
-                                    <circle cx="18.5" cy="18.5" r="2.5" />
-                                </svg>
-                                Data Supplier
-                            </a>
-                        </li>
-                        <li>
-                            <a href="../stok-barang-food/index.php"
-                                class="dropdown-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>"
-                                role="menuitem">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                    <?php if ($isBendaharaOrKetua): ?>
+                        <!-- Direct link to Stok Barang for Bendahara and Ketua -->
+                        <li class="nav-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>">
+                            <a href="../stok-barang-food/index.php" class="nav-link">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                                 </svg>
                                 Stok Barang
                             </a>
                         </li>
-                    </ul>
-                </li>
+                    <?php else: ?>
+                        <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
+                        <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
+                            <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                                </svg>
+                                Data Master
+                                <span class="dd-arrow">▾</span>
+                            </a>
+                            <ul class="dropdown-menu" role="menu">
+                                <li class="dropdown-group-label">Data Master</li>
+                                <li>
+                                    <a href="../data-pelanggan/index.php"
+                                        class="dropdown-item <?= $activePage == 'daftar-pelanggan' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                            <circle cx="9" cy="7" r="4" />
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                        </svg>
+                                        Data Pelanggan
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="../data-supplier/index.php"
+                                        class="dropdown-item <?= $activePage == 'daftar-supplier' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <rect x="1" y="3" width="15" height="13" rx="1" />
+                                            <path d="M16 8h4l3 5v3h-7V8z" />
+                                            <circle cx="5.5" cy="18.5" r="2.5" />
+                                            <circle cx="18.5" cy="18.5" r="2.5" />
+                                        </svg>
+                                        Data Supplier
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="../stok-barang-food/index.php"
+                                        class="dropdown-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                        </svg>
+                                        Stok Barang
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if (!$isPurchase): ?>
@@ -234,6 +270,36 @@ $isPurchase = ($userRole === 'purchase');
                         Dompet Belanja Harian SPPG
                     </a>
                 </li>
+                <li class="nav-item <?= $activePage == 'stok-barang' ? 'active' : '' ?>">
+                    <a href="../stok-barang-food/index.php" class="nav-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        </svg>
+                        Stok Barang
+                    </a>
+                </li>
+                <?php if ($userRole === 'purchase_stok'): ?>
+                <li class="nav-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>">
+                    <a href="../laporan-sppg/index.php" class="nav-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        Laporan Belanja SPPG
+                    </a>
+                </li>
+                <li class="nav-item <?= $activePage == 'daftar-harga-barang' ? 'active' : '' ?>">
+                    <a href="../daftar-harga-barang-food/index.php" class="nav-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                            <line x1="7" y1="7" x2="7.01" y2="7" />
+                        </svg>
+                        Daftar Harga Barang
+                    </a>
+                </li>
+                <?php endif; ?>
                 <?php else: ?>
                 <li class="nav-item <?= in_array($activePage, ['dompet-belanja-harian', 'pengajuan-koperasi']) ? 'active' : '' ?>" id="dd-pengajuan">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-pengajuan">
@@ -318,13 +384,14 @@ $isPurchase = ($userRole === 'purchase');
                                 Laporan Belanja Koperasi
                             </a>
                         </li>
+                        
                     </ul>
                 </li>
                 <?php endif; ?>
 
                 <?php if (!$isPurchase): ?>
                 <!-- GROUP: Laporan Keuangan (dropdown desktop, flat mobile) -->
-                <li class="nav-item <?= in_array($activePage, ['laporan-keuangan', 'kas-koperasi']) ? 'active' : '' ?>" id="dd-laporan-keuangan">
+                <li class="nav-item <?= in_array($activePage, ['kas-koperasi', 'rekap-kpm','omset-sppg', 'rekap-hutang-piutang', 'laporan-barang', 'profit-koperasi']) ? 'active' : '' ?>" id="dd-laporan-keuangan">
                     <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-laporan-keuangan">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                             <line x1="18" y1="20" x2="18" y2="10" />
@@ -334,7 +401,7 @@ $isPurchase = ($userRole === 'purchase');
                         Laporan Keuangan
                         <span class="dd-arrow">▾</span>
                     </a>
-                    <ul class="dropdown-menu" role="menu">
+                    <ul class="dropdown-menu dropdown-menu-right" role="menu">
                         <li class="dropdown-group-label">Laporan Keuangan</li>
                         <li>
                             <a href="../kas-koperasi/index.php"
@@ -346,6 +413,49 @@ $isPurchase = ($userRole === 'purchase');
                                     <path d="M6 6V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
                                 </svg>
                                 Kas Koperasi
+                            </a>
+                        </li>
+                        <li>
+                            <a href="../omset-sppg/index.php"
+                                class="dropdown-item <?= $activePage == 'omset-sppg' ? 'active' : '' ?>"
+                                role="menuitem">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 256 256"><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"></path></svg>
+                                Data KPM
+                            </a>
+                        </li>
+                        <li>
+                            <a href="../rekap-hutang-piutang/index.php"
+                                class="dropdown-item <?= $activePage == 'rekap-hutang-piutang' ? 'active' : '' ?>"
+                                role="menuitem">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                    <circle cx="9" cy="7" r="4" />
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
+                                Rekap Hutang Piutang
+                            </a>
+                        </li>
+                        <li>
+                            <a href="../laporan-barang/index.php"
+                                class="dropdown-item <?= $activePage == 'laporan-barang' ? 'active' : '' ?>"
+                                role="menuitem">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M21 16V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z" />
+                                    <polyline points="3 10 21 10" />
+                                </svg>
+                                Laporan Barang
+                            </a>
+                        </li>
+                        <li>
+                            <a href="../profit-koperasi/index.php"
+                                class="dropdown-item <?= $activePage == 'profit-koperasi' ? 'active' : '' ?>"
+                                role="menuitem">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                                    <polyline points="17 6 23 6 23 12" />
+                                </svg>
+                                Profit Koperasi
                             </a>
                         </li>
                     </ul>
@@ -484,6 +594,143 @@ $isPurchase = ($userRole === 'purchase');
         const ddSppg = document.getElementById('dd-sppg');
         if (ddSppg && ddSppg.classList.contains('active')) {
             sppgPinned = true;
+        }
+
+        /* --- Fitur Pencarian Halaman/Menu (Mobile Only) --- */
+        const searchInput = document.getElementById('nav-search-input');
+        const searchClear = document.getElementById('nav-search-clear');
+        
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                
+                if (query.length > 0) {
+                    searchClear.style.display = 'block';
+                } else {
+                    searchClear.style.display = 'none';
+                }
+                
+                filterMenus(query);
+            });
+            
+            searchClear.addEventListener('click', function() {
+                searchInput.value = '';
+                this.style.display = 'none';
+                filterMenus('');
+                searchInput.focus();
+            });
+        }
+        
+        function filterMenus(query) {
+            const listItems = document.querySelectorAll('.nav-list > li');
+            
+            listItems.forEach(item => {
+                const link = item.querySelector('.nav-link');
+                const isDropdownTrigger = link && link.classList.contains('dd-trigger');
+                
+                if (!isDropdownTrigger) {
+                    if (link) {
+                        const text = link.textContent.toLowerCase();
+                        if (text.includes(query)) {
+                            item.style.display = '';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    }
+                    return;
+                }
+                
+                const ddMenu = item.querySelector('.dropdown-menu');
+                if (!ddMenu) return;
+                
+                const groupLabels = ddMenu.querySelectorAll('.dropdown-group-label');
+                const subItems = ddMenu.querySelectorAll('li:not(.dropdown-item-nested)');
+                const nestedSppg = ddMenu.querySelector('.dropdown-item-nested');
+                
+                let matchesInDropdown = 0;
+                
+                // Cek item sub-menu normal
+                subItems.forEach(sub => {
+                    const subLink = sub.querySelector('a');
+                    if (subLink) {
+                        const text = subLink.textContent.toLowerCase();
+                        if (text.includes(query)) {
+                            sub.style.display = '';
+                            matchesInDropdown++;
+                        } else {
+                            sub.style.display = 'none';
+                        }
+                    }
+                });
+                
+                // Cek item sub-menu nested SPPG
+                if (nestedSppg) {
+                    const nestedTrigger = nestedSppg.querySelector('.dd-sppg-trigger');
+                    const nestedListItems = nestedSppg.querySelectorAll('.dropdown-menu-nested li');
+                    let matchesInNested = 0;
+                    
+                    nestedListItems.forEach(nestedLi => {
+                        const nestedLink = nestedLi.querySelector('a');
+                        if (nestedLink) {
+                            const text = nestedLink.textContent.toLowerCase();
+                            if (text.includes(query)) {
+                                nestedLi.style.display = '';
+                                matchesInNested++;
+                                matchesInDropdown++;
+                            } else {
+                                nestedLi.style.display = 'none';
+                            }
+                        }
+                    });
+                    
+                    if (matchesInNested > 0 || (nestedTrigger && nestedTrigger.textContent.toLowerCase().includes(query))) {
+                        nestedSppg.style.display = '';
+                        nestedSppg.classList.add('nested-open');
+                    } else {
+                        nestedSppg.style.display = 'none';
+                        nestedSppg.classList.remove('nested-open');
+                    }
+                }
+                
+                const triggerText = link ? link.textContent.toLowerCase() : '';
+                if (matchesInDropdown > 0 || triggerText.includes(query)) {
+                    item.style.display = '';
+                    item.classList.add('dropdown-open');
+                    ddMenu.style.display = 'block';
+                    
+                    groupLabels.forEach(label => {
+                        label.style.display = '';
+                    });
+                } else {
+                    item.style.display = 'none';
+                    item.classList.remove('dropdown-open');
+                    ddMenu.style.display = '';
+                }
+            });
+            
+            // Reset state if query is empty
+            if (query === '') {
+                document.querySelectorAll('.nav-list > li').forEach(item => {
+                    item.style.display = '';
+                    item.classList.remove('dropdown-open');
+                    const ddMenu = item.querySelector('.dropdown-menu');
+                    if (ddMenu) ddMenu.style.display = '';
+                });
+                document.querySelectorAll('.dropdown-menu li').forEach(sub => {
+                    sub.style.display = '';
+                });
+                document.querySelectorAll('.dropdown-group-label').forEach(label => {
+                    label.style.display = '';
+                });
+                const sppg = document.getElementById('dd-sppg');
+                if (sppg) {
+                    sppg.style.display = '';
+                    sppg.classList.remove('nested-open');
+                    if (sppg.classList.contains('active') || sppgPinned) {
+                        sppg.classList.add('nested-open');
+                    }
+                }
+            }
         }
 
     })();

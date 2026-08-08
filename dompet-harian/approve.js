@@ -1,6 +1,7 @@
 /* ─────────────────────────────────────────────
 approve.js — Approval Pengajuan Belanja
 + Fitur: Sisa uang otomatis nambah ke menu berikutnya
++ Fitur: Bukti transfer multiple upload (lebih dari 1 foto)
 ───────────────────────────────────────────── */
 
 // ── STATE ─────────────────────────────────────
@@ -11,6 +12,9 @@ let rejectTargetId = null;
 let approveTargetId = null;
 let approveTargetTotal = 0;
 let sisaUangSebelumnya = 0; // 💰 Sisa uang dari menu sebelumnya
+
+// 📎 Bukti transfer yang dipilih user di modal approve (bisa > 1 file)
+let selectedBuktiFiles = [];
 
 // State tanda tangan lokal
 let signatures = {};
@@ -41,6 +45,17 @@ function formatRupiah(num) {
 
 function parseRupiah(str) {
     return parseFloat(String(str).replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
+}
+
+// Qty boleh desimal (mis. 0.5 kg), dan bisa datang dari DB sebagai string
+// dari kolom DECIMAL (mis. "125.00"). Normalisasi supaya:
+// 1) tampilan tidak nampilin ".00" yang tidak perlu, dan
+// 2) perhitungan subtotal tidak kepotong seperti parseInt("0.5") = 0.
+function parseQty(val) {
+    if (val === null || val === undefined) return 0;
+    const normalized = String(val).trim().replace(',', '.');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
 }
 
 function onUangMasukInput(el) {
@@ -150,7 +165,11 @@ function hitungSisaUangMenuSebelumnya(currentId) {
 
     const lastApproved = menuSebelumnya[0];
     const uangMasuk = parseFloat(lastApproved.uang_masuk) || 0;
-    const totalBelanja = parseFloat(lastApproved.total_belanja) || 0;
+    const prevItems = lastApproved.detail_items || lastApproved.items || [];
+    const totalBelanja = prevItems.reduce((sum, it) => {
+        const qty = parseQty(it.qty);
+        return sum + (parseFloat(it.harga) || 0) * qty + (parseFloat(it.biaya_admin) || 0);
+    }, 0);
     const sisa = uangMasuk - totalBelanja;
 
     console.log('💰 Sisa dari menu sebelumnya:', {
@@ -253,7 +272,14 @@ function updateStats() {
     const pending = allData.filter(d => d.status === 'pending').length;
     const approved = allData.filter(d => d.status === 'approved').length;
     const rejected = allData.filter(d => d.status === 'rejected').length;
-    const total = allData.reduce((s, d) => s + (parseFloat(d.total_belanja) || 0), 0);
+    const total = allData.reduce((s, d) => {
+        const items = d.detail_items || d.items || [];
+        const tItem = items.reduce((sum, it) => {
+            const qty = parseQty(it.qty);
+            return sum + (parseFloat(it.harga) || 0) * qty + (parseFloat(it.biaya_admin) || 0);
+        }, 0);
+        return s + tItem;
+    }, 0);
 
     document.getElementById('countPending').textContent = pending;
     document.getElementById('countApproved').textContent = approved;
@@ -307,10 +333,37 @@ function renderCards() {
     grid.innerHTML = filtered.map(item => buildCard(item)).join('');
 }
 
+// 📎 Ambil daftar nama file bukti transfer sebagai array.
+// Mendukung format lama (1 string filename) maupun format baru
+// (array filename, atau string JSON hasil json_encode([...]) dari backend).
+function getBuktiList(item) {
+    const raw = item.bukti_transfer;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                if (Array.isArray(parsed)) return parsed.filter(Boolean);
+            } catch (e) { /* bukan JSON, lanjut fallback */ }
+        }
+        if (trimmed.includes(',')) {
+            return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        return [trimmed];
+    }
+    return [];
+}
+
 function buildCard(item) {
     const isPending = item.status === 'pending';
     const isApproved = item.status === 'approved';
     const items = item.detail_items || [];
+    const totalItem = items.reduce((sum, it) => {
+        const qty = parseQty(it.qty);
+        return sum + (parseFloat(it.harga) || 0) * qty + (parseFloat(it.biaya_admin) || 0);
+    }, 0);
 
     const itemsHtml = items.length > 0
         ? items.map((it, idx) => buildItemRow(it, idx)).join('')
@@ -318,11 +371,7 @@ function buildCard(item) {
 
     let saldoHtml = '';
     if (isApproved && (item.uang_masuk || item.sisa_uang)) {
-        const buktiHtml = item.bukti_transfer
-            ? `<a href="../uploads/bukti_transfer/${item.bukti_transfer}" target="_blank" class="saldo-chip bukti">
-                <i class="ph ph-image"></i> Lihat Bukti Transfer
-            </a>`
-            : '';
+        // (info saldo detail bisa ditambahkan di sini bila diperlukan)
     }
 
     const catatan = item.catatan_bendahara ? `
@@ -331,18 +380,35 @@ function buildCard(item) {
             <span><strong>Catatan:</strong> ${item.catatan_bendahara}</span>
         </div>` : '';
 
-    const footerActions = isPending ? `
+    const canApprove = (USER_ROLE === 'bendahara' || USER_ROLE === 'admin');
+    const footerActions = (isPending && canApprove) ? `
         <div class="card-actions">
             <button class="btn btn-danger btn-sm" onclick="openRejectModal(${item.id})">
                 <i class="ph ph-x-circle"></i> Tolak
             </button>
-            <button class="btn btn-success btn-sm" onclick="openApproveModal(${item.id}, ${parseFloat(item.total_belanja) || 0})">
+            <button class="btn btn-success btn-sm" onclick="openApproveModal(${item.id}, ${totalItem})">
                 <i class="ph ph-check-circle"></i> Setujui
             </button>
         </div>` : '';
 
     const ttdHtml = buildTtdSection(item);
     const userName = item.created_by_name || ('User #' + item.created_by);
+
+    // 📎 Bukti transfer: bisa lebih dari 1 file
+    const buktiList = getBuktiList(item);
+    const buktiLinksHtml = buktiList.map((f, i) => `
+        <a href="../uploads/bukti_transfer/${f}" target="_blank"
+            class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer ${i + 1}">
+            <i class="ph ph-image"></i> Bukti ${i + 1}
+        </a>`).join('');
+
+    const uploadBuktiBtn = canApprove ? `
+        <label class="btn ${buktiList.length ? 'btn-ghost' : 'btn-outline-secondary'} btn-sm"
+            title="${buktiList.length ? 'Tambah Bukti Transfer' : 'Upload Bukti Transfer'}" style="cursor:pointer;margin:0;">
+            <i class="ph ph-${buktiList.length ? 'plus-circle' : 'upload-simple'}"></i> ${buktiList.length ? 'Tambah BT' : 'Upload BT'}
+            <input type="file" accept="image/*,.pdf" multiple style="display:none"
+                onchange="uploadBuktiTransfer(event, ${item.id})">
+        </label>` : '';
 
     return `
     <div class="pengajuan-card status-${item.status}" id="card-${item.id}">
@@ -372,33 +438,30 @@ function buildCard(item) {
         <div class="card-footer">
             <div class="card-total">
                 <span class="card-total-label">Total Belanja</span>
-                <span class="card-total-amount">${formatRupiah(item.total_belanja)}</span>
+                <span class="card-total-amount">${formatRupiah(totalItem)}</span>
             </div>
             <div class="card-footer-right">
                 ${footerActions}
-                ${isApproved ? `
-                <label class="btn ${item.bukti_transfer ? 'btn-ghost' : 'btn-outline-secondary'} btn-sm" title="${item.bukti_transfer ? 'Ganti Bukti Transfer' : 'Upload Bukti Transfer'}" style="cursor:pointer;margin:0;">
-                    <i class="ph ph-${item.bukti_transfer ? 'arrows-clockwise' : 'upload-simple'}"></i> ${item.bukti_transfer ? 'Ganti BT' : 'Bukti TF'}
-                    <input type="file" accept="image/*,.pdf" style="display:none"
-                        onchange="uploadBuktiTransfer(event, ${item.id})">
-                </label>
-                ${item.bukti_transfer ? `
-                <a href="../uploads/bukti_transfer/${item.bukti_transfer}" target="_blank"
-                    class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer">
-                    <i class="ph ph-image"></i> Lihat Bukti Transfer
-                </a>` : ''}` : ''}
+                ${isApproved ? uploadBuktiBtn : ''}
+                ${buktiLinksHtml}
             </div>
         </div>
     </div>`;
 }
 
 function buildItemRow(it, idx) {
-    const subtotal = (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0);
+    // FIX: qty bisa datang dari DB sebagai string desimal (mis. "125.00")
+    // kalau kolomnya sudah DECIMAL. Sebelumnya:
+    //  - ${it.qty} ditampilkan mentah → muncul ".00" yang tidak perlu
+    //  - parseInt(it.qty) di subtotal membulatkan ke bawah → qty 0.5 jadi 0,
+    //    sehingga subtotal barang desimal keitung Rp 0 di kartu Pengajuan.
+    const qty = parseQty(it.qty);
+    const subtotal = (parseFloat(it.harga) || 0) * qty + (parseFloat(it.biaya_admin) || 0);
     return `<div class="item-row">
         <div class="item-num">${idx + 1}</div>
         <div class="item-info">
             <div class="item-name">${it.nama_barang}</div>
-            <div class="item-meta">${it.qty} ${it.satuan} × ${formatRupiah(it.harga)}</div>
+            <div class="item-meta">${qty} ${it.satuan} × ${formatRupiah(it.harga)}${parseFloat(it.biaya_admin) ? ` + Admin ${formatRupiah(it.biaya_admin)}` : ''}</div>
         </div>
         <div class="item-subtotal">${formatRupiah(subtotal)}</div>
     </div>`;
@@ -461,8 +524,13 @@ function buildTtdSection(item) {
 // ══════════════════════════════════════════════════
 // MODAL: APPROVE (saldo masuk + bukti transfer)
 // + FITUR: SISA UANG OTOMATIS DARI MENU SEBELUMNYA
+// + FITUR: BUKTI TRANSFER MULTIPLE (> 1 FOTO)
 // ═════════════════════════════════════════════════
 function openApproveModal(id, totalBelanja) {
+    if (USER_ROLE !== 'bendahara' && USER_ROLE !== 'admin') {
+        showToast('Akses ditolak: Hanya bendahara yang memiliki akses approval.', 'error');
+        return;
+    }
     approveTargetId = id;
     approveTargetTotal = totalBelanja;
 
@@ -472,7 +540,8 @@ function openApproveModal(id, totalBelanja) {
     // Reset form
     document.getElementById('inputUangMasuk').value = '';
     document.getElementById('inputBuktiTransfer').value = '';
-    removeFile(null, true);
+    selectedBuktiFiles = [];
+    renderBuktiPreview();
 
     // Tampilkan info sisa uang sebelumnya
     const sisaInfoEl = document.getElementById('approveSisaSebelumnya');
@@ -514,6 +583,7 @@ function closeApproveModal() {
     approveTargetId = null;
     approveTargetTotal = 0;
     sisaUangSebelumnya = 0;
+    selectedBuktiFiles = [];
 }
 
 /**
@@ -556,57 +626,71 @@ function hitungSisa() {
     }
 }
 
-// ── PREVIEW FILE UPLOAD ──────────────────────────
-function previewFile(input) {
-    const file = input.files[0];
-    if (!file) return;
+// ── PREVIEW FILE UPLOAD (MULTIPLE) ───────────────
+// Dipanggil saat user pilih file dari dialog (bisa pilih banyak sekaligus)
+function handleFileSelect(fileList) {
+    const files = Array.from(fileList || []);
+    let ditolak = 0;
+    for (const file of files) {
+        if (file.size > 5 * 1024 * 1024) {
+            ditolak++;
+            continue;
+        }
+        selectedBuktiFiles.push(file);
+    }
+    if (ditolak > 0) {
+        showToast(`${ditolak} file dilewati karena ukuran melebihi 5 MB`, 'error');
+    }
+    // Reset value input supaya file yang sama bisa dipilih lagi setelah dihapus
+    const input = document.getElementById('inputBuktiTransfer');
+    if (input) input.value = '';
+    renderBuktiPreview();
+}
 
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('File terlalu besar, maksimal 5 MB', 'error');
-        input.value = '';
+function renderBuktiPreview() {
+    const uploadArea = document.getElementById('uploadArea');
+    const grid = document.getElementById('uploadPreviewGrid');
+    const countEl = document.getElementById('uploadPreviewCount');
+    if (!grid || !uploadArea) return;
+
+    if (selectedBuktiFiles.length === 0) {
+        grid.style.display = 'none';
+        grid.innerHTML = '';
+        if (countEl) countEl.textContent = '';
+        uploadArea.classList.remove('has-file');
         return;
     }
 
-    const uploadArea = document.getElementById('uploadArea');
-    const placeholder = document.getElementById('uploadPlaceholder');
-    const preview = document.getElementById('uploadPreview');
-    const previewImg = document.getElementById('previewImg');
-    const previewName = document.getElementById('previewName');
-
-    previewName.textContent = file.name;
     uploadArea.classList.add('has-file');
-    placeholder.style.display = 'none';
-    preview.style.display = 'flex';
+    grid.style.display = 'grid';
+    if (countEl) countEl.textContent = `${selectedBuktiFiles.length} file dipilih`;
 
-    if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = e => { previewImg.src = e.target.result; previewImg.style.display = 'block'; };
-        reader.readAsDataURL(file);
-    } else {
-        previewImg.src = '';
-        previewImg.style.display = 'none';
-    }
+    grid.innerHTML = selectedBuktiFiles.map((file, idx) => {
+        const isImage = file.type.startsWith('image/');
+        const thumb = isImage
+            ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}">`
+            : `<i class="ph ph-file-pdf"></i>`;
+        return `
+        <div class="upload-preview-item">
+            <div class="upload-preview-thumb">${thumb}</div>
+            <div class="upload-preview-info">
+                <span title="${file.name}">${file.name}</span>
+                <button type="button" class="btn-remove-file" onclick="removeBuktiFile(${idx})" title="Hapus file ini">
+                    <i class="ph ph-x-circle"></i>
+                </button>
+            </div>
+        </div>`;
+    }).join('');
 }
 
-function removeFile(e, silent = false) {
-    if (e) e.stopPropagation();
-    const uploadArea = document.getElementById('uploadArea');
-    const placeholder = document.getElementById('uploadPlaceholder');
-    const preview = document.getElementById('uploadPreview');
-    const previewImg = document.getElementById('previewImg');
-
-    document.getElementById('inputBuktiTransfer').value = '';
-    uploadArea.classList.remove('has-file');
-    placeholder.style.display = 'flex';
-    preview.style.display = 'none';
-    previewImg.src = '';
+function removeBuktiFile(idx) {
+    selectedBuktiFiles.splice(idx, 1);
+    renderBuktiPreview();
 }
 
 // ─ SUBMIT APPROVE ───────────────────────────────
 async function submitApprove() {
     const inputUser = parseRupiah(document.getElementById('inputUangMasuk').value);
-    const fileInput = document.getElementById('inputBuktiTransfer');
-    const file = fileInput.files[0];
 
     if (!inputUser && sisaUangSebelumnya <= 0) {
         showToast('Mohon isi saldo / uang masuk', 'error');
@@ -623,7 +707,8 @@ async function submitApprove() {
         const formData = new FormData();
         formData.append('id', approveTargetId);
         formData.append('uang_masuk', uangMasukTotal); // Kirim total yang sudah ditambah sisa
-        if (file) formData.append('bukti_transfer', file); // opsional
+        // 📎 Kirim semua file bukti transfer (opsional, bisa > 1)
+        selectedBuktiFiles.forEach(file => formData.append('bukti_transfer[]', file));
 
         const res = await fetch('../database/api-belanja.php?action=approve', {
             method: 'POST',
@@ -655,6 +740,10 @@ async function submitApprove() {
 // MODAL: REJECT
 // ═════════════════════════════════════════════════
 function openRejectModal(id) {
+    if (USER_ROLE !== 'bendahara' && USER_ROLE !== 'admin') {
+        showToast('Akses ditolak: Hanya bendahara yang memiliki akses approval.', 'error');
+        return;
+    }
     rejectTargetId = id;
     document.getElementById('rejectionReason').value = '';
     document.getElementById('rejectModal').classList.add('active');
@@ -842,22 +931,31 @@ function hapusTtd(pengajuanId, role) {
 }
 
 // ══════════════════════════════════════════════════
-// UPLOAD BUKTI TRANSFER (dari card langsung)
+// UPLOAD BUKTI TRANSFER (dari card langsung, bisa > 1 foto)
 // ═════════════════════════════════════════════════
 async function uploadBuktiTransfer(event, id) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-        showToast('File terlalu besar, maksimal 5 MB', 'error');
+    if (USER_ROLE !== 'bendahara' && USER_ROLE !== 'admin') {
+        showToast('Akses ditolak: Hanya bendahara yang dapat mengunggah bukti transfer.', 'error');
+        event.target.value = '';
         return;
     }
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
 
-    showToast('Mengupload bukti transfer...', 'info');
+    const validFiles = [];
+    let ditolak = 0;
+    for (const f of files) {
+        if (f.size > 5 * 1024 * 1024) { ditolak++; continue; }
+        validFiles.push(f);
+    }
+    if (ditolak > 0) showToast(`${ditolak} file dilewati karena ukuran melebihi 5 MB`, 'error');
+    if (!validFiles.length) { event.target.value = ''; return; }
+
+    showToast(`Mengupload ${validFiles.length} bukti transfer...`, 'info');
 
     const formData = new FormData();
     formData.append('id', id);
-    formData.append('bukti_transfer', file);
+    validFiles.forEach(f => formData.append('bukti_transfer[]', f));
 
     try {
         const res = await fetch('../database/api-belanja.php?action=upload_bukti', {
@@ -874,6 +972,8 @@ async function uploadBuktiTransfer(event, id) {
     } catch (err) {
         console.error(err);
         showToast('Terjadi kesalahan saat upload', 'error');
+    } finally {
+        event.target.value = '';
     }
 }
 
@@ -924,7 +1024,7 @@ document.querySelectorAll('.modal').forEach(modal => {
     });
 });
 
-// ─ DRAG & DROP UPLOAD ────────────────────────────
+// ─ DRAG & DROP UPLOAD (MULTIPLE) ─────────────────
 document.addEventListener('DOMContentLoaded', () => {
     const uploadArea = document.getElementById('uploadArea');
     if (uploadArea) {
@@ -938,13 +1038,8 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadArea.addEventListener('drop', e => {
             e.preventDefault();
             uploadArea.style.borderColor = '';
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                const input = document.getElementById('inputBuktiTransfer');
-                input.files = dt.files;
-                previewFile(input);
+            if (e.dataTransfer.files && e.dataTransfer.files.length) {
+                handleFileSelect(e.dataTransfer.files);
             }
         });
     }

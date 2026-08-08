@@ -73,9 +73,13 @@ if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] =
         exit;
     }
 
+    $bp_target_dir = '../uploads/bukti_transfer/';
+    if (!is_dir($bp_target_dir)) {
+        @mkdir($bp_target_dir, 0777, true);
+    }
     $bp_name = uniqid('bayar_') . '.' . $ext;
-    if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], '../uploads/bukti_pembayaran/' . $bp_name)) {
-        compressImage('../uploads/bukti_pembayaran/' . $bp_name);
+    if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], $bp_target_dir . $bp_name)) {
+        compressImage($bp_target_dir . $bp_name);
         $bukti_pembayaran = $bp_name;
     }
 }

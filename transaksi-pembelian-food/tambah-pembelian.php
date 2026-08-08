@@ -36,7 +36,7 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= time(); ?>">
 </head>
 
 <body>
@@ -96,15 +96,15 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
                         <label for="add_metode_pembayaran">Metode Pembayaran</label>
                         <div class="metode-radio-group">
                             <label class="metode-radio-label" data-metode="cash">
-                                <input type="radio" name="metode_pembayaran" value="cash" id="add_metode_cash" checked>
+                                <input type="radio" name="metode_pembayaran" value="cash" id="add_metode_cash" checked onchange="toggleBiayaAdmin('add')">
                                 <span class="metode-radio-btn"><i class="ph ph-money"></i> Cash</span>
                             </label>
                             <label class="metode-radio-label" data-metode="qris">
-                                <input type="radio" name="metode_pembayaran" value="qris" id="add_metode_qris">
+                                <input type="radio" name="metode_pembayaran" value="qris" id="add_metode_qris" onchange="toggleBiayaAdmin('add')">
                                 <span class="metode-radio-btn"><i class="ph ph-qr-code"></i> QRIS</span>
                             </label>
                             <label class="metode-radio-label" data-metode="transfer">
-                                <input type="radio" name="metode_pembayaran" value="transfer" id="add_metode_transfer">
+                                <input type="radio" name="metode_pembayaran" value="transfer" id="add_metode_transfer" onchange="toggleBiayaAdmin('add')">
                                 <span class="metode-radio-btn"><i class="ph ph-bank"></i> Transfer</span>
                             </label>
                         </div>
@@ -120,11 +120,11 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
                         <label>Status Pembayaran</label>
                         <div class="metode-radio-group status-bayar-group">
                             <label class="metode-radio-label status-radio-label" data-status="lunas">
-                                <input type="radio" name="status_pembayaran" value="lunas" id="add_status_lunas" checked>
+                                <input type="radio" name="status_pembayaran" value="lunas" id="add_status_lunas" checked onchange="toggleStatusPembayaran()">
                                 <span class="metode-radio-btn"><i class="ph ph-check-circle"></i> Lunas</span>
                             </label>
                             <label class="metode-radio-label status-radio-label" data-status="sebagian">
-                                <input type="radio" name="status_pembayaran" value="sebagian" id="add_status_sebagian">
+                                <input type="radio" name="status_pembayaran" value="sebagian" id="add_status_sebagian" onchange="toggleStatusPembayaran()">
                                 <span class="metode-radio-btn"><i class="ph ph-hourglass-medium"></i> Bayar Sebagian</span>
                             </label>
                         </div>
@@ -134,6 +134,34 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
                         <label for="add_jumlah_dibayar">Jumlah Dibayar Sekarang</label>
                         <input type="text" id="add_jumlah_dibayar" name="jumlah_dibayar" placeholder="Rp 0" value="">
                         <small class="upload-hint" id="sisa-bayar-hint">Sisa akan otomatis dihitung dari Total Keseluruhan.</small>
+                    </div>
+                </div>
+                <div class="tambah-payment-grid">
+                    <div class="form-group">
+                        <label>Diskon Nota / Transaksi</label>
+                        <div class="metode-radio-group diskon-radio-group">
+                            <label class="metode-radio-label diskon-radio-label" data-diskon="tidak">
+                                <input type="radio" name="ada_diskon" value="tidak" id="add_diskon_tidak" checked onchange="toggleDiskon('add')">
+                                <span class="metode-radio-btn"><i class="ph ph-x-circle"></i> Tidak Ada</span>
+                            </label>
+                            <label class="metode-radio-label diskon-radio-label" data-diskon="ada">
+                                <input type="radio" name="ada_diskon" value="ada" id="add_diskon_ada" onchange="toggleDiskon('add')">
+                                <span class="metode-radio-btn"><i class="ph ph-tag"></i> Ada Diskon</span>
+                            </label>
+                        </div>
+                        <small class="upload-hint">Diskon berlaku 1x untuk seluruh nota/transaksi ini.</small>
+                    </div>
+                    <div class="form-group" id="add_diskon_group" style="display:none;">
+                        <label for="add_diskon_input">Nilai Diskon Nota</label>
+                        <div style="display:flex; gap:8px;">
+                            <select name="tipe_diskon" id="add_tipe_diskon" style="width:130px; border-radius:10px; border:1.5px solid #bfdbf7; padding:10px; font-family:inherit; font-weight:600; background:#fff; color:var(--text-main);" onchange="updateGrandTotal()">
+                                <option value="nominal">Rp (Nominal)</option>
+                                <option value="persen">% (Persen)</option>
+                            </select>
+                            <input type="text" id="add_diskon_input" name="diskon_input" placeholder="0" value="" style="flex:1;">
+                            <input type="hidden" id="add_diskon_final" name="diskon" value="0">
+                        </div>
+                        <small class="upload-hint" id="add_diskon_hint">Potongan diskon akan mengurangi total belanja nota ini.</small>
                     </div>
                 </div>
                 <div class="nota-upload-wrapper" id="add_bukti_bayar_wrapper" style="display:none;">
@@ -166,9 +194,25 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
                         <i class="ph ph-package"></i>
                         <p>Belum ada barang.<br>Klik <strong>+ Tambah Barang</strong> untuk mulai.</p>
                     </div>
-                    <div class="total-row" id="total-row" style="display:none;">
-                        <span class="total-label">Total Keseluruhan</span>
-                        <span class="total-value" id="grand-total-display">Rp 0</span>
+                    <div class="total-row" id="total-row" style="display:none; flex-direction:column; gap:10px;">
+                        <div class="total-breakdown" id="total-breakdown" style="display:flex; flex-direction:column; gap:6px; width:100%; border-bottom:1px dashed #bfdbf7; padding-bottom:8px; font-size:0.9rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:var(--text-muted);">Subtotal Barang:</span>
+                                <span id="subtotal-barang-display" style="font-weight:600;">Rp 0</span>
+                            </div>
+                            <div id="breakdown-diskon-row" style="display:none; justify-content:space-between; align-items:center; color:#dc2626;">
+                                <span>Diskon:</span>
+                                <span id="diskon-display" style="font-weight:600;">- Rp 0</span>
+                            </div>
+                            <div id="breakdown-admin-row" style="display:none; justify-content:space-between; align-items:center; color:#2563a8;">
+                                <span>Biaya Admin:</span>
+                                <span id="biaya-admin-display" style="font-weight:600;">+ Rp 0</span>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                            <span class="total-label">Total Keseluruhan</span>
+                            <span class="total-value" id="grand-total-display">Rp 0</span>
+                        </div>
                     </div>
                 </div>
                 <div class="nota-upload-wrapper">
@@ -210,12 +254,13 @@ $kategoriResult = mysqli_query($koneksi, "SELECT DISTINCT kategori FROM barang W
     </main>
     <?php include '../components/made-by.php'; ?>
 </body>
-<script src="script.js"></script>
+<script src="script.js?v=<?= time(); ?>"></script>
 <script>
     // Halaman ini berdiri sendiri (bukan modal), jadi langsung inisialisasi form saat load
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof initTambahForm === 'function') initTambahForm();
         if (typeof toggleStatusPembayaran === 'function') toggleStatusPembayaran();
+        if (typeof toggleDiskon === 'function') toggleDiskon('add');
     });
 </script>
 

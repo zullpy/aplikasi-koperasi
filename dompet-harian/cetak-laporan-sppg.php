@@ -5,7 +5,7 @@ require_once '../database/auth.php';
 
 // Halaman Cetak Laporan SPPG hanya untuk bendahara, admin, ketua – bukan purchase
 $userRole = $_SESSION['role'] ?? 'admin';
-if ($userRole === 'purchase') {
+if ($userRole === 'purchase' || $userRole === 'purchase_stok') {
     header("Location: index.php");
     exit;
 }
@@ -43,7 +43,7 @@ try {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Surat Pengajuan Rencana Anggaran Belanja - KBUS</title>
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -75,6 +75,7 @@ try {
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             z-index: 1000;
             min-height: 60px;
+            gap: 10px;
         }
 
         .toolbar-icon {
@@ -109,6 +110,7 @@ try {
         .toolbar-buttons {
             display: flex;
             gap: 10px;
+            flex-shrink: 0;
         }
 
         .btn {
@@ -123,6 +125,7 @@ try {
             gap: 8px;
             transition: all 0.3s ease;
             text-decoration: none;
+            white-space: nowrap;
         }
 
         .btn-download {
@@ -158,13 +161,22 @@ try {
             justify-content: center;
         }
 
+        .preview-scale-outer {
+            /* wrapper yang ukurannya dikoreksi lewat JS supaya nggak nyisain
+               ruang kosong pas .preview-container di-scale kecil di mobile */
+            overflow: hidden;
+        }
+
         .preview-container {
             background: white;
             width: 210mm;
+            min-width: 210mm;
+            flex-shrink: 0;
             min-height: 297mm;
             padding: 15mm 20mm;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             border-radius: 8px;
+            transform-origin: top left;
         }
 
         .loading-overlay {
@@ -229,7 +241,7 @@ try {
         .kop-surat {
             display: flex;
             align-items: center;
-            padding-bottom: 5px;
+            padding-bottom: 3px;
         }
 
         .kop-logo {
@@ -266,7 +278,7 @@ try {
             border-top: 3px solid #000;
             border-bottom: 1px solid #000;
             height: 2px;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
 
         .judul-laporan {
@@ -280,23 +292,28 @@ try {
         .tabel-data {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: 11px;
             color: #000;
         }
 
         .tabel-info td {
             border: none;
-            padding: 4px 6px;
+            padding: 3px 6px;
         }
 
         .tabel-data th,
         .tabel-data td {
             border: 1px solid #000;
-            padding: 6px;
+            padding: 4px 6px;
+        }
+
+        .tabel-data tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .tabel-info {
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .tabel-data th {
@@ -317,6 +334,21 @@ try {
             height: 25px;
         }
 
+        /* ─── Tabel Data (per-halaman) ────────────────────────────── */
+        .tabel-data-wrap {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .tabel-data-wrap.has-more {
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .tabel-data {
+            margin-bottom: 8px;
+        }
+
         .uang-text {
             text-align: center;
             font-size: 14px;
@@ -330,6 +362,8 @@ try {
             padding: 10px 15px;
             border: 1px solid #000;
             background: #fafafa;
+            page-break-before: always;
+            break-before: page;
         }
 
         .summary-row {
@@ -413,6 +447,63 @@ try {
             font-style: italic;
         }
 
+        /* ─────────────────────────────────────────────────────────
+           RESPONSIVE / MOBILE
+           Halaman A4 dibiarkan tetap 210mm (biar hasil render sama
+           persis dengan PDF-nya), tapi di layar sempit kita "scale"
+           kecil pakai transform lewat JS (fitPreviewToScreen()) biar
+           kebaca penuh tanpa geser-geser horizontal. CSS di bawah ini
+           ngatur toolbar & spacing supaya tetap nyaman di HP.
+           ───────────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .toolbar {
+                padding: 8px 12px;
+                min-height: 52px;
+            }
+
+            .toolbar-icon {
+                font-size: 18px;
+            }
+
+            .toolbar-title {
+                font-size: 11px;
+            }
+
+            .toolbar-subtitle {
+                font-size: 9px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 0;
+                gap: 0;
+            }
+
+            .btn i {
+                font-size: 18px;
+            }
+
+            .preview-wrapper {
+                margin-top: 64px;
+                padding: 12px 8px 24px;
+            }
+
+            .preview-scale-outer {
+                width: 100%;
+                margin: 0 auto;
+            }
+
+            .preview-container {
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            }
+        }
+
+        @media (max-width: 420px) {
+            .toolbar-subtitle {
+                display: none;
+            }
+        }
+
         @media print {
 
             .toolbar,
@@ -429,9 +520,14 @@ try {
                 padding: 0;
             }
 
+            .preview-scale-outer {
+                overflow: visible !important;
+            }
+
             .preview-container {
                 box-shadow: none;
                 width: 100%;
+                transform: none !important;
             }
         }
     </style>
@@ -451,7 +547,7 @@ try {
                 <i class="ph ph-arrow-left"></i> Kembali
             </button> -->
             <button class="btn btn-download" id="downloadBtn" onclick="downloadPDF()">
-                <i class="ph ph-download-simple"></i> Download PDF
+                <i class="ph ph-download-simple"></i> <span class="btn-label">Download PDF</span>
             </button>
         </div>
     </div>
@@ -460,10 +556,12 @@ try {
         <div class="loading-text">Sedang membuat PDF...</div>
     </div>
     <div class="preview-wrapper">
-        <div class="preview-container" id="pdfContent">
-            <div id="contentLoader" style="text-align: center; padding: 40px;">
-                <div class="spinner" style="margin: 0 auto 20px;"></div>
-                <div style="color: #666;">Memuat data...</div>
+        <div class="preview-scale-outer" id="scaleOuter">
+            <div class="preview-container" id="pdfContent">
+                <div id="contentLoader" style="text-align: center; padding: 40px;">
+                    <div class="spinner" style="margin: 0 auto 20px;"></div>
+                    <div style="color: #666;">Memuat data...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -473,6 +571,14 @@ try {
 
         function formatRupiah(num) {
             return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+        }
+
+        function formatQty(val) {
+            const num = parseFloat(val);
+            if (isNaN(num)) return '';
+            return Number.isInteger(num)
+                ? num.toLocaleString('id-ID')
+                : num.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
         }
 
         function formatDateShort(dateStr) {
@@ -503,14 +609,41 @@ try {
                 const item = result.data.find(d => d.id == PENGATURAN_ID);
                 if (!item) throw new Error('Data tidak ditemukan');
                 renderContent(item);
+                // render dulu, baru dihitung skalanya (butuh tinggi konten final)
+                requestAnimationFrame(() => {
+                    fitPreviewToScreen();
+                });
             } catch (err) {
                 showError(err.message);
             }
         }
 
+        // ── PAGINASI MANUAL TABEL ITEM (biar <thead> ke-ulang tiap halaman
+        //    dan potongan antar-halaman bersih saat export PDF) ──────────
+        // CATATAN: rowsPerFirstPage & rowsPerNextPage adalah estimasi jumlah
+        // baris yang muat per halaman A4. Sesuaikan (coba-coba) kalau hasil
+        // PDF masih kurang/lebih pas.
+        function buildTablePages(totalRowCount, rowsPerFirstPage, rowsPerNextPage) {
+            const pages = [];
+            let remaining = Math.max(totalRowCount, 1);
+            let offset = 0;
+            let isFirst = true;
+            while (remaining > 0) {
+                const limit = isFirst ? rowsPerFirstPage : rowsPerNextPage;
+                const take = Math.min(limit, remaining);
+                pages.push({ offset, count: take });
+                offset += take;
+                remaining -= take;
+                isFirst = false;
+            }
+            return pages;
+        }
+
         function renderContent(item) {
             const items = item.detail_items || item.items || [];
-            const totalBelanja = parseFloat(item.total_belanja) || 0;
+            const totalBelanja = items.reduce((sum, it) => {
+                return sum + ((parseFloat(it.harga) || 0) * (parseFloat(it.qty) || 0)) + (parseFloat(it.biaya_admin) || 0);
+            }, 0);
             const uangMasuk = parseFloat(item.uang_masuk) || 0;
             const sisaUang = uangMasuk - totalBelanja;
 
@@ -524,19 +657,61 @@ try {
             const textUangMasuk = uangMasuk > 0 ? formatRupiah(uangMasuk) : '.............';
             const textSisaUang = (uangMasuk > 0 || totalBelanja > 0) ? formatRupiah(nominalSisa) : '.............';
 
-            let rowsHtml = '';
-            for (let i = 0; i < 10; i++) {
-                const it = items[i];
-                const subtotal = it ? (parseFloat(it.harga) || 0) * (parseInt(it.qty) || 0) : null;
-                rowsHtml += `<tr>
-            <td class="center baris-kosong">${i + 1}</td>
-            <td>${it ? it.nama_barang : ''}</td>
-            <td class="center">${it ? it.qty : ''}</td>
-            <td class="center">${it ? it.satuan : ''}</td>
-            <td class="right">${it ? formatRupiah(it.harga) : ''}</td>
-            <td class="right">${it && subtotal ? formatRupiah(subtotal) : ''}</td>
-        </tr>`;
-            }
+            // minimal 10 baris tampil (padding blank rows) biar tabel tetap rapi kalau item sedikit
+            const totalRowCount = Math.max(items.length, 10);
+
+            const rowsPerFirstPage = 30; // halaman 1: sudah ada kop surat, judul, info (padding/font tabel udah dikecilkan)
+            const rowsPerNextPage  = 38; // halaman berikutnya: tabel lebih leluasa dari atas
+
+            const tablePages = buildTablePages(totalRowCount, rowsPerFirstPage, rowsPerNextPage);
+            const lastPageIndex = tablePages.length - 1;
+
+            const theadHtml = `
+                <thead>
+                    <tr>
+                        <th style="width: 6%;">No</th>
+                        <th style="width: 36%;">Nama Barang</th>
+                        <th style="width: 10%;">Qty</th>
+                        <th style="width: 13%;">Satuan</th>
+                        <th style="width: 17%;">Harga</th>
+                        <th style="width: 18%;">Sub Total</th>
+                    </tr>
+                </thead>`;
+
+            let tableBlocksHtml = '';
+            tablePages.forEach((page, pageIndex) => {
+                let rowsHtml = '';
+                const sliceEnd = Math.min(page.offset + page.count, totalRowCount);
+                for (let i = page.offset; i < sliceEnd; i++) {
+                    const it = items[i];
+                    const subtotal = it ? ((parseFloat(it.harga) || 0) * (parseFloat(it.qty) || 0)) + (parseFloat(it.biaya_admin) || 0) : null;
+                    rowsHtml += `<tr>
+    <td class="center baris-kosong">${i + 1}</td>
+    <td>${it ? it.nama_barang : ''}</td>
+    <td class="center">${it ? formatQty(it.qty) : ''}</td>
+    <td class="center">${it ? it.satuan : ''}</td>
+    <td class="right">${it ? formatRupiah(it.harga) : ''}</td>
+    <td class="right">${it && subtotal ? formatRupiah(subtotal) : ''}</td>
+</tr>`;
+                }
+
+                const totalRowHtml = pageIndex === lastPageIndex ? `
+                <tr>
+                    <td colspan="4" style="border-right: 1px solid #000;"></td>
+                    <td class="center" style="font-weight: bold; vertical-align: middle;">Total<br>Belanja</td>
+                    <td class="right" style="vertical-align: middle;">${totalBelanja > 0 ? formatRupiah(totalBelanja) : ''}</td>
+                </tr>` : '';
+
+                const wrapClass = pageIndex < lastPageIndex ? 'tabel-data-wrap has-more' : 'tabel-data-wrap';
+
+                tableBlocksHtml += `
+        <div class="${wrapClass}">
+            <table class="tabel-data">
+                ${theadHtml}
+                <tbody>${rowsHtml}${totalRowHtml}</tbody>
+            </table>
+        </div>`;
+            });
 
             const roleMapping = {
                 'bendahara': {
@@ -594,25 +769,7 @@ try {
                 <td colspan="4">${item.nama_menu || ''}</td>
             </tr>
         </table>
-        <table class="tabel-data">
-            <thead>
-                <tr>
-                    <th style="width: 6%;">No</th>
-                    <th style="width: 36%;">Nama Barang</th>
-                    <th style="width: 10%;">Qty</th>
-                    <th style="width: 13%;">Satuan</th>
-                    <th style="width: 17%;">Harga</th>
-                    <th style="width: 18%;">Sub Total</th>
-                </tr>
-            </thead>
-            <tbody>${rowsHtml}
-                <tr>
-                    <td colspan="4" style="border-right: 1px solid #000;"></td>
-                    <td class="center" style="font-weight: bold; vertical-align: middle;">Total<br>Belanja</td>
-                    <td class="right" style="vertical-align: middle;">${totalBelanja > 0 ? formatRupiah(totalBelanja) : ''}</td>
-                </tr>
-            </tbody>
-        </table>
+        ${tableBlocksHtml}
         <div class="summary-box">
             <div class="summary-row total-pengajuan">
                 <span class="summary-label">Total Pengajuan</span>
@@ -624,10 +781,6 @@ try {
             </div>
         </div>
         ${item.catatan_bendahara ? `<div style="font-size: 11px; margin-top: 10px; color: #444;">Catatan: ${item.catatan_bendahara}</div>` : ''}
-        <div class="ttd-section">
-            ${renderTtdBox('bendahara')}
-            ${renderTtdBox('ketua')}
-        </div>
     `;
 
             document.getElementById('pdfContent').innerHTML = html;
@@ -647,14 +800,62 @@ try {
     `;
         }
 
+        // ── AUTO-SCALE PREVIEW UNTUK LAYAR SEMPIT (HP) ───────────────────
+        // .preview-container tetap fisik 210mm (biar konsisten sama hasil
+        // PDF), tapi tampilannya di-scale down pakai transform supaya pas
+        // di lebar layar HP tanpa perlu geser horizontal. Tinggi wrapper
+        // luar disesuaikan manual karena transform:scale tidak mengubah
+        // ukuran dokumen (document flow).
+        function fitPreviewToScreen() {
+            const outer = document.getElementById('scaleOuter');
+            const container = document.getElementById('pdfContent');
+            if (!outer || !container) return;
+
+            const isMobile = window.innerWidth <= 768;
+
+            if (!isMobile) {
+                container.style.transform = '';
+                outer.style.width = '';
+                outer.style.height = '';
+                return;
+            }
+
+            // reset dulu supaya offsetWidth/offsetHeight yang dibaca
+            // adalah ukuran asli (bukan hasil scale sebelumnya)
+            container.style.transform = 'none';
+
+            const naturalWidth = container.offsetWidth;
+            const naturalHeight = container.offsetHeight;
+            const availableWidth = window.innerWidth - 16; // sisain sedikit padding kiri-kanan
+
+            const scale = Math.min(availableWidth / naturalWidth, 1);
+
+            container.style.transform = `scale(${scale})`;
+            outer.style.width = (naturalWidth * scale) + 'px';
+            outer.style.height = (naturalHeight * scale) + 'px';
+        }
+
+        window.addEventListener('resize', fitPreviewToScreen);
+        window.addEventListener('orientationchange', () => setTimeout(fitPreviewToScreen, 200));
+
         async function downloadPDF() {
             const btn = document.getElementById('downloadBtn');
             const overlay = document.getElementById('loadingOverlay');
             const content = document.getElementById('pdfContent');
             btn.disabled = true;
             overlay.classList.add('active');
+
+            // matikan dulu transform scale mobile supaya html2canvas
+            // nangkep konten di ukuran asli (210mm), baru dikembalikan
+            // lagi setelah proses PDF selesai
+            const prevTransform = content.style.transform;
+            content.style.transform = 'none';
+
+            // paksa scroll ke paling atas dulu, biar html2canvas nggak ikut nangkep area kosong di atas
+            window.scrollTo(0, 0);
+
             const opt = {
-                margin: [8, 8, 8, 8],
+                margin: 0, // margin halaman sudah diatur lewat padding .preview-container (15mm 20mm), jangan dobel di sini
                 filename: `SPRAB-${PENGATURAN_ID}.pdf`,
                 image: {
                     type: 'jpeg',
@@ -663,19 +864,24 @@ try {
                 html2canvas: {
                     scale: 2,
                     useCORS: true,
-                    letterRendering: true
+                    letterRendering: true,
+                    scrollY: 0,
+                    scrollX: 0
                 },
                 jsPDF: {
                     unit: 'mm',
                     format: 'a4',
                     orientation: 'portrait'
-                }
+                },
+                pagebreak: { mode: ['css'] } // pemotongan halaman dikontrol manual lewat class has-more
             };
             try {
                 await html2pdf().set(opt).from(content).save();
                 setTimeout(() => {
                     overlay.classList.remove('active');
                     btn.disabled = false;
+                    content.style.transform = prevTransform;
+                    fitPreviewToScreen();
                     const toast = document.createElement('div');
                     toast.style.cssText = `position: fixed; bottom: 30px; right: 30px; background: #10b981; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; z-index: 3000;`;
                     toast.innerHTML = '<i class="ph ph-check-circle"></i> PDF berhasil diunduh!';
@@ -686,6 +892,8 @@ try {
                 console.error(err);
                 overlay.classList.remove('active');
                 btn.disabled = false;
+                content.style.transform = prevTransform;
+                fitPreviewToScreen();
                 alert('Gagal membuat PDF: ' + err.message);
             }
         }

@@ -2,6 +2,9 @@ const modal = document.getElementById('modalAset');
 const form = document.getElementById('formAset');
 const modalTitle = document.getElementById('modalTitle');
 
+const modalPengecekan = document.getElementById('modalPengecekan');
+const formPengecekan = document.getElementById('formPengecekan');
+
 function bukaModalTambah() {
     form.reset();
     document.getElementById('aset_id').value = '';
@@ -31,6 +34,45 @@ function bukaModalEdit(id) {
 function tutupModal() {
     modal.classList.remove('active');
 }
+
+function bukaModalPengecekan(id, nama, tglCek, kondisi) {
+    document.getElementById('pengecekan_id').value = id;
+    document.getElementById('pengecekan_nama').value = nama;
+    document.getElementById('tanggal_pengecekan').value = tglCek || '';
+    document.getElementById('kondisi_cek').value = kondisi || 'Baik';
+    modalPengecekan.classList.add('active');
+}
+
+function tutupModalPengecekan() {
+    modalPengecekan.classList.remove('active');
+}
+
+formPengecekan.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const formData = new FormData(formPengecekan);
+
+    fetch('', {
+        method: 'POST',
+        body: formData
+    })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                tutupModalPengecekan();
+                Swal.fire({
+                    icon: 'success',
+                    title: data.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                }).then(() => location.reload());
+            } else {
+                Swal.fire('Gagal', data.message, 'error');
+            }
+        })
+        .catch(() => {
+            Swal.fire('Error', 'Terjadi kesalahan saat menyimpan data', 'error');
+        });
+});
 
 form.addEventListener('submit', function (e) {
     e.preventDefault();

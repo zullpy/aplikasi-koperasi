@@ -3,6 +3,7 @@ Dompet Belanja Harian SPPG
 script.js — Grouped by Date > Menu
 Role purchase: tombol "Sudah Dibeli" & "Upload Nota" PER ITEM (per baris barang)
 Role lain: tombol Edit/Hapus di menu card
+Biaya Admin sekarang diinput PER BARANG (bukan per transaksi/header lagi).
 */
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -12,6 +13,7 @@ let searchQuery = '';
 let editingId = null;
 let barangRowCount = 0;
 const USER_ROLE = window.CURRENT_USER_ROLE || 'admin';
+const IS_PURCHASE_ROLE = USER_ROLE === 'purchase' || USER_ROLE === 'purchase_stok';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatRupiah(num) {
@@ -23,7 +25,56 @@ function parseRupiah(str) {
   return parseFloat(String(str).replace(/\./g, '').replace(/[^\d]/g, '')) || 0;
 }
 
+function formatQty(val) {
+  const num = parseFloat(val);
+  if (isNaN(num)) return '0';
+  // Kalau bulat, tampilkan tanpa desimal. Kalau ada koma, tampilkan apa adanya (maks 2 desimal)
+  return Number.isInteger(num)
+    ? num.toLocaleString('id-ID')
+    : num.toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+}
+
+// Qty boleh desimal, dan orang Indonesia sering ketik pakai koma (0,5)
+// bukan titik (0.5) — terutama dari keyboard numerik HP. Normalisasi
+// koma jadi titik sebelum di-parse supaya kedua format diterima.
+function parseQty(val) {
+  if (val === null || val === undefined) return 0;
+  const normalized = String(val).trim().replace(',', '.');
+  const num = parseFloat(normalized);
+  return isNaN(num) ? 0 : num;
+}
+
+// Sanitasi input Qty secara real-time: hanya izinkan angka dan SATU
+// pemisah desimal (titik ATAU koma), tanpa memaksa ganti simbol yang
+// sedang diketik user (supaya kursor tidak loncat-loncat).
+function onQtyInput(el, rowId) {
+  let val = el.value.replace(/[^0-9.,]/g, '');
+  const sepMatches = val.match(/[.,]/g) || [];
+  if (sepMatches.length > 1) {
+    const firstSep = sepMatches[0];
+    const firstIdx = val.indexOf(firstSep);
+    val = val.slice(0, firstIdx + 1) + val.slice(firstIdx + 1).replace(/[.,]/g, '');
+  }
+  el.value = val;
+  updateRowSubtotal(rowId);
+}
+
 function onHargaInput(el, rowId) {
+  const raw = String(el.value).replace(/\./g, '').replace(/[^\d]/g, '');
+  const num = parseInt(raw) || 0;
+  el.value = num ? num.toLocaleString('id-ID') : '';
+  updateRowSubtotal(rowId);
+}
+
+function formatLiveCurrency(el) {
+  const raw = String(el.value).replace(/\./g, '').replace(/[^\d]/g, '');
+  const num = parseInt(raw) || 0;
+  el.value = num ? num.toLocaleString('id-ID') : '';
+}
+
+// Format live Biaya Admin (Rp) PER BARANG. Sama seperti input harga
+// barang, lalu langsung update Total Estimasi di footer modal.
+function onItemAdminFeeInput(el, rowId) {
   const raw = String(el.value).replace(/\./g, '').replace(/[^\d]/g, '');
   const num = parseInt(raw) || 0;
   el.value = num ? num.toLocaleString('id-ID') : '';
@@ -50,13 +101,15 @@ function escHtml(str) {
 }
 
 function statusBadge(status) {
+  if (status === 'pending' || status === 'approved') {
+    return '';
+  }
   const map = {
-    pending: { label: 'Pending', cls: 'badge-pending' },
-    approved: { label: 'Disetujui', cls: 'badge-approved' },
     rejected: { label: 'Ditolak', cls: 'badge-rejected' },
     completed: { label: 'Selesai', cls: 'badge-completed' },
   };
-  const s = map[status] || { label: status, cls: 'badge-pending' };
+  const s = map[status];
+  if (!s) return '';
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
 }
 
@@ -112,15 +165,19 @@ function renderTable() {
     grouped[item.tanggal].push(item);
   });
 
-  const isPurchase = USER_ROLE === 'purchase';
+  const isPurchase = IS_PURCHASE_ROLE;
   let html = '';
 
   Object.keys(grouped)
     .sort((a, b) => new Date(b) - new Date(a))
     .forEach(tanggal => {
       const items = grouped[tanggal];
-      const totalHari = items.reduce((sum, it) =>
-        sum + (parseFloat(it.total_belanja || it.total_harga) || 0), 0);
+      const totalHari = items.reduce((sum, it) => {
+        const dItems = it.items || it.detail_items || [];
+        const tItem = dItems.reduce((s, b) =>
+          s + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
+        return sum + tItem;
+      }, 0);
 
       html += `
         <div class="date-group">
@@ -141,7 +198,8 @@ function renderTable() {
           <div class="menu-group-list">
             ${items.map(item => {
         const detailItems = item.items || item.detail_items || [];
-        const totalItem = parseFloat(item.total_belanja || item.total_harga) || 0;
+        const totalItem = detailItems.reduce((sum, b) =>
+          sum + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
         const status = item.status || 'pending';
 
         // Tombol aksi di level MENU CARD (hanya untuk admin)
@@ -155,6 +213,13 @@ function renderTable() {
                     </svg>
                     Edit
                   </button>
+                  <button class="btn-action btn-action-saldo" onclick="openInputSaldoModal(${item.id}, ${item.uang_masuk || 0})">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="1" x2="12" y2="23"/>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    ${parseFloat(item.uang_masuk) > 0 ? 'Edit Saldo' : 'Input Saldo'}
+                  </button>
                   <button class="btn-action btn-action-delete" onclick="deleteItem(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                       <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -162,6 +227,18 @@ function renderTable() {
                     </svg>
                     Hapus
                   </button>
+                  <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="16" y1="13" x2="8" y2="13"/>
+                      <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    PDF
+                  </button>
+                `;
+        } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua') {
+          menuActionsHtml = `
                   <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -194,10 +271,38 @@ function renderTable() {
                           </svg>
                           ${escHtml(item.jumlah_porsi || '-')} porsi
                         </span>
-                        ${statusBadge(status)}
-                        ${status === 'approved' || status === 'completed' ? (() => {
+                        ${item.keterangan ? `
+                        <span class="menu-keterangan" style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info" style="vertical-align: middle;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                          </svg>
+                          ${escHtml(item.keterangan)}
+                        </span>
+                        ` : ''}
+                        ${(() => {
             const uangMasuk = parseFloat(item.uang_masuk) || 0;
-            const buktiTF = item.bukti_transfer || null;
+            const biayaAdmin = parseFloat(item.biaya_admin) || 0;
+
+            // ✅ FIX: bukti_transfer sekarang bisa berisi LEBIH DARI 1 file
+            // (disimpan sebagai JSON array, sama seperti nota_urls).
+            const buktiTFRaw = item.bukti_transfer || null;
+            let buktiTFUrls = [];
+            if (buktiTFRaw) {
+              if (Array.isArray(buktiTFRaw)) {
+                buktiTFUrls = buktiTFRaw;
+              } else {
+                try {
+                  const parsed = JSON.parse(buktiTFRaw);
+                  buktiTFUrls = Array.isArray(parsed) ? parsed : [buktiTFRaw];
+                } catch (e) {
+                  buktiTFUrls = [buktiTFRaw];
+                }
+              }
+            }
+            buktiTFUrls = buktiTFUrls.filter(u => u);
+
             let html = '';
             if (uangMasuk) {
               const selisih = uangMasuk - totalItem;
@@ -216,18 +321,28 @@ function renderTable() {
                               Saldo Masuk: <strong>${formatRupiah(uangMasuk)}</strong>
                             </span>${selisihHtml}`;
             }
-            if (buktiTF && !isPurchase) {
-              html += `<button class="btn-bukti-tf" onclick="openBuktiTF('${escHtml(buktiTF)}')" title="Lihat Bukti Transfer">
+            if (biayaAdmin) {
+              html += `<span class="menu-biaya-admin">
+                              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                <rect x="1.5" y="3" width="10" height="7.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
+                                <path d="M1.5 5.5h10" stroke="currentColor" stroke-width="1.3"/>
+                              </svg>
+                              Biaya Admin: <strong>${formatRupiah(biayaAdmin)}</strong>
+                            </span>`;
+            }
+            if (buktiTFUrls.length > 0 && !isPurchase) {
+              const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(buktiTFUrls))));
+              html += `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1" y="2" width="11" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
                                 <path d="M1 9.5l3-3 2 2 1.5-1.5L12 9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
                                 <circle cx="4" cy="5.5" r="1" fill="currentColor"/>
                               </svg>
-                              Bukti TF
+                              Bukti TF${buktiTFUrls.length > 1 ? ` (${buktiTFUrls.length})` : ''}
                             </button>`;
             }
             return html;
-          })() : ''}
+          })()}
                       </div>
                     </div>
                     <div class="menu-card-right">
@@ -238,18 +353,31 @@ function renderTable() {
 
                   <!-- Tabel rincian barang -->
                   <div class="menu-card-body">
+                    <div class="menu-card-body-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.6rem;">
+                      <span style="font-weight:600; font-size:0.85rem; color:#475569;">Rincian Barang</span>
+                      ${USER_ROLE === 'admin' ? `
+                        <button class="btn-mini btn-mini-primary" onclick="openAddItemModal(${item.id})" style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; padding:3px 10px;">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                            <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                          </svg>
+                          Tambah Barang
+                        </button>
+                      ` : ''}
+                    </div>
                     ${detailItems.length > 0 ? `
                       <table class="rincian-table">
                         <thead>
                           <tr>
                             <th style="width:4%">No</th>
-                            <th style="width:${isPurchase ? '25%' : '35%'}">Nama Barang</th>
-                            <th style="width:8%">Qty</th>
-                            <th style="width:8%">Satuan</th>
-                            <th style="width:12%">Estimasi Harga </th>
-                            <th style="width:10%">Subtotal</th>
-                            ${isPurchase ? '<th style="width:15%">Status</th>' : ''}
-                            <th style="width:${isPurchase ? '18%' : '20%'}">Nota</th>
+                            <th style="width:${isPurchase ? '22%' : (USER_ROLE === 'admin' ? '23%' : '30%')}">Nama Barang</th>
+                            <th style="width:7%">Qty</th>
+                            <th style="width:7%">Satuan</th>
+                            <th style="width:11%">Estimasi Harga</th>
+                            <th style="width:10%">Biaya Admin</th>
+                            <th style="width:9%">Subtotal</th>
+                            ${isPurchase ? '<th style="width:14%">Status</th>' : ''}
+                            <th style="width:${isPurchase ? '16%' : (USER_ROLE === 'admin' ? '14%' : '18%')}">Nota</th>
+                            ${USER_ROLE === 'admin' ? '<th style="width:14%; text-align:center;">Aksi</th>' : ''}
                           </tr>
                         </thead>
                         <tbody>
@@ -268,13 +396,42 @@ function renderTable() {
                                       </svg>
                                       Sudah Dibeli
                                     </span>`
-                : `<button class="btn-item-bought btn-item-bought-pending" onclick="markItemAsBought(${itemId})">
+                : (USER_ROLE === 'purchase_stok'
+                  ? `<span class="btn-item-bought btn-item-bought-pending" style="cursor: default; display: inline-flex; align-items: center; gap: 0.3rem;">
+                                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                                        <circle cx="6" cy="6" r="4.5" />
+                                        <line x1="6" y1="3.5" x2="6" y2="6.5" />
+                                        <circle cx="6" cy="8.5" r="0.5" fill="currentColor" />
+                                      </svg>
+                                      Belum Dibeli
+                                    </span>`
+                  : `<button class="btn-item-bought btn-item-bought-pending" onclick="markItemAsBought(${itemId})">
                                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                                         <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                                       </svg>
                                       Sudah Dibeli
-                                    </button>`
+                                    </button>`)
               }
+                              </td>
+                            ` : '';
+
+            // Kolom Aksi (khusus admin)
+            const adminItemActionCell = USER_ROLE === 'admin' ? `
+                              <td style="text-align:center; white-space:nowrap;">
+                                <div style="display:inline-flex; gap:6px; justify-content:center;">
+                                  <button class="btn-item-action btn-item-edit" onclick="openEditItemModal(${itemId}, ${item.id})" title="Edit Barang">
+                                    <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
+                                      <path d="M2 9.5L8.5 3l1.5 1.5L3.5 11H2V9.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                                      <path d="M7.5 4l1.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                                    </svg>
+                                  </button>
+                                  <button class="btn-item-action btn-item-delete" onclick="deleteSingleItem(${itemId}, ${item.id})" title="Hapus Barang">
+                                    <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
+                                      <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                                      <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                  </button>
+                                </div>
                               </td>
                             ` : '';
 
@@ -282,10 +439,11 @@ function renderTable() {
                               <tr>
                                 <td>${i + 1}</td>
                                 <td>${escHtml(b.nama_barang)}</td>
-                                <td>${b.qty || b.quantity || 0}</td>
+                                <td>${formatQty(b.qty || b.quantity || 0)}</td>
                                 <td>${escHtml(b.satuan || '')}</td>
                                 <td>${formatRupiah(b.harga || b.harga_satuan || 0)}</td>
-                                <td class="subtotal-cell">${formatRupiah((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0))}</td>
+                                <td>${formatRupiah(b.biaya_admin || 0)}</td>
+                                <td class="subtotal-cell">${formatRupiah(((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0))}</td>
                                 ${statusCell}
                                 <td class="nota-cell">
                                   ${(() => {
@@ -303,7 +461,7 @@ function renderTable() {
                                           <span class="nota-count-badge">${urls.length}</span>
                                         </button>`
                   : `<span class="nota-empty-label">—</span>`;
-                const uploadBtn = (isPurchase || USER_ROLE === 'admin')
+                const uploadBtn = (((isPurchase && USER_ROLE !== 'purchase_stok') || USER_ROLE === 'admin'))
                   ? `<button class="btn-nota-icon btn-nota-upload-icon" title="Upload nota" onclick="openUploadNotaForItem(${itemId}, ${item.id})">
                                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                           <path d="M7 10V4M4 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -314,14 +472,15 @@ function renderTable() {
                 return `<div class="nota-action-group">${viewBtn}${uploadBtn}</div>`;
               })()}
                                 </td>
+                                ${adminItemActionCell}
                               </tr>
                             `;
           }).join('')}
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colspan="${isPurchase ? 5 : 5}" class="tfoot-label">Total Estimasi  </td>
-                            <td class="tfoot-total" colspan="${isPurchase ? 2 : 1}">${formatRupiah(totalItem)}</td>
+                            <td colspan="${isPurchase ? 6 : 6}" class="tfoot-label">Total Estimasi</td>
+                            <td class="tfoot-total" colspan="${isPurchase ? 2 : (USER_ROLE === 'admin' ? 3 : 1)}">${formatRupiah(totalItem)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -363,14 +522,14 @@ async function markItemAsBought(detailId) {
 // ─── Approval Functions ───────────────────────────────────────────────────────
 async function approveItem(id) {
   // Guard: role purchase tidak boleh approve
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] approveItem: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] approveItem: role purchase tidak memiliki akses'); return; }
   if (!confirm('Setujui pengajuan ini?')) return;
   await updateStatus(id, 'approved', '');
 }
 
 function openRejectModal(id) {
   // Guard: role purchase tidak boleh reject
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openRejectModal: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] openRejectModal: role purchase tidak memiliki akses'); return; }
   document.getElementById('rejectTargetId').value = id;
   document.getElementById('rejectionReason').value = '';
   document.getElementById('rejectModal').classList.add('active');
@@ -386,7 +545,7 @@ function closeRejectModal() {
 
 async function confirmReject() {
   // Guard: role purchase tidak boleh reject
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] confirmReject: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] confirmReject: role purchase tidak memiliki akses'); return; }
   const id = document.getElementById('rejectTargetId').value;
   const reason = document.getElementById('rejectionReason').value.trim();
   if (!reason) {
@@ -399,7 +558,7 @@ async function confirmReject() {
 
 async function updateStatus(id, status, catatan) {
   // Guard: role purchase tidak boleh update status pengajuan
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] updateStatus: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] updateStatus: role purchase tidak memiliki akses'); return; }
   try {
     const res = await fetch('../database/api-belanja.php?action=update_status', {
       method: 'POST',
@@ -427,6 +586,8 @@ function openModal() {
   resetForm();
   setTodayDate();
   addBarangRow();
+  const sec = document.getElementById('daftarBarangSection');
+  if (sec) sec.style.display = 'block';
   document.getElementById('modalTitle').textContent = 'Tambah Belanja Harian';
   document.getElementById('modalOverlay').classList.add('active');
 }
@@ -441,24 +602,15 @@ function openEditModal(id) {
   document.getElementById('inputTanggal').value = item.tanggal;
   document.getElementById('inputPorsi').value = item.jumlah_porsi || '';
   document.getElementById('inputNamaMenu').value = item.nama_menu;
+  const elKet = document.getElementById('inputKeterangan');
+  if (elKet) elKet.value = item.keterangan || '';
+  const elUangMasuk = document.getElementById('inputUangMasuk');
+  if (elUangMasuk) elUangMasuk.value = item.uang_masuk ? Math.round(parseFloat(item.uang_masuk)).toLocaleString('id-ID') : '';
 
-  const detailItems = item.items || item.detail_items || [];
-  if (detailItems.length > 0) {
-    detailItems.forEach(b => {
-      addBarangRow({
-        id_barang: b.id_barang,
-        nama_barang: b.nama_barang,
-        harga: b.harga || b.harga_satuan,
-        quantity: b.qty || b.quantity,
-        satuan: b.satuan
-      });
-    });
-  } else {
-    addBarangRow();
-  }
+  const sec = document.getElementById('daftarBarangSection');
+  if (sec) sec.style.display = 'none';
 
-  updateSubtotal();
-  document.getElementById('modalTitle').textContent = 'Edit Belanja Harian';
+  document.getElementById('modalTitle').textContent = 'Edit Informasi Transaksi';
   document.getElementById('modalOverlay').classList.add('active');
 }
 
@@ -470,8 +622,9 @@ function closeModal() {
 }
 
 function resetForm() {
-  ['inputTanggal', 'inputPorsi', 'inputNamaMenu'].forEach(id => {
-    document.getElementById(id).value = '';
+  ['inputTanggal', 'inputPorsi', 'inputNamaMenu', 'inputKeterangan', 'inputUangMasuk'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
   });
   ['errorTanggal', 'errorNamaMenu', 'errorBarang'].forEach(id => {
     document.getElementById(id).textContent = '';
@@ -486,10 +639,20 @@ function setTodayDate() {
 }
 
 // ─── Searchable Barang Dropdown ───────────────────────────────────────────────
-function createSearchableBarangDropdown(rowId, selectedId = null) {
+// FIX: menerima `selectedName` sebagai fallback. Sebelumnya, kalau id_barang
+// tidak ketemu di masterBarang (misalnya barang custom/manual yang diketik
+// tangan, atau sudah dihapus dari estimasi_harga), nama barang jadi KOSONG
+// saat modal Edit dibuka — akibatnya baris itu gagal lolos validasi dan
+// hilang diam-diam saat disimpan (item "tidak kesimpen").
+function createSearchableBarangDropdown(rowId, selectedId = null, selectedName = null) {
   const selectedBarang = selectedId
     ? masterBarang.find(b => b.id_barang == selectedId)
     : null;
+
+  // Kalau ketemu di masterBarang, pakai data master (nama & harga terbaru).
+  // Kalau tidak ketemu, tetap tampilkan nama asli yang tersimpan di data.
+  const displayName = selectedBarang ? selectedBarang.nama_barang : (selectedName || '');
+  const displayId = selectedBarang ? selectedBarang.id_barang : (selectedId || '');
 
   return `
     <div class="searchable-dropdown" data-row="${rowId}">
@@ -497,14 +660,14 @@ function createSearchableBarangDropdown(rowId, selectedId = null) {
         type="hidden"
         class="barang-id"
         data-row="${rowId}"
-        value="${selectedBarang ? selectedBarang.id_barang : ''}"
+        value="${displayId}"
       />
       <input
         type="text"
         class="form-input barang-search-input"
         data-row="${rowId}"
         placeholder="Cari nama barang..."
-        value="${selectedBarang ? escHtml(selectedBarang.nama_barang) : ''}"
+        value="${displayName ? escHtml(displayName) : ''}"
         autocomplete="off"
       />
       <div class="searchable-dropdown-list" data-row="${rowId}">
@@ -534,6 +697,11 @@ function addBarangRow(data = null) {
   const row = document.createElement('div');
   row.className = 'barang-row';
   row.dataset.rowId = rowId;
+  // Simpan id_detail (id baris di tabel detail_item_belanja) kalau ini
+  // baris hasil edit data lama. Dipakai saat SAVE supaya backend bisa
+  // UPDATE baris yang sama alih-alih hapus+insert baris baru (yang akan
+  // memutus link ke nota yang sudah diupload sebelumnya).
+  row.dataset.idDetail = data?.id_detail ?? '';
 
   row.innerHTML = `
     <div class="barang-row-header">
@@ -547,18 +715,18 @@ function addBarangRow(data = null) {
     <div class="form-row-3">
       <div class="form-group">
         <label class="form-label">Nama Barang</label>
-        ${createSearchableBarangDropdown(rowId, data?.id_barang)}
+        ${createSearchableBarangDropdown(rowId, data?.id_barang, data?.nama_barang)}
       </div>
       <div class="form-group">
         <label class="form-label">Qty</label>
         <input
-          type="number"
+          type="text"
+          inputmode="decimal"
           class="form-input barang-quantity"
           data-row="${rowId}"
           value="${data?.quantity ?? ''}"
           placeholder="0"
-          min="0"
-          oninput="updateRowSubtotal(${rowId})"
+          oninput="onQtyInput(this, ${rowId})"
         />
       </div>
       <div class="form-group">
@@ -572,19 +740,36 @@ function addBarangRow(data = null) {
         />
       </div>
     </div>
-    <div class="form-group" style="margin-top:0.6rem">
-      <label class="form-label">Estimasi Harga</label>
-      <div class="input-icon-wrapper">
-        <span class="input-icon input-icon-text">Rp</span>
-        <input
-          type="text"
-          class="form-input has-icon-text barang-harga"
-          data-row="${rowId}"
-          value="${data?.harga ? Number(data.harga).toLocaleString('id-ID') : ''}"
-          placeholder="0"
-          inputmode="numeric"
-          oninput="onHargaInput(this, ${rowId})"
-        />
+    <div class="form-row-2" style="display:flex; gap:0.6rem; margin-top:0.6rem;">
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Estimasi Harga</label>
+        <div class="input-icon-wrapper">
+          <span class="input-icon input-icon-text">Rp</span>
+          <input
+            type="text"
+            class="form-input has-icon-text barang-harga"
+            data-row="${rowId}"
+            value="${data?.harga ? Number(data.harga).toLocaleString('id-ID') : ''}"
+            placeholder="0"
+            inputmode="numeric"
+            oninput="onHargaInput(this, ${rowId})"
+          />
+        </div>
+      </div>
+      <div class="form-group" style="flex:1;">
+        <label class="form-label">Biaya Admin (Opsional)</label>
+        <div class="input-icon-wrapper">
+          <span class="input-icon input-icon-text">Rp</span>
+          <input
+            type="text"
+            class="form-input has-icon-text barang-biaya-admin"
+            data-row="${rowId}"
+            value="${data?.biaya_admin ? Number(data.biaya_admin).toLocaleString('id-ID') : ''}"
+            placeholder="0"
+            inputmode="numeric"
+            oninput="onItemAdminFeeInput(this, ${rowId})"
+          />
+        </div>
       </div>
     </div>
     <div class="barang-row-subtotal">
@@ -658,8 +843,10 @@ function renumberRows() {
 
 function updateRowSubtotal(rowId) {
   const harga = parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value);
-  const quantity = parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0;
-  document.querySelector(`.row-subtotal-value[data-row="${rowId}"]`).textContent = formatRupiah(harga * quantity);
+  const quantity = parseQty(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value);
+  const biayaAdminEl = document.querySelector(`.barang-biaya-admin[data-row="${rowId}"]`);
+  const biayaAdmin = biayaAdminEl ? parseRupiah(biayaAdminEl.value) : 0;
+  document.querySelector(`.row-subtotal-value[data-row="${rowId}"]`).textContent = formatRupiah((harga * quantity) + biayaAdmin);
   updateSubtotal();
 }
 
@@ -668,9 +855,12 @@ function updateSubtotal() {
   document.querySelectorAll('.barang-row').forEach(row => {
     const rowId = row.dataset.rowId;
     const harga = parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value);
-    const quantity = parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0;
-    total += harga * quantity;
+    const quantity = parseQty(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value);
+    const biayaAdminEl = document.querySelector(`.barang-biaya-admin[data-row="${rowId}"]`);
+    const biayaAdmin = biayaAdminEl ? parseRupiah(biayaAdminEl.value) : 0;
+    total += (harga * quantity) + biayaAdmin;
   });
+  // Catatan: Biaya Admin (per barang) ditambahkan ke Total Estimasi.
   document.getElementById('subtotalValue').textContent = formatRupiah(total);
 }
 
@@ -681,12 +871,19 @@ function getBarangData() {
     const idBarang = document.querySelector(`.barang-id[data-row="${rowId}"]`).value;
     const namaBarang = document.querySelector(`.barang-search-input[data-row="${rowId}"]`).value.trim();
     if (namaBarang) {  // cukup nama tidak kosong, id_barang boleh kosong (barang baru/manual)
+      const biayaAdminEl = document.querySelector(`.barang-biaya-admin[data-row="${rowId}"]`);
       barangList.push({
+        // id_detail: id baris lama di detail_item_belanja (kalau ada).
+        // Dikirim ke backend supaya baris ini di-UPDATE, bukan
+        // dihapus+dibuat ulang — supaya nota yang sudah diupload untuk
+        // baris ini tidak kehilangan relasinya.
+        id_detail: row.dataset.idDetail || null,
         id_barang: idBarang || null,
         nama_barang: namaBarang,
         harga: parseRupiah(document.querySelector(`.barang-harga[data-row="${rowId}"]`).value),
-        quantity: parseFloat(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value) || 0,
+        quantity: parseQty(document.querySelector(`.barang-quantity[data-row="${rowId}"]`).value),
         satuan: document.querySelector(`.barang-satuan[data-row="${rowId}"]`).value,
+        biaya_admin: biayaAdminEl ? parseRupiah(biayaAdminEl.value) : 0,
       });
     }
   });
@@ -722,30 +919,89 @@ function validate() {
 async function saveItem() {
   // Guard: hanya admin yang boleh simpan/edit data belanja
   if (USER_ROLE !== 'admin') { console.warn('[RBAC] saveItem: selain admin tidak memiliki akses'); return; }
+
+  // Jika editingId ada -> HANYA EDIT INFORMASI TRANSAKSI
+  if (editingId) {
+    const tanggal = document.getElementById('inputTanggal').value;
+    const namaMenu = document.getElementById('inputNamaMenu').value.trim();
+
+    ['errorTanggal', 'errorNamaMenu', 'errorBarang'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '';
+    });
+
+    let valid = true;
+    if (!tanggal) {
+      document.getElementById('errorTanggal').textContent = 'Tanggal wajib diisi.';
+      valid = false;
+    }
+    if (!namaMenu) {
+      document.getElementById('errorNamaMenu').textContent = 'Nama menu wajib diisi.';
+      valid = false;
+    }
+    if (!valid) return;
+
+    const inputUangMasukEl = document.getElementById('inputUangMasuk');
+    const inputUangMasuk = inputUangMasukEl ? parseRupiah(inputUangMasukEl.value) : 0;
+
+    const payload = {
+      id: editingId,
+      tanggal: tanggal,
+      nama_menu: namaMenu,
+      jumlah_porsi: parseInt(document.getElementById('inputPorsi').value) || 0,
+      keterangan: document.getElementById('inputKeterangan') ? document.getElementById('inputKeterangan').value.trim() : '',
+      uang_masuk: inputUangMasuk
+    };
+
+    try {
+      const res = await fetch('../database/api-belanja.php?action=save_header', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || 'Gagal menyimpan informasi transaksi');
+      if (result.success) {
+        showToast(result.message || 'Informasi transaksi berhasil diperbarui', 'success');
+        closeModal();
+        fetchData();
+      } else {
+        showToast(result.message || 'Gagal menyimpan informasi transaksi', 'error');
+      }
+    } catch (error) {
+      console.error('Save header error:', error);
+      showToast('Error: ' + error.message, 'error');
+    }
+    return;
+  }
+
+  // Tambah Belanja Baru
   if (!validate()) return;
   const barangList = getBarangData();
-  const totalBelanja = barangList.reduce((sum, b) => sum + (b.harga * b.quantity), 0);
-
-  // ✅ AMBIL DATA LAMA SAAT EDIT (Status + Saldo Masuk)
-  const currentItem = allData.find(d => d.id == editingId || d.id_pengajuan == editingId);
-  const currentStatus = currentItem ? currentItem.status : 'pending';
-  const currentUangMasuk = currentItem ? (parseFloat(currentItem.uang_masuk) || 0) : 0;
+  const biayaAdmin = barangList.reduce((sum, b) => sum + (b.biaya_admin || 0), 0);
+  const totalBelanja = barangList.reduce((sum, b) => sum + (b.harga * b.quantity) + (b.biaya_admin || 0), 0);
+  const inputUangMasukEl = document.getElementById('inputUangMasuk');
+  const inputUangMasuk = inputUangMasukEl ? parseRupiah(inputUangMasukEl.value) : 0;
 
   const payload = {
-    id: editingId,
+    id: null,
     tanggal: document.getElementById('inputTanggal').value,
     nama_menu: document.getElementById('inputNamaMenu').value.trim(),
     jumlah_porsi: parseInt(document.getElementById('inputPorsi').value) || 0,
+    keterangan: document.getElementById('inputKeterangan') ? document.getElementById('inputKeterangan').value.trim() : '',
+    biaya_admin: biayaAdmin,
     total_belanja: totalBelanja,
-    uang_masuk: currentUangMasuk, // ✅ KIRIM KEMBALI SALDO MASUK AGAR TIDAK HILANG
-    status: currentStatus,        // ✅ STATUS TETAP TERJAGA
+    uang_masuk: inputUangMasuk,
+    status: 'approved',
     created_by: window.CURRENT_USER_ID || 1,
     items: barangList.map(b => ({
+      id_detail: null,
       id_barang: b.id_barang,
       nama_barang: b.nama_barang,
       qty: b.quantity,
       satuan: b.satuan,
       harga: b.harga,
+      biaya_admin: b.biaya_admin,
     }))
   };
 
@@ -771,6 +1027,203 @@ async function saveItem() {
   }
 }
 
+// ─── Single Item Modal Functions ──────────────────────────────────────────────
+function openAddItemModal(pengajuanId) {
+  if (USER_ROLE !== 'admin') return;
+  document.getElementById('itemModalPengajuanId').value = pengajuanId;
+  document.getElementById('itemModalDetailId').value = '';
+  document.getElementById('itemModalBarangId').value = '';
+  document.getElementById('itemModalSearchInput').value = '';
+  document.getElementById('itemModalQty').value = '';
+  document.getElementById('itemModalSatuan').value = '';
+  document.getElementById('itemModalHarga').value = '';
+  document.getElementById('itemModalBiayaAdmin').value = '';
+  document.getElementById('itemModalSubtotalValue').textContent = 'Rp 0';
+  document.getElementById('errorItemNamaBarang').textContent = '';
+  document.getElementById('errorItemQty').textContent = '';
+  document.getElementById('errorItemHarga').textContent = '';
+  document.getElementById('itemModalTitle').textContent = 'Tambah Barang';
+  setupItemModalDropdown();
+  document.getElementById('itemModalOverlay').classList.add('active');
+}
+
+function openEditItemModal(detailId, pengajuanId) {
+  if (USER_ROLE !== 'admin') return;
+  const tx = allData.find(d => d.id == pengajuanId || d.id_pengajuan == pengajuanId);
+  if (!tx) return;
+  const detailItems = tx.items || tx.detail_items || [];
+  const b = detailItems.find(it => (it.id || it.id_detail) == detailId);
+  if (!b) return;
+
+  document.getElementById('itemModalPengajuanId').value = pengajuanId;
+  document.getElementById('itemModalDetailId').value = detailId;
+  document.getElementById('itemModalBarangId').value = b.id_barang || '';
+  document.getElementById('itemModalSearchInput').value = b.nama_barang || '';
+  document.getElementById('itemModalQty').value = b.qty || b.quantity || '';
+  document.getElementById('itemModalSatuan').value = b.satuan || '';
+  document.getElementById('itemModalHarga').value = (b.harga || b.harga_satuan) ? Number(b.harga || b.harga_satuan).toLocaleString('id-ID') : '';
+  document.getElementById('itemModalBiayaAdmin').value = b.biaya_admin ? Number(b.biaya_admin).toLocaleString('id-ID') : '';
+  document.getElementById('errorItemNamaBarang').textContent = '';
+  document.getElementById('errorItemQty').textContent = '';
+  document.getElementById('errorItemHarga').textContent = '';
+  document.getElementById('itemModalTitle').textContent = 'Edit Barang';
+  calculateItemModalSubtotal();
+  setupItemModalDropdown();
+  document.getElementById('itemModalOverlay').classList.add('active');
+}
+
+function closeItemModal() {
+  const overlay = document.getElementById('itemModalOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function setupItemModalDropdown() {
+  const input = document.getElementById('itemModalSearchInput');
+  const list = document.getElementById('itemModalDropdownList');
+  if (!input || !list) return;
+
+  const renderList = (q) => {
+    const query = (q || '').toLowerCase().trim();
+    const filtered = masterBarang.filter(b => !query || b.nama_barang.toLowerCase().includes(query));
+    if (filtered.length === 0) {
+      list.innerHTML = `<div style="padding:8px 12px; color:#94a3b8; font-size:13px;">Tidak ada hasil (akan disimpan sebagai barang baru)</div>`;
+    } else {
+      list.innerHTML = filtered.map(b => `
+        <div class="dropdown-item" data-id="${b.id_barang}" data-name="${escHtml(b.nama_barang)}" data-harga="${b.harga_beli}" data-satuan="${escHtml(b.satuan)}">
+          <div class="dropdown-item-name">${escHtml(b.nama_barang)}</div>
+          <div class="dropdown-item-meta">${formatRupiah(b.harga_beli)} / ${escHtml(b.satuan)}</div>
+        </div>
+      `).join('');
+    }
+
+    list.querySelectorAll('.dropdown-item').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('itemModalBarangId').value = el.dataset.id;
+        input.value = el.dataset.name;
+        document.getElementById('itemModalHarga').value = el.dataset.harga ? Number(el.dataset.harga).toLocaleString('id-ID') : '';
+        document.getElementById('itemModalSatuan').value = el.dataset.satuan;
+        list.classList.remove('active');
+        calculateItemModalSubtotal();
+      });
+    });
+  };
+
+  input.onfocus = () => {
+    renderList(input.value);
+    list.classList.add('active');
+  };
+  input.oninput = () => {
+    renderList(input.value);
+    list.classList.add('active');
+    document.getElementById('itemModalBarangId').value = '';
+    calculateItemModalSubtotal();
+  };
+
+  const handleClickOutside = (e) => {
+    const wrap = document.getElementById('itemModalDropdownWrap');
+    if (wrap && !wrap.contains(e.target)) {
+      list.classList.remove('active');
+    }
+  };
+  document.removeEventListener('click', handleClickOutside);
+  document.addEventListener('click', handleClickOutside);
+}
+
+function calculateItemModalSubtotal() {
+  const qty = parseQty(document.getElementById('itemModalQty').value);
+  const harga = parseRupiah(document.getElementById('itemModalHarga').value);
+  const biayaAdmin = parseRupiah(document.getElementById('itemModalBiayaAdmin').value);
+  const subtotal = (qty * harga) + biayaAdmin;
+  document.getElementById('itemModalSubtotalValue').textContent = formatRupiah(subtotal);
+}
+
+async function saveSingleItem() {
+  if (USER_ROLE !== 'admin') return;
+
+  const pengajuanId = document.getElementById('itemModalPengajuanId').value;
+  const detailId = document.getElementById('itemModalDetailId').value;
+  const barangId = document.getElementById('itemModalBarangId').value;
+  const namaBarang = document.getElementById('itemModalSearchInput').value.trim();
+  const qty = parseQty(document.getElementById('itemModalQty').value);
+  const satuan = document.getElementById('itemModalSatuan').value.trim();
+  const harga = parseRupiah(document.getElementById('itemModalHarga').value);
+  const biayaAdmin = parseRupiah(document.getElementById('itemModalBiayaAdmin').value);
+
+  document.getElementById('errorItemNamaBarang').textContent = '';
+  document.getElementById('errorItemQty').textContent = '';
+  document.getElementById('errorItemHarga').textContent = '';
+
+  let valid = true;
+  if (!namaBarang) {
+    document.getElementById('errorItemNamaBarang').textContent = 'Nama barang wajib diisi.';
+    valid = false;
+  }
+  if (!qty || qty <= 0) {
+    document.getElementById('errorItemQty').textContent = 'Qty harus lebih dari 0.';
+    valid = false;
+  }
+  if (harga < 0) {
+    document.getElementById('errorItemHarga').textContent = 'Harga tidak boleh negatif.';
+    valid = false;
+  }
+  if (!valid) return;
+
+  const payload = {
+    pengajuan_id: pengajuanId,
+    id_detail: detailId || null,
+    id_barang: barangId || null,
+    nama_barang: namaBarang,
+    qty: qty,
+    satuan: satuan,
+    harga: harga,
+    biaya_admin: biayaAdmin
+  };
+
+  try {
+    const res = await fetch('../database/api-belanja.php?action=save_single_item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Gagal menyimpan barang');
+    if (result.success) {
+      showToast(result.message || 'Barang berhasil disimpan', 'success');
+      closeItemModal();
+      fetchData();
+    } else {
+      showToast(result.message || 'Gagal menyimpan barang', 'error');
+    }
+  } catch (err) {
+    console.error('saveSingleItem error:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function deleteSingleItem(detailId, pengajuanId) {
+  if (USER_ROLE !== 'admin') return;
+  if (!confirm('Apakah Anda yakin ingin menghapus barang ini?')) return;
+
+  try {
+    const res = await fetch('../database/api-belanja.php?action=delete_single_item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_detail: detailId, pengajuan_id: pengajuanId })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Gagal menghapus barang');
+    if (result.success) {
+      showToast(result.message || 'Barang berhasil dihapus', 'success');
+      fetchData();
+    } else {
+      showToast(result.message || 'Gagal menghapus barang', 'error');
+    }
+  } catch (err) {
+    console.error('deleteSingleItem error:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
 function openNotaModalFromBtn(btn) {
   const urls = JSON.parse(decodeURIComponent(escape(atob(btn.dataset.notaUrls))));
   const nama = btn.dataset.notaNama;
@@ -784,6 +1237,8 @@ function openNotaModal(urls, namaBarang) {
   const body = document.getElementById('notaModalBody');
   title.textContent = 'Nota — ' + namaBarang;
 
+  const canDelete = USER_ROLE === 'admin' || (IS_PURCHASE_ROLE && USER_ROLE !== 'purchase_stok');
+
   if (!urls || urls.length === 0) {
     body.innerHTML = `<p class="nota-modal-empty">Tidak ada nota untuk barang ini.</p>`;
   } else {
@@ -792,6 +1247,20 @@ function openNotaModal(urls, namaBarang) {
       const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
       const isPdf = ext === 'pdf';
       const label = `Nota ${i + 1}`;
+
+      const actionHtml = `
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+          ${canDelete ? `
+            <button type="button" class="btn-delete-nota" onclick="deleteNota('${escHtml(url)}')" style="display:inline-flex; align-items:center; gap:4px; padding:6px 12px; background:#fef2f2; color:#ef4444; border:1px solid #fee2e2; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; transition: all 0.15s ease;">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Hapus Nota
+            </button>
+          ` : ''}
+        </div>
+      `;
 
       if (isImg) {
         return `<div class="nota-preview-item">
@@ -803,13 +1272,8 @@ function openNotaModal(urls, namaBarang) {
             </svg>
             ${label}
           </div>
-          <img src="${escHtml(url)}" alt="${label}" class="nota-preview-img" onclick="window.open('${escHtml(url)}','_blank')"/>
-          <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Buka di Tab Baru
-          </a>
+          <img src="${escHtml(url)}" alt="${label}" class="nota-preview-img"/>
+          ${actionHtml}
         </div>`;
       } else if (isPdf) {
         return `<div class="nota-preview-item">
@@ -823,12 +1287,7 @@ function openNotaModal(urls, namaBarang) {
           <div class="nota-preview-pdf-wrap">
             <iframe src="${escHtml(url)}" class="nota-preview-pdf" title="${label}"></iframe>
           </div>
-          <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Buka di Tab Baru
-          </a>
+          ${actionHtml}
         </div>`;
       } else {
         return `<div class="nota-preview-item nota-preview-file">
@@ -837,12 +1296,7 @@ function openNotaModal(urls, namaBarang) {
             <path d="M19 3v8h7" stroke="#2563a8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
           <span>${label}</span>
-          <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Unduh / Buka
-          </a>
+          ${actionHtml}
         </div>`;
       }
     }).join('');
@@ -855,41 +1309,124 @@ function closeNotaModal() {
   document.getElementById('notaModalOverlay').classList.remove('active');
 }
 
+async function deleteNota(filePath) {
+  if (!confirm('Apakah Anda yakin ingin menghapus nota ini? File nota fisik akan dihapus secara permanen.')) {
+    return;
+  }
+  try {
+    const res = await fetch('../database/api-belanja.php?action=delete_nota', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_path: filePath })
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.message || 'Gagal menghapus nota');
+    if (result.success) {
+      showToast(result.message || 'Nota berhasil dihapus', 'success');
+      closeNotaModal();
+      fetchData();
+    } else {
+      showToast(result.message || 'Gagal menghapus nota', 'error');
+    }
+  } catch (err) {
+    console.error('deleteNota error:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
 // ─── Bukti Transfer Preview ──────────────────────────────────────────────────
-function openBuktiTF(url) {
+// Baca array URL yang dikirim lewat data-attribute (dienkode base64,
+// sama seperti pola openNotaModalFromBtn) supaya aman dari karakter
+// aneh/quote yang bisa merusak atribut onclick.
+function openBuktiTFFromBtn(btn) {
+  const urls = JSON.parse(decodeURIComponent(escape(atob(btn.dataset.buktiTf))));
+  openBuktiTF(urls);
+}
+
+// ✅ FIX: sekarang menerima ARRAY url (bisa lebih dari 1 bukti transfer),
+// bukan cuma 1 string seperti sebelumnya. Kalau ada kode lama yang masih
+// manggil openBuktiTF('namafile.jpg') langsung, tetap didukung (dibungkus
+// jadi array 1 elemen) supaya tidak patah.
+function openBuktiTF(urls) {
   // Guard: role purchase tidak boleh melihat bukti transfer
-  if (USER_ROLE === 'purchase') { console.warn('[RBAC] openBuktiTF: role purchase tidak memiliki akses'); return; }
+  if (IS_PURCHASE_ROLE) { console.warn('[RBAC] openBuktiTF: role purchase tidak memiliki akses'); return; }
+  if (!Array.isArray(urls)) urls = urls ? [urls] : [];
+
   const overlay = document.getElementById('notaModalOverlay');
   const title = document.getElementById('notaModalTitle');
   const body = document.getElementById('notaModalBody');
-  title.textContent = 'Bukti Transfer';
+  title.textContent = 'Bukti Transfer' + (urls.length > 1 ? ` (${urls.length})` : '');
 
-  // Tambah prefix path jika hanya nama file
-  if (url && !url.startsWith('http') && !url.startsWith('/') && !url.startsWith('../')) {
-    url = '../uploads/bukti_transfer/' + url;
+  if (urls.length === 0) {
+    body.innerHTML = `<p class="nota-modal-empty">Tidak ada bukti transfer.</p>`;
+    overlay.classList.add('active');
+    return;
   }
 
-  const isImg = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
-  const isPdf = /\.pdf(\?|$)/i.test(url);
+  body.innerHTML = urls.map((rawUrl, i) => {
+    let url = rawUrl;
+    // Tambah prefix path jika hanya nama file
+    if (url && !url.startsWith('http') && !url.startsWith('/') && !url.startsWith('../')) {
+      url = '../uploads/bukti_transfer/' + url;
+    }
 
-  if (isImg) {
-    body.innerHTML = `<div class="nota-preview-wrap"><img src="${escHtml(url)}" class="nota-preview-img" alt="Bukti Transfer"/></div>`;
-  } else if (isPdf) {
-    body.innerHTML = `<div class="nota-preview-wrap"><iframe src="${escHtml(url)}" class="nota-preview-iframe" title="Bukti Transfer"></iframe></div>`;
-  } else {
-    body.innerHTML = `<div class="nota-preview-wrap nota-preview-link">
-      <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-        <path d="M6 4h16l8 8v20H6V4z" stroke="#2563a8" stroke-width="1.8" stroke-linejoin="round"/>
-        <path d="M22 4v9h10" stroke="#2563a8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <a href="${escHtml(url)}" target="_blank" rel="noopener" class="btn-save" style="margin-top:1rem;display:inline-flex;gap:0.4rem;align-items:center;">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M2 12L12 2M12 2H6M12 2V7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    const isImg = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(url);
+    const isPdf = /\.pdf(\?|$)/i.test(url);
+    const label = urls.length > 1 ? `Bukti Transfer ${i + 1}` : 'Bukti Transfer';
+
+    if (isImg) {
+      return `<div class="nota-preview-item">
+        <div class="nota-preview-label">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="2" width="12" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="4.5" cy="6" r="1.2" fill="currentColor"/>
+            <path d="M1 12l4-4 2.5 2.5 2-2L13 12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          ${label}
+        </div>
+        <img src="${escHtml(url)}" class="nota-preview-img" alt="${label}" onclick="window.open('${escHtml(url)}','_blank')"/>
+        <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Buka di Tab Baru
+        </a>
+      </div>`;
+    } else if (isPdf) {
+      return `<div class="nota-preview-item">
+        <div class="nota-preview-label">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M3 1h5.5L12 4.5V13H2V1h1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+            <path d="M8 1v4h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          ${label} (PDF)
+        </div>
+        <div class="nota-preview-pdf-wrap">
+          <iframe src="${escHtml(url)}" class="nota-preview-pdf" title="${label}"></iframe>
+        </div>
+        <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Buka di Tab Baru
+        </a>
+      </div>`;
+    } else {
+      return `<div class="nota-preview-item nota-preview-file">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <path d="M7 3h13L26 10v19H6V3h1z" stroke="#2563a8" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M19 3v8h7" stroke="#2563a8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Buka File
-      </a>
-    </div>`;
-  }
+        <span>${label}</span>
+        <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Unduh / Buka
+        </a>
+      </div>`;
+    }
+  }).join('');
 
   overlay.classList.add('active');
 }
@@ -900,6 +1437,7 @@ let uploadNotaCurrentDetail = null;
 let uploadNotaCurrentPengajuan = null;
 
 function openUploadNotaForItem(detailId, pengajuanId) {
+  if (USER_ROLE === 'purchase_stok') return;
   uploadNotaFiles = [];
   uploadNotaCurrentDetail = detailId;
   uploadNotaCurrentPengajuan = pengajuanId;
@@ -1267,5 +1805,103 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') { closeModal(); closeRejectModal(); closeNotaModal(); closeUploadNotaModal(); }
   });
 
+  bindIfExists('btnIncludeB3', 'click', () => {
+    const input = document.getElementById('inputKeterangan');
+    if (input) {
+      if (input.value.includes('sudah termasuk B3')) {
+        // Toggle off: remove it and clean up delimiters if any
+        input.value = input.value.replace('sudah termasuk B3', '').replace(/^\s*-\s*|\s*-\s*$/, '').trim();
+      } else {
+        // Toggle on: append it
+        input.value = (input.value ? input.value + ' - ' : '') + 'sudah termasuk B3';
+      }
+    }
+  });
+
+  // Direct Input Saldo modal events
+  bindIfExists('btnCloseSaldoModal', 'click', closeInputSaldoModal);
+  bindIfExists('btnCancelSaldo', 'click', closeInputSaldoModal);
+  bindIfExists('btnSaveSaldo', 'click', saveDirectSaldo);
+  bindIfExists('inputSaldoModalOverlay', 'click', (e) => {
+    if (e.target === document.getElementById('inputSaldoModalOverlay')) closeInputSaldoModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModal();
+      closeRejectModal();
+      closeNotaModal();
+      closeUploadNotaModal();
+      closeInputSaldoModal();
+    }
+  });
+
+  const inputUangMasuk = document.getElementById('inputUangMasuk');
+  if (inputUangMasuk) {
+    inputUangMasuk.addEventListener('input', () => formatLiveCurrency(inputUangMasuk));
+  }
+  const inputSaldoDirect = document.getElementById('inputSaldoDirect');
+  if (inputSaldoDirect) {
+    inputSaldoDirect.addEventListener('input', () => formatLiveCurrency(inputSaldoDirect));
+  }
+
   initSearch();
 });
+
+let saldoTargetId = null;
+
+function openInputSaldoModal(id, currentSaldo) {
+  if (!['admin'].includes(window.CURRENT_USER_ROLE || '')) {
+    console.warn('[RBAC] openInputSaldoModal: tidak memiliki akses');
+    return;
+  }
+  saldoTargetId = id;
+  const input = document.getElementById('inputSaldoDirect');
+  if (input) input.value = currentSaldo ? Math.round(parseFloat(currentSaldo)).toLocaleString('id-ID') : '';
+  const modal = document.getElementById('inputSaldoModalOverlay');
+  if (modal) modal.classList.add('active');
+}
+
+function closeInputSaldoModal() {
+  const modal = document.getElementById('inputSaldoModalOverlay');
+  if (modal) modal.classList.remove('active');
+  saldoTargetId = null;
+}
+
+async function saveDirectSaldo() {
+  if (!saldoTargetId) return;
+  const input = document.getElementById('inputSaldoDirect');
+  const uangMasuk = input ? parseRupiah(input.value) : 0;
+
+  const btn = document.getElementById('btnSaveSaldo');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Menyimpan...';
+  }
+
+  try {
+    const res = await fetch('../database/api-belanja.php?action=update_saldo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: saldoTargetId, uang_masuk: uangMasuk })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast('Saldo masuk berhasil disimpan', 'success');
+      closeInputSaldoModal();
+      fetchData();
+    } else {
+      showToast(result.message || 'Gagal menyimpan saldo', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Terjadi kesalahan saat menyimpan saldo', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg> Simpan Saldo`;
+    }
+  }
+}

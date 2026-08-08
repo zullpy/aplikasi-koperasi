@@ -9,8 +9,8 @@ $userRole = $_SESSION['role'] ?? '';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dompet Belanja Harian — SPPG</title>
-    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="style.css?v=<?php echo filemtime('style.css'); ?>">
 </head>
 
 <body>
@@ -52,14 +52,6 @@ $userRole = $_SESSION['role'] ?? '';
                     </svg>
                 </button>
             </div>
-            <?php if (in_array($userRole, ['bendahara', 'ketua'])): ?>
-            <a href="approve.php" class="btn-approval">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M2 8l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-                Approval
-            </a>
-            <?php endif; ?>
             <?php if ($userRole === 'admin'): ?>
                 <button id="btnOpenModal" class="btn-add">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -84,7 +76,7 @@ $userRole = $_SESSION['role'] ?? '';
             <div class="empty-desc">Klik "Tambah Belanja" untuk mulai mencatat pengeluaran harian.</div>
         </div>
     </main>
-    <?php if ($userRole !== 'purchase'): ?>
+    <?php if ($userRole !== 'purchase' && $userRole !== 'purchase_stok'): ?>
     <!-- ============ MODAL BELANJA ============ -->
     <div id="modalOverlay" class="modal-overlay">
         <div class="modal modal-wide">
@@ -135,22 +127,42 @@ $userRole = $_SESSION['role'] ?? '';
                         </div>
                     </div>
                 </div>
-                <!-- Daftar Barang -->
-                <div class="form-section-title">
-                    <span>Daftar Barang</span>
-                    <button type="button" class="btn-mini btn-mini-primary" id="btnAddBarangRow">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                            <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-                        </svg>
-                        Tambah Baris
-                    </button>
+                <div class="form-row" style="margin-top: 15px; margin-bottom: 15px; display: flex; gap: 15px;">
+                    <div class="form-group" style="flex: 2;">
+                        <label class="form-label" for="inputKeterangan">Keterangan (Opsional)</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="inputKeterangan" class="form-input" placeholder="Contoh: sudah termasuk B3" style="flex: 1; height: 38px; box-sizing: border-box;" />
+                            <button type="button" class="btn-mini btn-mini-primary" id="btnIncludeB3" style="white-space: nowrap; height: 38px; display: inline-flex; align-items: center; justify-content: center; background: #64748b; color: #fff; border: none; border-radius: 6px; padding: 0 12px; cursor: pointer; font-size: 13px; font-weight: 500; font-family: inherit;">
+                                Termasuk B3
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label" for="inputUangMasuk">Saldo Masuk (Rp)</label>
+                        <div class="input-icon-wrapper" style="position: relative;">
+                            <span class="input-icon-text" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; font-weight: 600; pointer-events: none;">Rp</span>
+                            <input type="text" id="inputUangMasuk" class="form-input" placeholder="0" style="padding-left: 36px; height: 38px; box-sizing: border-box; width: 100%;" />
+                        </div>
+                    </div>
                 </div>
-                <div id="barangList" class="barang-list"></div>
-                <div id="errorBarang" class="form-error"></div>
-                <!-- Subtotal -->
-                <div class="subtotal-preview">
-                    <div class="subtotal-label">Total Estimasi</div>
-                    <div id="subtotalValue" class="subtotal-value">Rp 0</div>
+                <!-- Daftar Barang (ditampilkan hanya saat tambah baru) -->
+                <div id="daftarBarangSection">
+                    <div class="form-section-title">
+                        <span>Daftar Barang</span>
+                        <button type="button" class="btn-mini btn-mini-primary" id="btnAddBarangRow">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                            </svg>
+                            Tambah Baris
+                        </button>
+                    </div>
+                    <div id="barangList" class="barang-list"></div>
+                    <div id="errorBarang" class="form-error"></div>
+                    <!-- Subtotal -->
+                    <div class="subtotal-preview">
+                        <div class="subtotal-label">Total Estimasi</div>
+                        <div id="subtotalValue" class="subtotal-value">Rp 0</div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -164,8 +176,87 @@ $userRole = $_SESSION['role'] ?? '';
             </div>
         </div>
     </div>
+    <!-- ============ MODAL ITEM (EDIT / TAMBAH BARANG PER ITEM) ============ -->
+    <div id="itemModalOverlay" class="modal-overlay">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon" style="background:#2563eb;">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M3 5h12l-1.5 9h-9L3 5z" stroke="#fff" stroke-width="1.5" stroke-linejoin="round" />
+                            <path d="M6 5V4a3 3 0 0 1 6 0v1" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <div class="modal-title" id="itemModalTitle">Edit Barang</div>
+                </div>
+                <button id="btnCloseItemModal" class="modal-close" aria-label="Tutup" onclick="closeItemModal()">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="itemModalPengajuanId" />
+                <input type="hidden" id="itemModalDetailId" />
+                <input type="hidden" id="itemModalBarangId" />
+                
+                <div class="form-group">
+                    <label class="form-label" for="itemModalSearchInput">Nama Barang</label>
+                    <div class="searchable-dropdown" id="itemModalDropdownWrap">
+                        <input type="text" id="itemModalSearchInput" class="form-input" placeholder="Cari atau ketik nama barang..." autocomplete="off" />
+                        <div id="itemModalDropdownList" class="searchable-dropdown-list"></div>
+                    </div>
+                    <div id="errorItemNamaBarang" class="form-error"></div>
+                </div>
+
+                <div class="form-row-2" style="display:flex; gap:12px; margin-top:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label" for="itemModalQty">Qty</label>
+                        <input type="text" inputmode="decimal" id="itemModalQty" class="form-input" placeholder="0" oninput="calculateItemModalSubtotal()" />
+                        <div id="errorItemQty" class="form-error"></div>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label" for="itemModalSatuan">Satuan</label>
+                        <input type="text" id="itemModalSatuan" class="form-input" placeholder="kg / pcs / ltr" />
+                    </div>
+                </div>
+
+                <div class="form-row-2" style="display:flex; gap:12px; margin-top:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label" for="itemModalHarga">Estimasi Harga (Rp)</label>
+                        <div class="input-icon-wrapper" style="position:relative;">
+                            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:14px; font-weight:600; pointer-events:none;">Rp</span>
+                            <input type="text" inputmode="numeric" id="itemModalHarga" class="form-input" placeholder="0" style="padding-left:36px;" oninput="onHargaInput(this); calculateItemModalSubtotal();" />
+                        </div>
+                        <div id="errorItemHarga" class="form-error"></div>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label" for="itemModalBiayaAdmin">Biaya Admin (Rp)</label>
+                        <div class="input-icon-wrapper" style="position:relative;">
+                            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:14px; font-weight:600; pointer-events:none;">Rp</span>
+                            <input type="text" inputmode="numeric" id="itemModalBiayaAdmin" class="form-input" placeholder="0" style="padding-left:36px;" oninput="onItemAdminFeeInput(this); calculateItemModalSubtotal();" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="subtotal-preview" style="margin-top:16px;">
+                    <div class="subtotal-label">Subtotal Barang</div>
+                    <div id="itemModalSubtotalValue" class="subtotal-value">Rp 0</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeItemModal()" class="btn-cancel">Batal</button>
+                <button onclick="saveSingleItem()" class="btn-save">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Simpan Barang
+                </button>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
-    <?php if ($userRole !== 'purchase'): ?>
+    <?php if ($userRole !== 'purchase' && $userRole !== 'purchase_stok'): ?>
     <!-- ============ MODAL TOLAK ============ -->
     <div id="rejectModal" class="modal-overlay">
         <div class="modal" style="max-width:480px;">
@@ -271,12 +362,54 @@ $userRole = $_SESSION['role'] ?? '';
             </div>
         </div>
     </div>
+    <?php if (in_array($userRole, ['admin'])): ?>
+    <!-- ============ MODAL INPUT SALDO ============ -->
+    <div id="inputSaldoModalOverlay" class="modal-overlay">
+        <div class="modal" style="max-width:400px;">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon" style="background:#059669;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                    </div>
+                    <div class="modal-title">Input Saldo Masuk</div>
+                </div>
+                <button id="btnCloseSaldoModal" class="modal-close" aria-label="Tutup">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="saldoTargetId" />
+                <div class="form-group">
+                    <label class="form-label" for="inputSaldoDirect">Nominal Saldo Masuk (Rp)</label>
+                    <div class="input-icon-wrapper" style="position: relative;">
+                        <span class="input-icon-text" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; font-weight: 600; pointer-events: none;">Rp</span>
+                        <input type="text" id="inputSaldoDirect" class="form-input" placeholder="0" style="padding-left: 36px; height: 38px; box-sizing: border-box; width: 100%;" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btnCancelSaldo" class="btn-cancel">Batal</button>
+                <button id="btnSaveSaldo" class="btn-save" style="background:linear-gradient(135deg,#059669,#047857); box-shadow:0 4px 14px rgba(5,150,105,0.35); display: inline-flex; align-items: center; gap: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Simpan Saldo
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     <!-- TOAST -->
     <div id="toast" class="toast"></div>
     <script>
         window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
     </script>
-    <script src="script.js"></script>
+    <script src="script.js?v=<?php echo filemtime('script.js'); ?>"></script>
     <?php include '../components/made-by.php'; ?>
 </body>
 

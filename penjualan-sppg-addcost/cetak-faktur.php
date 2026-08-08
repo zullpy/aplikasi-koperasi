@@ -22,7 +22,7 @@ if ($id <= 0) {
    sama seperti di index.php
 ========================================================== */
 $stmtHead = $koneksi2->prepare("
-    SELECT id_pengambilan, no_pengambilan, no_faktur, nama_pengambil,
+    SELECT id_pengambilan, no_pengambilan, no_faktur_addcost, nama_pengambil,
            tanggal_pengambilan, jam_pengambilan, nama_sppg, no_kontak,
            lokasi, status
     FROM pengambilan_barang
@@ -38,19 +38,24 @@ if (!$trx) {
 }
 
 /* ==========================================================
-   NOMOR FAKTUR OTOMATIS
-   Format   : 0001/FC/07/2026
+   NOMOR FAKTUR OTOMATIS (FOODCOST + ADDCOST GABUNGAN)
+   Format   : 0001FJ-AC02082026
    Aturan   : setiap tanggal 1 / awal bulan baru, penomoran
               kembali mulai dari 0001, lalu naik terus mengikuti
-              urutan faktur foodcost yang dicetak di bulan itu.
-   Kolom "no_faktur" pada tabel pengambilan_barang dipakai untuk
-   menyimpan nomor secara permanen, supaya kalau faktur yang sama
-   dicetak ulang nomornya tidak berubah-ubah.
+              urutan faktur (FC ATAU AC, gantian) yang dicetak
+              di bulan itu.
 
-   Perlu 2 hal disiapkan lebih dulu di database (lihat catatan di
-   bawah kode ini untuk skrip SQL-nya):
-   1. Kolom `no_faktur` VARCHAR di tabel `pengambilan_barang`
-   2. Tabel bantu `faktur_counter` untuk menyimpan angka berjalan
+   Kolom "no_faktur_addcost" pada tabel pengambilan_barang dipakai
+   khusus untuk addcost, TERPISAH dari "no_faktur_foodcost".
+   Ini supaya kalau 1 transaksi punya foodcost DAN addcost sekaligus,
+   nomornya tidak saling menimpa/ketuker.
+
+   NAMUN counter di tabel faktur_counter memakai jenis = 'gabungan'
+   yang DIPAKAI BERSAMA oleh foodcost & addcost, supaya urutan
+   nomornya menyatu (0001, 0002, 0003, ... tidak peduli FC atau AC).
+
+   Faktur yang sama dicetak ulang -> nomor tidak berubah, karena
+   sekali kolom terisi, tidak akan digenerate ulang.
 ========================================================== */
 function generateNoFakturAddcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
 {
@@ -62,9 +67,10 @@ function generateNoFakturAddcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
     try {
         // Baris counter bulan berjalan dikunci (FOR UPDATE) supaya
         // aman kalau ada 2 faktur dicetak bersamaan di waktu yang sama.
+        // jenis = 'gabungan' -> counter dipakai BERSAMA oleh foodcost & addcost
         $stmt = $koneksi2->prepare("
             SELECT counter FROM faktur_counter
-            WHERE jenis = 'addcost' AND bulan = ? AND tahun = ?
+            WHERE jenis = 'gabungan' AND bulan = ? AND tahun = ?
             FOR UPDATE
         ");
         $stmt->bind_param('ii', $bulan, $tahun);
@@ -78,7 +84,7 @@ function generateNoFakturAddcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
             $upd = $koneksi2->prepare("
                 UPDATE faktur_counter
                 SET counter = ?
-                WHERE jenis = 'addcost' AND bulan = ? AND tahun = ?
+                WHERE jenis = 'gabungan' AND bulan = ? AND tahun = ?
             ");
             $upd->bind_param('iii', $counter, $bulan, $tahun);
             $upd->execute();
@@ -90,17 +96,18 @@ function generateNoFakturAddcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
 
             $ins = $koneksi2->prepare("
                 INSERT INTO faktur_counter (jenis, bulan, tahun, counter)
-                VALUES ('addcost', ?, ?, 1)
+                VALUES ('gabungan', ?, ?, 1)
             ");
             $ins->bind_param('ii', $bulan, $tahun);
             $ins->execute();
             $ins->close();
         }
 
-        $noFaktur = sprintf('%04d/AC-%02d-%d', $counter, $bulan, $tahun);
+        $tglStr   = date('dmY', strtotime($tanggalTransaksi));
+        $noFaktur = sprintf('%04dFJ-AC%s', $counter, $tglStr);
 
         $updTrx = $koneksi2->prepare("
-            UPDATE pengambilan_barang SET no_faktur = ? WHERE id_pengambilan = ?
+            UPDATE pengambilan_barang SET no_faktur_addcost = ? WHERE id_pengambilan = ?
         ");
         $updTrx->bind_param('si', $noFaktur, $id_pengambilan);
         $updTrx->execute();
@@ -115,13 +122,26 @@ function generateNoFakturAddcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
     }
 }
 
-if (empty($trx['no_faktur'])) {
-    $trx['no_faktur'] = generateNoFakturAddcost($koneksi2, $id, $trx['tanggal_pengambilan']);
+if (empty($trx['no_faktur_addcost'])) {
+    $trx['no_faktur_addcost'] = generateNoFakturAddcost($koneksi2, $id, $trx['tanggal_pengambilan']);
+} elseif (!preg_match('/^\d{4}FJ-AC\d{8}$/', trim($trx['no_faktur_addcost']))) {
+    if (preg_match('/^(\d+)/', trim($trx['no_faktur_addcost']), $m)) {
+        $ctr = (int)$m[1];
+        $tglStr = date('dmY', strtotime($trx['tanggal_pengambilan']));
+        $newFaktur = sprintf('%04dFJ-AC%s', $ctr, $tglStr);
+
+        $updTrx = $koneksi2->prepare("UPDATE pengambilan_barang SET no_faktur_addcost = ? WHERE id_pengambilan = ?");
+        $updTrx->bind_param('si', $newFaktur, $id);
+        $updTrx->execute();
+        $updTrx->close();
+
+        $trx['no_faktur_addcost'] = $newFaktur;
+    }
 }
-$displayNoFaktur = str_replace('/FC/', '/AC/', $trx['no_faktur']);
+$displayNoFaktur = $trx['no_faktur_addcost'];
 
 /* ==========================================================
-   AMBIL DETAIL BARANG (khusus jenis = 'foodcost')
+   AMBIL DETAIL BARANG (khusus jenis = 'addcost')
    Sama seperti logika harga di index.php
 ========================================================== */
 function bersihkanHarga($str)
@@ -141,10 +161,8 @@ function formatQty($angka)
 }
 
 $stmtDetail = $koneksi2->prepare("
-    SELECT pbd.nama_barang, pbd.satuan, pbd.qty, b.harga_beli
+    SELECT pbd.nama_barang, pbd.satuan, pbd.qty
     FROM pengambilan_barang_detail pbd
-    LEFT JOIN db_draft_barang.barang b
-        ON LOWER(TRIM(b.nama_barang)) = LOWER(TRIM(pbd.nama_barang))
     WHERE pbd.id_pengambilan = ? AND pbd.jenis = 'addcost'
     ORDER BY pbd.id_detail ASC
 ");
@@ -152,11 +170,23 @@ $stmtDetail->bind_param('i', $id);
 $stmtDetail->execute();
 $resultDetail = $stmtDetail->get_result();
 
+// Ambil semua harga barang dari db_barang (pakai $koneksi)
+$hargaLookup = [];
+$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+if ($resBarang) {
+    while ($rb = $resBarang->fetch_assoc()) {
+        $key = strtolower(trim($rb['nama_barang']));
+        $hargaLookup[$key] = $rb['harga_beli'];
+    }
+}
+
 $items = [];
 $total = 0;
 
 while ($row = $resultDetail->fetch_assoc()) {
-    $harga    = bersihkanHarga($row['harga_beli']);
+    $keyBarang = strtolower(trim($row['nama_barang']));
+    $hargaMentah = $hargaLookup[$keyBarang] ?? null;
+    $harga    = bersihkanHarga($hargaMentah);
     $qty      = (float) $row['qty'];
     $subtotal = $harga * $qty;
     $total   += $subtotal;

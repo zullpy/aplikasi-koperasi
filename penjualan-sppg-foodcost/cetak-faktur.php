@@ -1,10 +1,10 @@
 <?php
-
-error_reporting(E_ALL);
 ini_set('display_errors', 1);
-
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 require_once '../database/auth.php';
 include '../database/koneksi.php';
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 if (($_SESSION['role'] ?? '') !== 'admin') {
     die("Akses ditolak: Hanya admin yang dapat mencetak faktur.");
@@ -22,7 +22,7 @@ if ($id <= 0) {
    sama seperti di index.php
 ========================================================== */
 $stmtHead = $koneksi2->prepare("
-    SELECT id_pengambilan, no_pengambilan, no_faktur, nama_pengambil,
+    SELECT id_pengambilan, no_pengambilan, no_faktur_foodcost, nama_pengambil,
            tanggal_pengambilan, jam_pengambilan, nama_sppg, no_kontak,
            lokasi, status
     FROM pengambilan_barang
@@ -38,19 +38,24 @@ if (!$trx) {
 }
 
 /* ==========================================================
-   NOMOR FAKTUR OTOMATIS
-   Format   : 0001/FC/07/2026
+   NOMOR FAKTUR OTOMATIS (FOODCOST + ADDCOST GABUNGAN)
+   Format   : 0001FJ-FC02082026
    Aturan   : setiap tanggal 1 / awal bulan baru, penomoran
               kembali mulai dari 0001, lalu naik terus mengikuti
-              urutan faktur foodcost yang dicetak di bulan itu.
-   Kolom "no_faktur" pada tabel pengambilan_barang dipakai untuk
-   menyimpan nomor secara permanen, supaya kalau faktur yang sama
-   dicetak ulang nomornya tidak berubah-ubah.
+              urutan faktur (FC ATAU AC, gantian) yang dicetak
+              di bulan itu.
 
-   Perlu 2 hal disiapkan lebih dulu di database (lihat catatan di
-   bawah kode ini untuk skrip SQL-nya):
-   1. Kolom `no_faktur` VARCHAR di tabel `pengambilan_barang`
-   2. Tabel bantu `faktur_counter` untuk menyimpan angka berjalan
+   Kolom "no_faktur_foodcost" pada tabel pengambilan_barang dipakai
+   khusus untuk foodcost, TERPISAH dari "no_faktur_addcost".
+   Ini supaya kalau 1 transaksi punya foodcost DAN addcost sekaligus,
+   nomornya tidak saling menimpa/ketuker.
+
+   NAMUN counter di tabel faktur_counter memakai jenis = 'gabungan'
+   yang DIPAKAI BERSAMA oleh foodcost & addcost, supaya urutan
+   nomornya menyatu (0001, 0002, 0003, ... tidak peduli FC atau AC).
+
+   Faktur yang sama dicetak ulang -> nomor tidak berubah, karena
+   sekali kolom terisi, tidak akan digenerate ulang.
 ========================================================== */
 function generateNoFakturFoodcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
 {
@@ -62,9 +67,10 @@ function generateNoFakturFoodcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
     try {
         // Baris counter bulan berjalan dikunci (FOR UPDATE) supaya
         // aman kalau ada 2 faktur dicetak bersamaan di waktu yang sama.
+        // jenis = 'gabungan' -> counter dipakai BERSAMA oleh foodcost & addcost
         $stmt = $koneksi2->prepare("
             SELECT counter FROM faktur_counter
-            WHERE jenis = 'foodcost' AND bulan = ? AND tahun = ?
+            WHERE jenis = 'gabungan' AND bulan = ? AND tahun = ?
             FOR UPDATE
         ");
         $stmt->bind_param('ii', $bulan, $tahun);
@@ -78,7 +84,7 @@ function generateNoFakturFoodcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
             $upd = $koneksi2->prepare("
                 UPDATE faktur_counter
                 SET counter = ?
-                WHERE jenis = 'foodcost' AND bulan = ? AND tahun = ?
+                WHERE jenis = 'gabungan' AND bulan = ? AND tahun = ?
             ");
             $upd->bind_param('iii', $counter, $bulan, $tahun);
             $upd->execute();
@@ -90,17 +96,18 @@ function generateNoFakturFoodcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
 
             $ins = $koneksi2->prepare("
                 INSERT INTO faktur_counter (jenis, bulan, tahun, counter)
-                VALUES ('foodcost', ?, ?, 1)
+                VALUES ('gabungan', ?, ?, 1)
             ");
             $ins->bind_param('ii', $bulan, $tahun);
             $ins->execute();
             $ins->close();
         }
 
-        $noFaktur = sprintf('%04d/FC/%02d/%d', $counter, $bulan, $tahun);
+        $tglStr   = date('dmY', strtotime($tanggalTransaksi));
+        $noFaktur = sprintf('%04dFJ-FC%s', $counter, $tglStr);
 
         $updTrx = $koneksi2->prepare("
-            UPDATE pengambilan_barang SET no_faktur = ? WHERE id_pengambilan = ?
+            UPDATE pengambilan_barang SET no_faktur_foodcost = ? WHERE id_pengambilan = ?
         ");
         $updTrx->bind_param('si', $noFaktur, $id_pengambilan);
         $updTrx->execute();
@@ -115,14 +122,32 @@ function generateNoFakturFoodcost($koneksi2, $id_pengambilan, $tanggalTransaksi)
     }
 }
 
-if (empty($trx['no_faktur'])) {
-    $trx['no_faktur'] = generateNoFakturFoodcost($koneksi2, $id, $trx['tanggal_pengambilan']);
+if (empty($trx['no_faktur_foodcost'])) {
+    $trx['no_faktur_foodcost'] = generateNoFakturFoodcost($koneksi2, $id, $trx['tanggal_pengambilan']);
+} elseif (!preg_match('/^\d{4}FJ-FC\d{8}$/', trim($trx['no_faktur_foodcost']))) {
+    if (preg_match('/^(\d+)/', trim($trx['no_faktur_foodcost']), $m)) {
+        $ctr = (int)$m[1];
+        $tglStr = date('dmY', strtotime($trx['tanggal_pengambilan']));
+        $newFaktur = sprintf('%04dFJ-FC%s', $ctr, $tglStr);
+
+        $updTrx = $koneksi2->prepare("UPDATE pengambilan_barang SET no_faktur_foodcost = ? WHERE id_pengambilan = ?");
+        $updTrx->bind_param('si', $newFaktur, $id);
+        $updTrx->execute();
+        $updTrx->close();
+
+        $trx['no_faktur_foodcost'] = $newFaktur;
+    }
 }
-$displayNoFaktur = str_replace('/AC/', '/FC/', $trx['no_faktur']);
+$displayNoFaktur = $trx['no_faktur_foodcost'];
 
 /* ==========================================================
    AMBIL DETAIL BARANG (khusus jenis = 'foodcost')
-   Sama seperti logika harga di index.php
+   Harga diambil dari riwayat_harga sesuai tanggal transaksi
+   (sama seperti logika di index.php), BUKAN harga terkini di
+   tabel barang. Ini penting supaya faktur yang dicetak ulang
+   nanti (misal minggu depan setelah harga barang berubah)
+   tetap menampilkan angka yang SAMA seperti pertama kali
+   dicetak -> faktur jadi dokumen yang stabil/konsisten.
 ========================================================== */
 function bersihkanHarga($str)
 {
@@ -140,11 +165,35 @@ function formatQty($angka)
     return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
 }
 
+// Cari harga yang BERLAKU pada tanggal (& jam) transaksi tertentu,
+// berdasarkan riwayat harga barang yang sudah terurut naik (ASC) per tanggal.
+// Ambil entri riwayat TERAKHIR yang tanggalnya <= tanggal transaksi.
+// Kalau transaksi terjadi sebelum riwayat harga pertama tercatat,
+// pakai harga pertama yang ada sebagai pendekatan terbaik.
+function cariHargaBerlaku($riwayatList, $tglTransaksi)
+{
+    $hargaTerpilih = null;
+
+    foreach ($riwayatList as $r) {
+        if ($r['tanggal'] <= $tglTransaksi) {
+            $hargaTerpilih = $r['harga_beli'];
+        } else {
+            // karena list sudah terurut ASC, begitu ketemu tanggal
+            // yang lebih baru dari transaksi, langsung berhenti
+            break;
+        }
+    }
+
+    if ($hargaTerpilih === null && !empty($riwayatList)) {
+        $hargaTerpilih = $riwayatList[0]['harga_beli'];
+    }
+
+    return $hargaTerpilih;
+}
+
 $stmtDetail = $koneksi2->prepare("
-    SELECT pbd.nama_barang, pbd.satuan, pbd.qty, b.harga_beli
+    SELECT pbd.nama_barang, pbd.satuan, pbd.qty
     FROM pengambilan_barang_detail pbd
-    LEFT JOIN db_draft_barang.barang b
-        ON LOWER(TRIM(b.nama_barang)) = LOWER(TRIM(pbd.nama_barang))
     WHERE pbd.id_pengambilan = ? AND pbd.jenis = 'foodcost'
     ORDER BY pbd.id_detail ASC
 ");
@@ -152,11 +201,52 @@ $stmtDetail->bind_param('i', $id);
 $stmtDetail->execute();
 $resultDetail = $stmtDetail->get_result();
 
+// Ambil riwayat harga per barang (db_barang.riwayat_harga), supaya faktur
+// yang dicetak ulang tetap menampilkan harga yang berlaku SAAT transaksi
+// terjadi, bukan harga barang yang berlaku sekarang. Pakai koneksi $koneksi.
+$riwayatByBarang = []; // key: nama_barang (lowercase, trim) => list riwayat harga terurut naik berdasarkan tanggal
+$hargaFallback   = []; // key: nama_barang => harga_beli terbaru di tabel barang (jaga-jaga kalau riwayat kosong)
+
+$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+if ($resBarang) {
+    while ($rb = $resBarang->fetch_assoc()) {
+        $key = strtolower(trim($rb['nama_barang']));
+        $hargaFallback[$key] = $rb['harga_beli'];
+    }
+}
+
+$sqlRiwayat = "
+    SELECT b.nama_barang, r.harga_beli, r.tanggal
+    FROM riwayat_harga r
+    INNER JOIN barang b ON b.id_barang = r.id_barang
+    ORDER BY r.id_barang ASC, r.tanggal ASC, r.id_riwayat ASC
+";
+$resRiwayat = $koneksi->query($sqlRiwayat);
+if ($resRiwayat) {
+    while ($rr = $resRiwayat->fetch_assoc()) {
+        $key = strtolower(trim($rr['nama_barang']));
+        $riwayatByBarang[$key][] = [
+            'tanggal'    => $rr['tanggal'],
+            'harga_beli' => (float) $rr['harga_beli'],
+        ];
+    }
+}
+
 $items = [];
 $total = 0;
+$tglTransaksi = trim($trx['tanggal_pengambilan'] . ' ' . ($trx['jam_pengambilan'] ?: '00:00:00'));
 
 while ($row = $resultDetail->fetch_assoc()) {
-    $harga    = bersihkanHarga($row['harga_beli']);
+    $keyBarang = strtolower(trim($row['nama_barang']));
+
+    if (!empty($riwayatByBarang[$keyBarang])) {
+        // ambil harga yang berlaku pada tanggal & jam pengambilan
+        $harga = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
+    } else {
+        // barang ini belum pernah punya riwayat harga, fallback ke harga di tabel barang
+        $harga = bersihkanHarga($hargaFallback[$keyBarang] ?? null);
+    }
+
     $qty      = (float) $row['qty'];
     $subtotal = $harga * $qty;
     $total   += $subtotal;

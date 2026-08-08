@@ -1,6 +1,9 @@
 <?php
 include 'koneksi.php';
 header('Content-Type: application/json');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 /*
 * LOGIKA BARU:
@@ -14,7 +17,7 @@ header('Content-Type: application/json');
 $sqlMaster = "SELECT id_barang, nama_barang, satuan, satuan_eceran, isi_per_satuan,
               harga_beli, harga_eceran, stok_akhir
               FROM barang 
-              ORDER BY stok_akhir DESC";
+              ORDER BY nama_barang ASC";
 $resMaster = mysqli_query($koneksi, $sqlMaster);
 if (!$resMaster) {
     echo json_encode(['status' => 'error', 'message' => 'Master: ' . mysqli_error($koneksi)]);
@@ -28,11 +31,12 @@ while ($r = mysqli_fetch_assoc($resMaster)) {
     $hargaBeli      = (float)($r['harga_beli'] ?? 0);
     $hargaEceranRaw = (float)($r['harga_eceran'] ?? 0);
     
-    // Tentukan harga eceran final
-    if ($hargaEceranRaw > 0) {
+    // Tentukan harga eceran final (per-pcs)
+    if ($hargaEceranRaw > 0 && ($hargaEceranRaw != $hargaBeli || !$isi || $isi <= 1)) {
         $hargaEceran = $hargaEceranRaw;
-    } elseif ($isi) {
-        $hargaEceran = $hargaBeli / $isi;
+    } elseif ($isi && $isi > 1) {
+        $hargaBase = ($hargaEceranRaw > 0) ? $hargaEceranRaw : $hargaBeli;
+        $hargaEceran = $hargaBase / $isi;
     } else {
         $hargaEceran = $hargaBeli;
     }
@@ -64,7 +68,70 @@ while ($r = mysqli_fetch_assoc($resMaster)) {
     ];
 }
 
-// ===== 2. STOK PER GUDANG CABANG (dari stok_barang) =====
+// ===== 2. HITUNG TOTAL PEMBELIAN (transaksi_pembelian) =====
+$purchasesMap = [];
+$resP = mysqli_query($koneksi, "SELECT LOWER(TRIM(nama_barang)) AS nama_key, volume, satuan FROM transaksi_pembelian");
+if ($resP) {
+    while ($p = mysqli_fetch_assoc($resP)) {
+        $key = $p['nama_key'];
+        $vol = (float)($p['volume'] ?? 0);
+        $sat = strtolower(trim($p['satuan'] ?? ''));
+        
+        if (!isset($purchasesMap[$key])) $purchasesMap[$key] = 0;
+        
+        $isi = null;
+        $satEceran = null;
+        foreach ($items as $it) {
+            if ($it['nama_key'] === $key) {
+                $isi = $it['isi_per_satuan'];
+                $satEceran = strtolower(trim($it['satuan_eceran']));
+                break;
+            }
+        }
+        
+        if ($isi && $sat !== $satEceran) {
+            $purchasesMap[$key] += ($vol * $isi);
+        } else {
+            $purchasesMap[$key] += $vol;
+        }
+    }
+}
+
+// ===== 3. HITUNG TOTAL PENGAMBILAN (pengambilan_barang_detail) =====
+$takingsMap = [];
+$resT = mysqli_query($koneksi2, "
+    SELECT LOWER(TRIM(pbd.nama_barang)) AS nama_key, pbd.qty, pbd.satuan
+    FROM pengambilan_barang_detail pbd
+    JOIN pengambilan_barang pb ON pb.id_pengambilan = pbd.id_pengambilan
+    WHERE pb.status = 'verified'
+");
+if ($resT) {
+    while ($t = mysqli_fetch_assoc($resT)) {
+        $key = $t['nama_key'];
+        $qty = (float)($t['qty'] ?? 0);
+        $sat = strtolower(trim($t['satuan'] ?? ''));
+        
+        if (!isset($takingsMap[$key])) $takingsMap[$key] = 0;
+        
+        $isi = null;
+        $satEceran = null;
+        foreach ($items as $it) {
+            if ($it['nama_key'] === $key) {
+                $isi = $it['isi_per_satuan'];
+                $satEceran = strtolower(trim($it['satuan_eceran']));
+                break;
+            }
+        }
+        
+        if ($isi && $sat !== $satEceran) {
+            $takingsMap[$key] += ($qty * $isi);
+        } else {
+            $takingsMap[$key] += $qty;
+        }
+    }
+}
+
+// ===== 4. STOK PER GUDANG CABANG (dari stok_barang) =====
 $gudangList = ['sodong', 'sariwangi', 'manonjaya'];
 
 foreach ($gudangList as $gudang) {
@@ -96,22 +163,38 @@ foreach ($gudangList as $gudang) {
     foreach ($items as $id => &$it) {
         $key = $it['nama_key'];
         if (isset($stokMap[$key])) {
-            $it[$gudang]['stok_grosir'] = $stokMap[$key]['grosir'];
-            $it[$gudang]['stok_eceran'] = $stokMap[$key]['eceran'];
+            $grosir = $stokMap[$key]['grosir'];
+            $eceran = $stokMap[$key]['eceran'];
+            $isi    = $it['isi_per_satuan'];
+
+            $it[$gudang]['stok_grosir'] = $grosir;
+            if (!$isi) {
+                $it[$gudang]['stok_eceran'] = $grosir;
+            } else {
+                $it[$gudang]['stok_eceran'] = ($eceran > 0) ? $eceran : ($grosir * $isi);
+            }
         }
     }
     unset($it);
 }
 
-// ===== 3. HITUNG TOTAL & NILAI (ECERAN) =====
+// ===== 5. HITUNG TOTAL BARANG, PENGAMBILAN & SISA =====
 $rows = [];
 foreach ($items as $it) {
-    $totalQtyEceran = $it['pusat']['stok_eceran']
-                    + $it['sodong']['stok_eceran']
-                    + $it['sariwangi']['stok_eceran']
-                    + $it['manonjaya']['stok_eceran'];
+    $key = $it['nama_key'];
     
-    $totalNilaiEceran = $totalQtyEceran * $it['harga_eceran'];
+    $totalSisaEceran = $it['pusat']['stok_eceran']
+                     + $it['sodong']['stok_eceran']
+                     + $it['sariwangi']['stok_eceran']
+                     + $it['manonjaya']['stok_eceran'];
+    
+    $totalPengambilanEceran = $takingsMap[$key] ?? 0;
+    $totalPembelianEceran   = $purchasesMap[$key] ?? 0;
+    
+    // Total barang dibeli (dalam eceran), minimal sisa + pengambilan
+    $totalBarangEceran = max($totalPembelianEceran, $totalSisaEceran + $totalPengambilanEceran);
+    
+    $totalNilaiEceran = $totalSisaEceran * $it['harga_eceran'];
     
     $rows[] = [
         'id_barang'          => $it['id_barang'],
@@ -125,7 +208,9 @@ foreach ($items as $it) {
         'sodong'             => $it['sodong'],
         'sariwangi'          => $it['sariwangi'],
         'manonjaya'          => $it['manonjaya'],
-        'total_qty_eceran'   => $totalQtyEceran,
+        'total_barang'       => $totalBarangEceran,
+        'total_pengambilan'  => $totalPengambilanEceran,
+        'total_qty_eceran'   => $totalSisaEceran,
         'total_nilai_eceran' => $totalNilaiEceran,
     ];
 }

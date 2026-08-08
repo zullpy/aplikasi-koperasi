@@ -2,14 +2,21 @@
 // ==========================================================
 // PENJUALAN SPPG FOODCOST
 // Data header & detail dari db_mbg (pengambilan_barang & pengambilan_barang_detail)
-// Harga beli diambil dari db_draft_barang.barang (beda database, 1 server)
+// Harga beli diambil dari db_draft_barang.riwayat_harga (harga yang BERLAKU
+// pada tanggal transaksi, bukan harga terbaru), dengan fallback ke
+// db_draft_barang.barang kalau barang belum punya riwayat sama sekali.
+//
+// PERBAIKAN: tabel `pembayaran` sekarang punya kolom `jenis`
+// ('addcost' / 'foodcost') supaya 1 id_pengambilan yang punya
+// tagihan addcost DAN foodcost tidak saling "ketuker" pembayarannya.
 // ==========================================================
 
 require_once '../database/auth.php';
 include '../database/koneksi.php';
 
-$activePage = 'penjualan-sppg-foodcost';
-include '../components/navbar.php';
+// Jenis transaksi yang ditangani oleh file ini.
+// Harus sama persis dengan nilai pbd.jenis di query utama ('foodcost').
+const JENIS_TRANSAKSI = 'foodcost';
 
 // ----------------------------------------------------------
 // FUNGSI BANTU
@@ -39,6 +46,32 @@ function formatQty($angka)
         return number_format($angka, 0, ',', '.');
     }
     return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
+}
+
+// Cari harga yang BERLAKU pada tanggal (& jam) transaksi tertentu,
+// berdasarkan riwayat harga barang yang sudah terurut naik (ASC) per tanggal.
+// Ambil entri riwayat TERAKHIR yang tanggalnya <= tanggal transaksi.
+// Kalau transaksi terjadi sebelum riwayat harga pertama tercatat,
+// pakai harga pertama yang ada sebagai pendekatan terbaik.
+function cariHargaBerlaku($riwayatList, $tglTransaksi)
+{
+    $hargaTerpilih = null;
+
+    foreach ($riwayatList as $r) {
+        if ($r['tanggal'] <= $tglTransaksi) {
+            $hargaTerpilih = $r['harga_beli'];
+        } else {
+            // karena list sudah terurut ASC, begitu ketemu tanggal
+            // yang lebih baru dari transaksi, langsung berhenti
+            break;
+        }
+    }
+
+    if ($hargaTerpilih === null && !empty($riwayatList)) {
+        $hargaTerpilih = $riwayatList[0]['harga_beli'];
+    }
+
+    return $hargaTerpilih;
 }
 
 // ----------------------------------------------------------
@@ -86,13 +119,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         }
 
         if ($errorBayar === '') {
-            $sqlInsertBayar  = "INSERT INTO pembayaran (id_pengambilan, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar) VALUES (?, ?, ?, ?, NOW())";
+            // Kolom `jenis` disertakan supaya pembayaran ini terkunci
+            // hanya untuk tagihan foodcost, tidak ikut mengurangi
+            // tagihan addcost walau id_pengambilan-nya sama.
+            $sqlInsertBayar  = "INSERT INTO pembayaran (id_pengambilan, jenis, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar) VALUES (?, ?, ?, ?, ?, NOW())";
             $stmtInsertBayar = $koneksi2->prepare($sqlInsertBayar);
 
             if ($stmtInsertBayar === false) {
                 $errorBayar = 'Gagal menyiapkan penyimpanan pembayaran: ' . $koneksi2->error;
             } else {
-                $stmtInsertBayar->bind_param('isds', $idPengambilanBayar, $metodeBayar, $jumlahBayar, $buktiPath);
+                $jenisTransaksi = JENIS_TRANSAKSI;
+                // urutan tipe: i (id_pengambilan), s (jenis), s (metode), d (jumlah), s (bukti)
+                $stmtInsertBayar->bind_param(
+                    'issds',
+                    $idPengambilanBayar,
+                    $jenisTransaksi,
+                    $metodeBayar,
+                    $jumlahBayar,
+                    $buktiPath
+                );
                 $stmtInsertBayar->execute();
                 $stmtInsertBayar->close();
 
@@ -115,6 +160,9 @@ $tanggalAwal  = isset($_GET['tanggal_awal']) ? $_GET['tanggal_awal'] : '';
 $tanggalAkhir = isset($_GET['tanggal_akhir']) ? $_GET['tanggal_akhir'] : '';
 $keyword      = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
+
+$activePage = 'penjualan-sppg-foodcost';
+include '../components/navbar.php';
 // ----------------------------------------------------------
 // QUERY UTAMA
 // Karena db_mbg & db_draft_barang ada di server yang sama,
@@ -135,13 +183,10 @@ $sql = "
         pbd.id_detail,
         pbd.nama_barang,
         pbd.satuan,
-        pbd.qty,
-        b.harga_beli
+        pbd.qty
     FROM pengambilan_barang pb
     INNER JOIN pengambilan_barang_detail pbd 
         ON pbd.id_pengambilan = pb.id_pengambilan
-    LEFT JOIN db_draft_barang.barang b 
-        ON LOWER(TRIM(b.nama_barang)) = LOWER(TRIM(pbd.nama_barang))
     WHERE pbd.jenis = 'foodcost'
       AND pb.status = 'verified'
 ";
@@ -166,6 +211,39 @@ if ($keyword !== '') {
 }
 
 $sql .= " ORDER BY pb.tanggal_pengambilan DESC, pb.id_pengambilan DESC, pbd.id_detail ASC";
+
+// ----------------------------------------------------------
+// Ambil riwayat harga per barang (db_draft_barang.riwayat_harga)
+// supaya transaksi lama tetap pakai harga yang berlaku saat itu,
+// bukan harga terbaru. Pakai koneksi $koneksi (bukan $koneksi2).
+// ----------------------------------------------------------
+$riwayatByBarang = []; // key: nama_barang (lowercase, trim) => list riwayat harga terurut naik berdasarkan tanggal
+$hargaFallback   = []; // key: nama_barang => harga_beli terbaru di tabel barang (jaga-jaga kalau riwayat kosong)
+
+$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+if ($resBarang) {
+    while ($rb = $resBarang->fetch_assoc()) {
+        $key = strtolower(trim($rb['nama_barang']));
+        $hargaFallback[$key] = $rb['harga_beli'];
+    }
+}
+
+$sqlRiwayat = "
+    SELECT b.nama_barang, r.harga_beli, r.tanggal
+    FROM riwayat_harga r
+    INNER JOIN barang b ON b.id_barang = r.id_barang
+    ORDER BY r.id_barang ASC, r.tanggal ASC, r.id_riwayat ASC
+";
+$resRiwayat = $koneksi->query($sqlRiwayat);
+if ($resRiwayat) {
+    while ($rr = $resRiwayat->fetch_assoc()) {
+        $key = strtolower(trim($rr['nama_barang']));
+        $riwayatByBarang[$key][] = [
+            'tanggal'    => $rr['tanggal'],
+            'harga_beli' => (float) $rr['harga_beli'],
+        ];
+    }
+}
 
 $stmt = $koneksi2->prepare($sql);
 
@@ -203,7 +281,17 @@ while ($row = $result->fetch_assoc()) {
         ];
     }
 
-    $hargaBeli = bersihkanHarga($row['harga_beli']);
+    $keyBarang    = strtolower(trim($row['nama_barang']));
+    $tglTransaksi = trim($row['tanggal_pengambilan'] . ' ' . ($row['jam_pengambilan'] ?: '00:00:00'));
+
+    if (!empty($riwayatByBarang[$keyBarang])) {
+        // ambil harga yang berlaku pada tanggal & jam pengambilan
+        $hargaBeli = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
+    } else {
+        // barang ini belum pernah punya riwayat harga, fallback ke harga di tabel barang
+        $hargaBeli = bersihkanHarga($hargaFallback[$keyBarang] ?? null);
+    }
+
     $qty       = (float) $row['qty'];
     $subtotal  = $hargaBeli * $qty;
 
@@ -222,6 +310,8 @@ $stmt->close();
 
 // ----------------------------------------------------------
 // AMBIL DATA PEMBAYARAN UNTUK SETIAP TRANSAKSI (bisa cicilan / >1 baris)
+// Difilter jenis = 'foodcost' supaya pembayaran untuk tagihan
+// addcost (id_pengambilan yang sama) TIDAK ikut kehitung di sini.
 // ----------------------------------------------------------
 $idPengambilanList = array_keys($transaksi);
 
@@ -230,15 +320,21 @@ if (!empty($idPengambilanList)) {
     $typesBayar  = str_repeat('i', count($idPengambilanList));
 
     $sqlBayar = "
-        SELECT id_pembayaran, id_pengambilan, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar
+        SELECT id_pembayaran, id_pengambilan, jenis, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar
         FROM pembayaran
         WHERE id_pengambilan IN ($placeholder)
+          AND jenis = ?
         ORDER BY tanggal_bayar ASC, id_pembayaran ASC
     ";
     $stmtBayar = $koneksi2->prepare($sqlBayar);
 
     if ($stmtBayar !== false) {
-        $stmtBayar->bind_param($typesBayar, ...$idPengambilanList);
+        // gabungkan parameter id_pengambilan (banyak, tipe i) + jenis (satu, tipe s)
+        $paramsBayar = $idPengambilanList;
+        $paramsBayar[] = JENIS_TRANSAKSI;
+        $typesBayarFinal = $typesBayar . 's';
+
+        $stmtBayar->bind_param($typesBayarFinal, ...$paramsBayar);
         $stmtBayar->execute();
         $resultBayar = $stmtBayar->get_result();
 
@@ -300,7 +396,7 @@ $grandSisa = max($grandTotal - $grandDibayar, 0);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Penjualan SPPG | KBUS</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="../assets/favicon.ico?v=2" type="image/x-icon">
 </head>
 
 <body>
@@ -397,7 +493,7 @@ $grandSisa = max($grandTotal - $grandDibayar, 0);
             </div>
         <?php else: ?>
             <?php foreach ($transaksi as $idPengambilan => $t): ?>
-                <div class="fc-card" id="trx-<?= (int) $idPengambilan ?>">
+                <div class="fc-card is-collapsed" id="trx-<?= (int) $idPengambilan ?>">
                     <div class="fc-card-head" data-toggle="collapse">
                         <div class="fc-card-head-main">
                             <svg class="fc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

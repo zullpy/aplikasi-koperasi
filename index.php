@@ -20,6 +20,8 @@
     />
     <link rel="shortcut icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3a5f">
 </head>
 <body>
     <div class="login-card" action="">

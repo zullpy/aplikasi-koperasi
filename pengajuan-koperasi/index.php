@@ -283,7 +283,7 @@ $userRole = $_SESSION['role'] ?? '';
     <script>
         const SESSION_ROLE = "<?php echo $_SESSION['role'] ?? ''; ?>";
     </script>
-    <script src="script.js"></script>
+    <script src="script.js?v=<?= filemtime(__DIR__ . '/script.js') ?>"></script>
     <?php include '../components/made-by.php'; ?>
 </body>
 

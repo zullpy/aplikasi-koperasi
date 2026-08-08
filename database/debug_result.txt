@@ -1,0 +1,114 @@
+=== SHOW COLUMNS FROM transaksi_pembelian ===
+id_pembelian (int(11))
+kode_transaksi (varchar(30))
+id_supplier (int(11))
+nama_barang (varchar(225))
+kategori (varchar(50))
+keterangan (varchar(255))
+harga (bigint(20))
+harga_eceran (int(11))
+biaya_admin (int(11))
+diskon (decimal(12,2))
+metode_pembayaran (varchar(50))
+volume (int(11))
+satuan (varchar(225))
+tanggal_pembelian (date)
+nota (varchar(1000))
+harga_jual_eceran (int(11))
+harga_jual_dus (int(11))
+
+=== SHOW COLUMNS FROM pembayaran_pembelian ===
+id_pembayaran (int(11))
+kode_transaksi (varchar(30))
+id_supplier (int(11))
+total_tagihan (bigint(20))
+diskon (int(11))
+jumlah_dibayar (bigint(20))
+status_pembayaran (enum('lunas','sebagian','belum_bayar'))
+tanggal_transaksi (date)
+created_at (datetime)
+
+=== SHOW COLUMNS FROM riwayat_pembayaran_pembelian ===
+id_riwayat (int(11))
+kode_transaksi (varchar(30))
+jumlah_bayar (bigint(20))
+tanggal_bayar (date)
+bukti_pembayaran (varchar(255))
+keterangan (varchar(255))
+created_at (datetime)
+
+=== TRANSAKSI PEMBELIAN (LAST 10) ===
+{"id_pembelian":"106","kode_transaksi":"TRX20260730114145","id_supplier":"12","nama_barang":"SARUNG TANGAN KARET NITRIL","tanggal_pembelian":"2026-07-30","nota":null,"metode_pembayaran":"transfer"}
+{"id_pembelian":"105","kode_transaksi":"TRX20260729130209","id_supplier":"11","nama_barang":"SARUNG TANGAN KARET(100pcs)","tanggal_pembelian":"2026-07-29","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"104","kode_transaksi":"TRX20260729052023","id_supplier":"4","nama_barang":"MINYAK GORENG MYKITA KEMASAN BOTOL 800 ML","tanggal_pembelian":"2026-07-28","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"103","kode_transaksi":"TRX20260729051503","id_supplier":"9","nama_barang":"BERAS(KARUNG)","tanggal_pembelian":"2026-07-28","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"102","kode_transaksi":"TRX20260727030313","id_supplier":"5","nama_barang":"DASHIPLUS AYAM 1KG","tanggal_pembelian":"2026-07-26","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"101","kode_transaksi":"TRX20260727025139","id_supplier":"9","nama_barang":"BERAS(KARUNG)","tanggal_pembelian":"2026-07-26","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"100","kode_transaksi":"TRX20260727003416","id_supplier":"4","nama_barang":"MINYAK GORENG RESTO 2 LITER","tanggal_pembelian":"2026-07-26","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"99","kode_transaksi":"TRX20260727003416","id_supplier":"4","nama_barang":"MINYAK GORENG KITA 2 LITER","tanggal_pembelian":"2026-07-26","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"98","kode_transaksi":"TRX20260727003238","id_supplier":"9","nama_barang":"BERAS(KARUNG)","tanggal_pembelian":"2026-07-26","nota":null,"metode_pembayaran":"cash"}
+{"id_pembelian":"97","kode_transaksi":"TRX20260723031110","id_supplier":"9","nama_barang":"BERAS(KARUNG)","tanggal_pembelian":"2026-07-23","nota":null,"metode_pembayaran":"cash"}
+
+=== PEMBAYARAN PEMBELIAN (LAST 10) ===
+{"id_pembayaran":"39","kode_transaksi":"TRX20260730114145","id_supplier":"12","total_tagihan":"415443","diskon":"59557","jumlah_dibayar":"415443","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-30","created_at":"2026-07-30 11:41:45"}
+{"id_pembayaran":"38","kode_transaksi":"TRX20260729130209","id_supplier":"11","total_tagihan":"200000","diskon":"0","jumlah_dibayar":"200000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-29","created_at":"2026-07-29 13:02:09"}
+{"id_pembayaran":"37","kode_transaksi":"TRX20260729052023","id_supplier":"4","total_tagihan":"5610000","diskon":"0","jumlah_dibayar":"5610000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-28","created_at":"2026-07-29 05:20:23"}
+{"id_pembayaran":"36","kode_transaksi":"TRX20260729051503","id_supplier":"9","total_tagihan":"1470000","diskon":"0","jumlah_dibayar":"1470000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-28","created_at":"2026-07-29 05:15:03"}
+{"id_pembayaran":"35","kode_transaksi":"TRX20260727030313","id_supplier":"5","total_tagihan":"632000","diskon":"0","jumlah_dibayar":"632000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-26","created_at":"2026-07-27 03:03:13"}
+{"id_pembayaran":"34","kode_transaksi":"TRX20260727025139","id_supplier":"9","total_tagihan":"1837500","diskon":"0","jumlah_dibayar":"1837500","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-26","created_at":"2026-07-27 02:51:39"}
+{"id_pembayaran":"33","kode_transaksi":"TRX20260727003416","id_supplier":"4","total_tagihan":"2210000","diskon":"0","jumlah_dibayar":"2210000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-26","created_at":"2026-07-27 00:34:16"}
+{"id_pembayaran":"32","kode_transaksi":"TRX20260727003238","id_supplier":"9","total_tagihan":"3307500","diskon":"0","jumlah_dibayar":"0","status_pembayaran":"sebagian","tanggal_transaksi":"2026-07-26","created_at":"2026-07-27 00:32:38"}
+{"id_pembayaran":"31","kode_transaksi":"TRX20260723031110","id_supplier":"9","total_tagihan":"1875000","diskon":"0","jumlah_dibayar":"1875000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-23","created_at":"2026-07-23 03:11:10"}
+{"id_pembayaran":"30","kode_transaksi":"TRX20260722132109","id_supplier":"9","total_tagihan":"1500000","diskon":"0","jumlah_dibayar":"1500000","status_pembayaran":"lunas","tanggal_transaksi":"2026-07-22","created_at":"2026-07-22 13:21:09"}
+
+=== RIWAYAT PEMBAYARAN PEMBELIAN (ALL) ===
+{"id_riwayat":"51","kode_transaksi":"TRX20260730114145","jumlah_bayar":"0","tanggal_bayar":"0000-00-00","bukti_pembayaran":"","keterangan":"","created_at":"2026-08-01 04:08:53"}
+{"id_riwayat":"50","kode_transaksi":"TRX20260714114143","jumlah_bayar":"1125000","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 18:04:04"}
+{"id_riwayat":"49","kode_transaksi":"TRX20260719143859","jumlah_bayar":"750000","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 18:03:40"}
+{"id_riwayat":"48","kode_transaksi":"TRX20260721042625","jumlah_bayar":"3750000","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 18:03:17"}
+{"id_riwayat":"47","kode_transaksi":"TRX20260722132109","jumlah_bayar":"1500000","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 18:02:28"}
+{"id_riwayat":"46","kode_transaksi":"TRX20260723031110","jumlah_bayar":"1875000","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 18:01:43"}
+{"id_riwayat":"45","kode_transaksi":"TRX20260727025139","jumlah_bayar":"1837500","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 18:00:38"}
+{"id_riwayat":"44","kode_transaksi":"TRX20260729051503","jumlah_bayar":"1470000","tanggal_bayar":"2026-07-31","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-31 17:56:44"}
+{"id_riwayat":"43","kode_transaksi":"TRX20260730114145","jumlah_bayar":"415443","tanggal_bayar":"2026-07-30","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-30 11:41:45"}
+{"id_riwayat":"42","kode_transaksi":"TRX20260729130209","jumlah_bayar":"200000","tanggal_bayar":"2026-07-29","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-29 13:02:09"}
+{"id_riwayat":"41","kode_transaksi":"TRX20260729052023","jumlah_bayar":"5610000","tanggal_bayar":"2026-07-28","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-29 05:20:23"}
+{"id_riwayat":"40","kode_transaksi":"TRX20260729051503","jumlah_bayar":"1","tanggal_bayar":"2026-07-28","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-29 05:15:03"}
+{"id_riwayat":"39","kode_transaksi":"TRX20260727030313","jumlah_bayar":"632000","tanggal_bayar":"2026-07-26","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-27 03:03:13"}
+{"id_riwayat":"38","kode_transaksi":"TRX20260727025139","jumlah_bayar":"1","tanggal_bayar":"2026-07-26","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-27 02:51:39"}
+{"id_riwayat":"37","kode_transaksi":"TRX20260727003416","jumlah_bayar":"2210000","tanggal_bayar":"2026-07-26","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-27 00:34:16"}
+{"id_riwayat":"36","kode_transaksi":"TRX20260727003238","jumlah_bayar":"1","tanggal_bayar":"2026-07-26","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-27 00:32:38"}
+{"id_riwayat":"35","kode_transaksi":"TRX20260723031110","jumlah_bayar":"1","tanggal_bayar":"2026-07-23","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-23 03:11:10"}
+{"id_riwayat":"34","kode_transaksi":"TRX20260722132109","jumlah_bayar":"1","tanggal_bayar":"2026-07-22","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-22 13:21:09"}
+{"id_riwayat":"33","kode_transaksi":"TRX20260721042625","jumlah_bayar":"1","tanggal_bayar":"2026-07-20","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-21 04:26:25"}
+{"id_riwayat":"32","kode_transaksi":"TRX20260719143859","jumlah_bayar":"0","tanggal_bayar":"2026-07-19","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-19 14:38:59"}
+{"id_riwayat":"31","kode_transaksi":"TRX20260719120716","jumlah_bayar":"4410000","tanggal_bayar":"2026-07-19","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-19 12:07:16"}
+{"id_riwayat":"30","kode_transaksi":"TRX20260719100922","jumlah_bayar":"5665800","tanggal_bayar":"2026-07-19","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-19 10:09:22"}
+{"id_riwayat":"29","kode_transaksi":"TRX20260712110121","jumlah_bayar":"362500","tanggal_bayar":"2026-07-17","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-17 00:32:38"}
+{"id_riwayat":"28","kode_transaksi":"TRX20260713121814","jumlah_bayar":"1450000","tanggal_bayar":"2026-07-17","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-17 00:32:11"}
+{"id_riwayat":"27","kode_transaksi":"TRX20260714114143","jumlah_bayar":"4875000","tanggal_bayar":"2026-07-17","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-17 00:31:03"}
+{"id_riwayat":"26","kode_transaksi":"TRX20260714114143","jumlah_bayar":"1","tanggal_bayar":"2026-07-14","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-14 11:41:43"}
+{"id_riwayat":"25","kode_transaksi":"TRX20260713121814","jumlah_bayar":"0","tanggal_bayar":"2026-07-13","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-13 12:18:14"}
+{"id_riwayat":"24","kode_transaksi":"TRX20260712110121","jumlah_bayar":"1812500","tanggal_bayar":"2026-07-13","bukti_pembayaran":null,"keterangan":"Pelunasan cicilan","created_at":"2026-07-13 09:08:30"}
+{"id_riwayat":"23","kode_transaksi":"TRX20260712110121","jumlah_bayar":"1","tanggal_bayar":"2026-07-12","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-12 11:01:21"}
+{"id_riwayat":"22","kode_transaksi":"TRX20260711065605","jumlah_bayar":"150000","tanggal_bayar":"2026-07-11","bukti_pembayaran":null,"keterangan":"Pembayaran awal (cicilan)","created_at":"2026-07-11 06:56:05"}
+{"id_riwayat":"21","kode_transaksi":"TRX20260710135319","jumlah_bayar":"2850000","tanggal_bayar":"2026-07-10","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-10 13:53:19"}
+{"id_riwayat":"20","kode_transaksi":"TRX20260707152120","jumlah_bayar":"1290000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 22:21:20"}
+{"id_riwayat":"19","kode_transaksi":"TRX20260707151435","jumlah_bayar":"550000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 22:14:35"}
+{"id_riwayat":"18","kode_transaksi":"TRX20260707142429","jumlah_bayar":"375000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 21:24:29"}
+{"id_riwayat":"17","kode_transaksi":"TRX20260707141841","jumlah_bayar":"5880000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 21:18:41"}
+{"id_riwayat":"16","kode_transaksi":"TRX20260707140539","jumlah_bayar":"3030000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 21:05:39"}
+{"id_riwayat":"15","kode_transaksi":"TRX20260707131515","jumlah_bayar":"28000","tanggal_bayar":"2026-07-07","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 20:15:15"}
+{"id_riwayat":"14","kode_transaksi":"TRX20260707130839","jumlah_bayar":"28000","tanggal_bayar":"2026-07-07","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 20:08:39"}
+{"id_riwayat":"13","kode_transaksi":"TRX20260707130620","jumlah_bayar":"1379000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 20:06:20"}
+{"id_riwayat":"12","kode_transaksi":"TRX20260707124949","jumlah_bayar":"600000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 19:49:49"}
+{"id_riwayat":"11","kode_transaksi":"TRX20260707121550","jumlah_bayar":"1052500","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 19:15:50"}
+{"id_riwayat":"10","kode_transaksi":"TRX20260707121152","jumlah_bayar":"1690000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 19:11:52"}
+{"id_riwayat":"9","kode_transaksi":"TRX20260707120518","jumlah_bayar":"1690000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 19:05:18"}
+{"id_riwayat":"8","kode_transaksi":"TRX20260707120034","jumlah_bayar":"1690000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 19:00:34"}
+{"id_riwayat":"7","kode_transaksi":"TRX20260707114350","jumlah_bayar":"2380000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 18:43:50"}
+{"id_riwayat":"6","kode_transaksi":"TRX20260707113628","jumlah_bayar":"143000","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 18:36:28"}
+{"id_riwayat":"5","kode_transaksi":"TRX20260707111041","jumlah_bayar":"2599500","tanggal_bayar":"2026-06-16","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-07 18:10:41"}
+{"id_riwayat":"4","kode_transaksi":"TRX20260706125623","jumlah_bayar":"28000","tanggal_bayar":"2026-07-06","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-06 19:56:23"}
+{"id_riwayat":"3","kode_transaksi":"TRX20260704074724","jumlah_bayar":"256000","tanggal_bayar":"2026-07-04","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-04 14:47:24"}
+{"id_riwayat":"2","kode_transaksi":"TRX20260704071340","jumlah_bayar":"28000","tanggal_bayar":"2026-07-04","bukti_pembayaran":null,"keterangan":"Pembayaran lunas saat transaksi","created_at":"2026-07-04 14:13:40"}

@@ -596,6 +596,61 @@ table.detail-table td {
     vertical-align: middle;
 }
 
+/* ─── Nota Thumbnail Group (multi nota per item) ─────── */
+.nota-thumb-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+/* ─── Nota Gallery Modal ──────────────────────────────── */
+.nota-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+}
+
+.nota-gallery-item {
+    position: relative;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+    aspect-ratio: 1;
+    transition: border-color .15s, transform .15s;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nota-gallery-item:hover {
+    border-color: var(--accent);
+    transform: scale(1.03);
+}
+
+.nota-gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.nota-gallery-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 30px 10px;
+    font-size: 13px;
+    grid-column: 1 / -1;
+}
+#modalGambar{
+    z-index: 1100;
+}
+.nota-thumb-group .thumb,
+.nota-thumb-group .thumb--pdf {
+    margin: 0;
+}
+
 /* ─── Table Footer ───────────────────────────────────── */
 table.laporan tfoot tr {
     background: #EFF6FF;
@@ -773,6 +828,26 @@ tr.detail-row {
 tr.detail-row.open {
     display: table-row;
 }
+
+        .thumb--pdf {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin: 0 auto;
+            transition: border-color .15s, box-shadow .15s;
+        }
+ 
+        .thumb--pdf:hover {
+            border-color: #EF4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, .1);
+        }
 
 /* ─── Responsive table ───────────────────────────────── */
 @media (max-width: 640px) {

@@ -144,12 +144,52 @@ async function hapusTransaksi(id) {
     }
 }
 
-/* ---------------- Ganti tahun (filter) ---------------- */
+/* ---------------- Ganti tahun (reset bulan + rentang) ---------------- */
 function gantiTahun(tahun) {
     const url = new URL(window.location.href);
     url.searchParams.set('tahun', tahun);
+    url.searchParams.set('bulan', '0');
+    url.searchParams.delete('dari');
+    url.searchParams.delete('sampai');
     window.location.href = url.toString();
 }
+
+/* ---------------- Ganti bulan (pertahankan tahun, hapus rentang) ---------------- */
+function gantiBulan(bulan) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('bulan', bulan);
+    url.searchParams.delete('dari');
+    url.searchParams.delete('sampai');
+    window.location.href = url.toString();
+}
+
+/* ---------------- Terapkan rentang tanggal ---------------- */
+function terapkanRentang() {
+    const dari   = document.getElementById('inputDari').value;
+    const sampai = document.getElementById('inputSampai').value;
+    if (!dari || !sampai) {
+        alert('Isi kedua tanggal terlebih dahulu.');
+        return;
+    }
+    if (dari > sampai) {
+        alert('Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
+        return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('dari', dari);
+    url.searchParams.set('sampai', sampai);
+    url.searchParams.delete('bulan');
+    window.location.href = url.toString();
+}
+
+/* ---------------- Reset rentang (kembali ke filter tahun) ---------------- */
+function resetRentang() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('dari');
+    url.searchParams.delete('sampai');
+    window.location.href = url.toString();
+}
+
 
 /* ---------------- Toast notifikasi sederhana ---------------- */
 function tampilkanToast(pesan, tipe = 'success') {

@@ -3,13 +3,18 @@
 // PENJUALAN SPPG ADDCOST
 // Data header & detail dari db_mbg (pengambilan_barang & pengambilan_barang_detail)
 // Harga beli diambil dari db_draft_barang.barang (beda database, 1 server)
+//
+// PERBAIKAN: tabel `pembayaran` sekarang punya kolom `jenis`
+// ('addcost' / 'food') supaya 1 id_pengambilan yang punya
+// tagihan addcost DAN food tidak saling "ketuker" pembayarannya.
 // ==========================================================
 
 require_once '../database/auth.php';
 include '../database/koneksi.php';
 
-$activePage = 'penjualan-sppg-addcost';
-include '../components/navbar.php';
+// Jenis transaksi yang ditangani oleh file ini.
+// File "food cost" yang mirip cukup ganti nilai ini jadi 'food'.
+const JENIS_TRANSAKSI = 'addcost';
 
 // ----------------------------------------------------------
 // FUNGSI BANTU
@@ -87,13 +92,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
         }
 
         if ($errorBayar === '') {
-            $sqlInsertBayar  = "INSERT INTO pembayaran (id_pengambilan, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar) VALUES (?, ?, ?, ?, NOW())";
+            // Kolom `jenis` disertakan supaya pembayaran ini terkunci
+            // hanya untuk tagihan addcost, tidak ikut mengurangi
+            // tagihan food walau id_pengambilan-nya sama.
+            $sqlInsertBayar  = "INSERT INTO pembayaran (id_pengambilan, jenis, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar) VALUES (?, ?, ?, ?, ?, NOW())";
             $stmtInsertBayar = $koneksi2->prepare($sqlInsertBayar);
 
             if ($stmtInsertBayar === false) {
                 $errorBayar = 'Gagal menyiapkan penyimpanan pembayaran: ' . $koneksi2->error;
             } else {
-                $stmtInsertBayar->bind_param('isds', $idPengambilanBayar, $metodeBayar, $jumlahBayar, $buktiPath);
+                $jenisTransaksi = JENIS_TRANSAKSI;
+                // urutan tipe: i (id_pengambilan), s (jenis), s (metode), d (jumlah), s (bukti)
+                $stmtInsertBayar->bind_param(
+                    'issds',
+                    $idPengambilanBayar,
+                    $jenisTransaksi,
+                    $metodeBayar,
+                    $jumlahBayar,
+                    $buktiPath
+                );
                 $stmtInsertBayar->execute();
                 $stmtInsertBayar->close();
 
@@ -116,6 +133,8 @@ $tanggalAwal  = isset($_GET['tanggal_awal']) ? $_GET['tanggal_awal'] : '';
 $tanggalAkhir = isset($_GET['tanggal_akhir']) ? $_GET['tanggal_akhir'] : '';
 $keyword      = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
 
+$activePage = 'penjualan-sppg-addcost';
+include '../components/navbar.php';
 // ----------------------------------------------------------
 // QUERY UTAMA
 // Karena db_mbg & db_draft_barang ada di server yang sama,
@@ -136,13 +155,10 @@ $sql = "
         pbd.id_detail,
         pbd.nama_barang,
         pbd.satuan,
-        pbd.qty,
-        b.harga_beli
+        pbd.qty
     FROM pengambilan_barang pb
     INNER JOIN pengambilan_barang_detail pbd 
         ON pbd.id_pengambilan = pb.id_pengambilan
-    LEFT JOIN db_draft_barang.barang b 
-        ON LOWER(TRIM(b.nama_barang)) = LOWER(TRIM(pbd.nama_barang))
     WHERE pbd.jenis = 'addcost'
       AND pb.status = 'verified'
 ";
@@ -167,6 +183,16 @@ if ($keyword !== '') {
 }
 
 $sql .= " ORDER BY pb.tanggal_pengambilan DESC, pb.id_pengambilan DESC, pbd.id_detail ASC";
+
+// Ambil semua harga barang dari db_barang (pakai $koneksi)
+$hargaLookup = [];
+$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+if ($resBarang) {
+    while ($rb = $resBarang->fetch_assoc()) {
+        $key = strtolower(trim($rb['nama_barang']));
+        $hargaLookup[$key] = $rb['harga_beli'];
+    }
+}
 
 $stmt = $koneksi2->prepare($sql);
 
@@ -204,7 +230,9 @@ while ($row = $result->fetch_assoc()) {
         ];
     }
 
-    $hargaBeli = bersihkanHarga($row['harga_beli']);
+    $keyBarang = strtolower(trim($row['nama_barang']));
+    $hargaMentah = $hargaLookup[$keyBarang] ?? null;
+    $hargaBeli = bersihkanHarga($hargaMentah);
     $qty       = (float) $row['qty'];
     $subtotal  = $hargaBeli * $qty;
 
@@ -223,6 +251,8 @@ $stmt->close();
 
 // ----------------------------------------------------------
 // AMBIL DATA PEMBAYARAN UNTUK SETIAP TRANSAKSI (bisa cicilan / >1 baris)
+// Difilter jenis = 'addcost' supaya pembayaran untuk tagihan
+// food (id_pengambilan yang sama) TIDAK ikut kehitung di sini.
 // ----------------------------------------------------------
 $idPengambilanList = array_keys($transaksi);
 
@@ -231,15 +261,21 @@ if (!empty($idPengambilanList)) {
     $typesBayar  = str_repeat('i', count($idPengambilanList));
 
     $sqlBayar = "
-        SELECT id_pembayaran, id_pengambilan, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar
+        SELECT id_pembayaran, id_pengambilan, jenis, metode_pembayaran, jumlah_dibayar, bukti_transfer, tanggal_bayar
         FROM pembayaran
         WHERE id_pengambilan IN ($placeholder)
+          AND jenis = ?
         ORDER BY tanggal_bayar ASC, id_pembayaran ASC
     ";
     $stmtBayar = $koneksi2->prepare($sqlBayar);
 
     if ($stmtBayar !== false) {
-        $stmtBayar->bind_param($typesBayar, ...$idPengambilanList);
+        // gabungkan parameter id_pengambilan (banyak, tipe i) + jenis (satu, tipe s)
+        $paramsBayar = $idPengambilanList;
+        $paramsBayar[] = JENIS_TRANSAKSI;
+        $typesBayarFinal = $typesBayar . 's';
+
+        $stmtBayar->bind_param($typesBayarFinal, ...$paramsBayar);
         $stmtBayar->execute();
         $resultBayar = $stmtBayar->get_result();
 
@@ -398,7 +434,7 @@ $grandSisa = max($grandTotal - $grandDibayar, 0);
             </div>
         <?php else: ?>
             <?php foreach ($transaksi as $idPengambilan => $t): ?>
-                <div class="fc-card" id="trx-<?= (int) $idPengambilan ?>">
+                <div class="fc-card is-collapsed" id="trx-<?= (int) $idPengambilan ?>">
                     <div class="fc-card-head" data-toggle="collapse">
                         <div class="fc-card-head-main">
                             <svg class="fc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

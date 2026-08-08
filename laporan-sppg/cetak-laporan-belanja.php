@@ -120,13 +120,49 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
 <?php
     return ob_get_clean();
 }
+
+// ── PAGINASI MANUAL TABEL ITEM BELANJA ────────────────────────────
+// Supaya tabel tidak terpotong "nanggung" di tengah halaman saat export PDF
+// (header hilang di halaman lanjutan, sisa ruang kosong di halaman sebelumnya),
+// item dibagi menjadi beberapa "halaman tabel" di PHP, lalu tiap halaman
+// dirender sebagai <table> terpisah dengan <thead> sendiri-sendiri,
+// dipisah <div class="page-break">.
+//
+// CATATAN: $rowsPerFirstPage & $rowsPerNextPage adalah estimasi jumlah
+// baris yang muat per halaman A4. Sesuaikan (coba-coba) sesuai ukuran
+// font/padding aktual jika hasil PDF masih kurang/lebih pas.
+$totalItems = count($items);
+
+$rowsPerFirstPage = 25;   // halaman 1: sudah ada kop surat, judul, info, uang masuk (dikurangi buffer)
+$rowsPerNextPage  = 32;   // halaman berikutnya: tabel lebih leluasa dari atas (dikurangi buffer)
+
+$tablePages = [];
+$remaining  = max($totalItems, 1); // minimal 1 "halaman" walau item kosong
+$offset     = 0;
+$isFirst    = true;
+
+while ($remaining > 0) {
+    $limit = $isFirst ? $rowsPerFirstPage : $rowsPerNextPage;
+    $take  = min($limit, $remaining);
+
+    $tablePages[] = [
+        'offset' => $offset,
+        'count'  => $take,
+    ];
+
+    $offset    += $take;
+    $remaining -= $take;
+    $isFirst    = false;
+}
+
+$lastPageIndex = count($tablePages) - 1;
 ?>
 <!DOCTYPE html>
 <html lang="id">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Laporan Belanja - <?= htmlspecialchars($data['nama_menu']) ?></title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css">
@@ -159,6 +195,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             z-index: 1000;
             min-height: 60px;
+            gap: 10px;
         }
 
         .toolbar-icon {
@@ -193,6 +230,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
         .toolbar-buttons {
             display: flex;
             gap: 10px;
+            flex-shrink: 0;
         }
 
         .btn {
@@ -207,6 +245,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             gap: 8px;
             transition: all 0.3s ease;
             text-decoration: none;
+            white-space: nowrap;
         }
 
         .btn-download {
@@ -242,13 +281,22 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             justify-content: center;
         }
 
+        .preview-scale-outer {
+            /* ukurannya dikoreksi lewat JS (fitPreviewToScreen) supaya nggak
+               nyisain ruang kosong pas .preview-container di-scale di mobile */
+            overflow: hidden;
+        }
+
         .preview-container {
             background: white;
             width: 210mm;
+            min-width: 210mm;
+            flex-shrink: 0;
             min-height: 297mm;
             padding: 15mm 20mm;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             border-radius: 8px;
+            transform-origin: top left;
         }
 
         .loading-overlay {
@@ -298,6 +346,8 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             padding-bottom: 5px;
             position: relative;
             background: #fff;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .kop-logo {
@@ -346,8 +396,9 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             font-size: 22px;
             font-weight: bold;
             letter-spacing: .5px;
-            /* padding: 10px 0; */
             background: #fff;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         /* ─── Info Tanggal / Menu / Porsi ─────────────────────────── */
@@ -357,6 +408,8 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             font-size: 13px;
             color: #000;
             background: #fff;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .tabel-info td {
@@ -373,14 +426,28 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             letter-spacing: 0.5px;
             background: #fff;
             padding: 4px 0;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
-        /* ─── Tabel Data Belanja ──────────────────────────────────── */
+        /* ─── Tabel Data Belanja (per-halaman) ───────────────────── */
+        .tabel-data-wrap {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .tabel-data-wrap.has-more {
+            page-break-after: always;
+            break-after: page;
+        }
+
         .tabel-data {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             font-size: 13px;
             color: #000;
+            margin-bottom: 8px;
         }
 
         .tabel-data th,
@@ -405,8 +472,19 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             text-align: right;
         }
 
+        .tabel-data tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
         .baris-kosong {
             height: 25px;
+        }
+
+        .page-break {
+            page-break-before: always;
+            break-before: page;
+            height: 0;
         }
 
         /* ─── Tanda Tangan (4 kolom) ──────────────────────────────── */
@@ -417,6 +495,8 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             gap: 10px;
             background: #fff;
             padding-bottom: 30px;
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
 
         .ttd-box {
@@ -468,6 +548,62 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             font-size: 13px;
         }
 
+        /* ─────────────────────────────────────────────────────────
+           RESPONSIVE / MOBILE
+           Halaman A4 dibiarkan tetap 210mm (biar hasil render sama
+           persis dengan PDF-nya), tapi di layar sempit kita "scale"
+           kecil pakai transform lewat JS (fitPreviewToScreen()) biar
+           kebaca penuh tanpa geser-geser horizontal.
+           ───────────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .toolbar {
+                padding: 8px 12px;
+                min-height: 52px;
+            }
+
+            .toolbar-icon {
+                font-size: 18px;
+            }
+
+            .toolbar-title {
+                font-size: 11px;
+            }
+
+            .toolbar-subtitle {
+                font-size: 9px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 0;
+                gap: 0;
+            }
+
+            .btn i {
+                font-size: 18px;
+            }
+
+            .preview-wrapper {
+                margin-top: 64px;
+                padding: 12px 8px 24px;
+            }
+
+            .preview-scale-outer {
+                width: 100%;
+                margin: 0 auto;
+            }
+
+            .preview-container {
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            }
+        }
+
+        @media (max-width: 420px) {
+            .toolbar-subtitle {
+                display: none;
+            }
+        }
+
         @media print {
 
             .toolbar,
@@ -484,9 +620,14 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
                 padding: 0;
             }
 
+            .preview-scale-outer {
+                overflow: visible !important;
+            }
+
             .preview-container {
                 box-shadow: none;
                 width: 100%;
+                transform: none !important;
             }
         }
     </style>
@@ -503,7 +644,7 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
         </div>
         <div class="toolbar-buttons">
             <button class="btn btn-download" id="downloadBtn" onclick="downloadPDF()">
-                <i class="ph ph-download-simple"></i> Download PDF
+                <i class="ph ph-download-simple"></i> <span class="btn-label">Download PDF</span>
             </button>
         </div>
     </div>
@@ -514,85 +655,136 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
     </div>
 
     <div class="preview-wrapper">
-        <div class="preview-container" id="pdfContent">
+        <div class="preview-scale-outer" id="scaleOuter">
+            <div class="preview-container" id="pdfContent">
 
-            <div class="kop-surat">
-                <div class="kop-logo"><img src="../assets/logo.png" alt="Logo KBUS"></div>
-                <div class="kop-text">
-                    <div class="kop-text-title">KOPERASI<br>BINA USAHA SAUYUNAN</div>
-                    <div class="kop-text-address">Panyingkiran - Singaparna<br>Kab. Tasikmalaya<br>email : kop.binausahasauyunan@gmail.com</div>
+                <div class="kop-surat">
+                    <div class="kop-logo"><img src="../assets/logo.png" alt="Logo KBUS"></div>
+                    <div class="kop-text">
+                        <div class="kop-text-title">KOPERASI<br>BINA USAHA SAUYUNAN</div>
+                        <div class="kop-text-address">Panyingkiran - Singaparna<br>Kab. Tasikmalaya<br>email : kop.binausahasauyunan@gmail.com</div>
+                    </div>
                 </div>
-            </div>
-            <div class="garis-ganda"></div>
+                <div class="garis-ganda"></div>
 
-            <div class="judul-laporan-belanja">LAPORAN BELANJA</div>
-            <div class="judul-laporan-belanja">PELAYANAN SPPG</div>
+                <div class="judul-laporan-belanja">LAPORAN BELANJA</div>
+                <div class="judul-laporan-belanja">PELAYANAN SPPG</div>
 
-            <table class="tabel-info">
-                <tr>
-                    <td style="width: 10%;">Tanggal</td>
-                    <td style="width: 2%; text-align: center;">:</td>
-                    <td style="width: 46%;"><?= formatTanggalIndo($data['tanggal']) ?></td>
-                    <td style="width: 15%;">Jumlah Porsi</td>
-                    <td style="width: 2%; text-align: center;">:</td>
-                    <td style="width: 25%;"><?= (int) $data['jumlah_porsi'] ?></td>
-                </tr>
-                <tr>
-                    <td>Menu</td>
-                    <td style="text-align: center;">:</td>
-                    <td colspan="4"><?= htmlspecialchars($data['nama_menu']) ?></td>
-                </tr>
-            </table>
-
-            <div class="uang-text">UANG MASUK : <?= $textUangMasuk ?></div>
-
-            <table class="tabel-data">
-                <thead>
+                <table class="tabel-info">
                     <tr>
-                        <th class="center" style="width: 7%;">No</th>
-                        <th style="width: 38%;">Nama Barang</th>
-                        <th class="center" style="width: 10%;">Qty</th>
-                        <th class="center" style="width: 12%;">Satuan</th>
-                        <th class="right" style="width: 15%;">Harga</th>
-                        <th class="right" style="width: 18%;">Sub Total</th>
+                        <td style="width: 10%;">Tanggal</td>
+                        <td style="width: 2%; text-align: center;">:</td>
+                        <td style="width: 46%;"><?= formatTanggalIndo($data['tanggal']) ?></td>
+                        <td style="width: 15%;">Jumlah Porsi</td>
+                        <td style="width: 2%; text-align: center;">:</td>
+                        <td style="width: 25%;"><?= (int) $data['jumlah_porsi'] ?></td>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php for ($i = 0; $i < 10; $i++):
-                        $it = $items[$i] ?? null;
-                    ?>
-                        <tr>
-                            <td class="center baris-kosong"><?= $i + 1 ?></td>
-                            <td><?= $it ? htmlspecialchars($it['nama_barang']) : '' ?></td>
-                            <td class="center"><?= $it ? (int) $it['qty'] : '' ?></td>
-                            <td class="center"><?= $it ? htmlspecialchars($it['satuan']) : '' ?></td>
-                            <td class="right"><?= $it ? number_format((float) $it['harga'], 0, ',', '.') : '' ?></td>
-                            <td class="right"><?= $it ? number_format((float) $it['subtotal'], 0, ',', '.') : '' ?></td>
-                        </tr>
-                    <?php endfor; ?>
                     <tr>
-                        <td colspan="4" style="border-right: 1px solid #000;"></td>
-                        <td class="center" style="font-weight: bold; vertical-align: middle;">Total<br>Belanja</td>
-                        <td class="right" style="vertical-align: middle; font-weight: bold;">
-                            <?= $totalBelanja > 0 ? number_format($totalBelanja, 0, ',', '.') : '' ?>
-                        </td>
+                        <td>Menu</td>
+                        <td style="text-align: center;">:</td>
+                        <td colspan="4"><?= htmlspecialchars($data['nama_menu']) ?></td>
                     </tr>
-                </tbody>
-            </table>
+                </table>
 
-            <div class="uang-text"><?= $labelSisaUang ?> : <?= $textSisaUang ?></div>
+                <div class="uang-text">UANG MASUK : <?= $textUangMasuk ?></div>
 
-            <div class="ttd-section">
-                <?= renderTtdBox('admin', $roleMapping, $ttdData) ?>
-                <?= renderTtdBox('bendahara', $roleMapping, $ttdData) ?>
-                <?= renderTtdBox('ketua', $roleMapping, $ttdData) ?>
+                <?php foreach ($tablePages as $pageIndex => $page): ?>
+                    <?php $wrapClass = ($pageIndex < $lastPageIndex) ? 'tabel-data-wrap has-more' : 'tabel-data-wrap'; ?>
+                    <div class="<?= $wrapClass ?>">
+                        <table class="tabel-data">
+                            <thead>
+                                <tr>
+                                    <th class="center" style="width: 7%;">No</th>
+                                    <th style="width: 38%;">Nama Barang</th>
+                                    <th class="center" style="width: 10%;">Qty</th>
+                                    <th class="center" style="width: 12%;">Satuan</th>
+                                    <th class="right" style="width: 15%;">Harga</th>
+                                    <th class="right" style="width: 18%;">Sub Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php
+                                $sliceEnd = min($page['offset'] + $page['count'], $totalItems);
+                                for ($i = $page['offset']; $i < $sliceEnd; $i++):
+                                    $it = $items[$i];
+                                ?>
+                                    <tr>
+                                        <td class="center"><?= $i + 1 ?></td>
+                                        <td><?= htmlspecialchars($it['nama_barang']) ?></td>
+                                        <td class="center"><?= formatQty($it['qty']) ?></td>
+                                        <td class="center"><?= htmlspecialchars($it['satuan']) ?></td>
+                                        <td class="right"><?= number_format((float) $it['harga'], 0, ',', '.') ?></td>
+                                        <td class="right"><?= number_format((float) $it['subtotal'], 0, ',', '.') ?></td>
+                                    </tr>
+                                <?php endfor; ?>
+
+                                <?php if ($pageIndex === $lastPageIndex): ?>
+                                    <tr>
+                                        <td colspan="4" style="border-right: 1px solid #000;"></td>
+                                        <td class="center" style="font-weight: bold; vertical-align: middle;">Total<br>Belanja</td>
+                                        <td class="right" style="vertical-align: middle; font-weight: bold;">
+                                            <?= $totalBelanja > 0 ? number_format($totalBelanja, 0, ',', '.') : '' ?>
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endforeach; ?>
+
+                <div class="uang-text"><?= $labelSisaUang ?> : <?= $textSisaUang ?></div>
+
+                <div class="ttd-section">
+                    <?= renderTtdBox('admin', $roleMapping, $ttdData) ?>
+                    <?= renderTtdBox('bendahara', $roleMapping, $ttdData) ?>
+                    <?= renderTtdBox('ketua', $roleMapping, $ttdData) ?>
+                </div>
+
             </div>
-
         </div>
     </div>
 
     <script>
         const PENGATURAN_ID = <?php echo $id; ?>;
+
+        // ── AUTO-SCALE PREVIEW UNTUK LAYAR SEMPIT (HP) ───────────────────
+        // .preview-container tetap fisik 210mm (biar konsisten sama hasil
+        // PDF), tapi tampilannya di-scale down pakai transform supaya pas
+        // di lebar layar HP tanpa perlu geser horizontal. Tinggi/lebar
+        // wrapper luar (#scaleOuter) disesuaikan manual karena transform
+        // tidak mengubah ukuran dokumen (document flow).
+        function fitPreviewToScreen() {
+            const outer = document.getElementById('scaleOuter');
+            const container = document.getElementById('pdfContent');
+            if (!outer || !container) return;
+
+            const isMobile = window.innerWidth <= 768;
+
+            if (!isMobile) {
+                container.style.transform = '';
+                outer.style.width = '';
+                outer.style.height = '';
+                return;
+            }
+
+            // reset dulu supaya offsetWidth/offsetHeight yang dibaca
+            // adalah ukuran asli (bukan hasil scale sebelumnya)
+            container.style.transform = 'none';
+
+            const naturalWidth = container.offsetWidth;
+            const naturalHeight = container.offsetHeight;
+            const availableWidth = window.innerWidth - 16; // sisain sedikit padding kiri-kanan
+
+            const scale = Math.min(availableWidth / naturalWidth, 1);
+
+            container.style.transform = `scale(${scale})`;
+            outer.style.width = (naturalWidth * scale) + 'px';
+            outer.style.height = (naturalHeight * scale) + 'px';
+        }
+
+        window.addEventListener('DOMContentLoaded', fitPreviewToScreen);
+        window.addEventListener('resize', fitPreviewToScreen);
+        window.addEventListener('orientationchange', () => setTimeout(fitPreviewToScreen, 200));
 
         async function downloadPDF() {
             const btn = document.getElementById('downloadBtn');
@@ -600,29 +792,37 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
             const content = document.getElementById('pdfContent');
             btn.disabled = true;
             overlay.classList.add('active');
+
+            // matikan dulu transform scale mobile supaya html2canvas
+            // nangkep konten di ukuran asli (210mm), baru dikembalikan
+            // lagi setelah proses PDF selesai
+            const prevTransform = content.style.transform;
+            content.style.transform = 'none';
+
+            // paksa scroll ke paling atas dulu
+            window.scrollTo(0, 0);
+
             const opt = {
-                margin: [8, 8, 8, 8],
+                margin: 0, // margin halaman sudah diatur lewat padding .preview-container (15mm 20mm), jangan dobel di sini
                 filename: `LAPORAN-BELANJA-${PENGATURAN_ID}.pdf`,
-                image: {
-                    type: 'jpeg',
-                    quality: 0.98
-                },
+                image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: {
                     scale: 2,
                     useCORS: true,
-                    letterRendering: true
+                    letterRendering: true,
+                    scrollY: 0,
+                    scrollX: 0
                 },
-                jsPDF: {
-                    unit: 'mm',
-                    format: 'a4',
-                    orientation: 'portrait'
-                }
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css'] }   // cukup 'css' aja, karena page-break-nya udah dikontrol manual lewat div .page-break
             };
             try {
                 await html2pdf().set(opt).from(content).save();
                 setTimeout(() => {
                     overlay.classList.remove('active');
                     btn.disabled = false;
+                    content.style.transform = prevTransform;
+                    fitPreviewToScreen();
                     const toast = document.createElement('div');
                     toast.style.cssText = `position: fixed; bottom: 30px; right: 30px; background: #10b981; color: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; z-index: 3000;`;
                     toast.innerHTML = '<i class="ph ph-check-circle"></i> PDF berhasil diunduh!';
@@ -633,6 +833,8 @@ function renderTtdBox($roleKey, $roleMapping, $ttdData)
                 console.error(err);
                 overlay.classList.remove('active');
                 btn.disabled = false;
+                content.style.transform = prevTransform;
+                fitPreviewToScreen();
                 alert('Gagal membuat PDF: ' + err.message);
             }
         }

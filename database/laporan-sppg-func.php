@@ -11,11 +11,24 @@ function rupiah($angka)
 }
 
 /**
+ * Format qty: tampilkan tanpa desimal jika bilangan bulat,
+ * tapi tetap tampilkan desimal (maks 2 digit) jika ada pecahan
+ */
+function formatQty($angka)
+{
+    $angka = (float) $angka;
+    if ($angka == floor($angka)) {
+        return number_format($angka, 0, ',', '.');
+    }
+    return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
+}
+
+/**
  * Ambil semua pengajuan belanja dengan status approved
  */
 function getDataLaporan($koneksi)
 {
-    $sql = "SELECT * FROM pengajuan_belanja WHERE status = 'approved' ORDER BY tanggal DESC, id DESC";
+    $sql = "SELECT * FROM pengajuan_belanja WHERE status = 'approved' OR status = 'pending' ORDER BY tanggal DESC, id DESC";
     $result = mysqli_query($koneksi, $sql);
 
     $rows = [];
@@ -33,18 +46,28 @@ function getDetailItem($koneksi, $id_pengajuan)
     $sql = "SELECT d.*, u.file_path 
             FROM detail_item_belanja d
             LEFT JOIN upload_nota u ON u.item_id = d.id AND u.pengajuan_id = d.pengajuan_id
-            WHERE d.pengajuan_id = ?";
+            WHERE d.pengajuan_id = ?
+            ORDER BY d.id ASC, u.id ASC";
     $stmt = mysqli_prepare($koneksi, $sql);
     mysqli_stmt_bind_param($stmt, 'i', $id_pengajuan);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
-    $items = [];
+    $itemsMap = [];
     while ($row = mysqli_fetch_assoc($result)) {
-        $items[] = $row;
+        $itemId = $row['id'];
+        if (!isset($itemsMap[$itemId])) {
+            $itemsMap[$itemId] = $row;
+            $itemsMap[$itemId]['notas'] = [];
+        }
+        if (!empty($row['file_path'])) {
+            $itemsMap[$itemId]['notas'][] = [
+                'file_path' => $row['file_path']
+            ];
+        }
     }
     mysqli_stmt_close($stmt);
-    return $items;
+    return array_values($itemsMap);
 }
 
 /**

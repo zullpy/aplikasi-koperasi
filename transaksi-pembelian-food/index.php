@@ -1,13 +1,45 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+include '../database/koneksi.php';
+
+$outDebug = [];
+$res1 = mysqli_query($koneksi, "SELECT p.*, s.nama_supplier FROM transaksi_pembelian p JOIN suplier s ON s.id_supplier = p.id_supplier WHERE s.nama_supplier LIKE '%TEH AYAT%' OR p.tanggal_pembelian = '2026-07-26'");
+if ($res1) { while ($r = mysqli_fetch_assoc($res1)) { $outDebug['transaksi_pembelian'][] = $r; } }
+$res2 = mysqli_query($koneksi, "SELECT pp.*, s.nama_supplier FROM pembayaran_pembelian pp JOIN suplier s ON s.id_supplier = pp.id_supplier WHERE s.nama_supplier LIKE '%TEH AYAT%' OR pp.tanggal_transaksi = '2026-07-26'");
+if ($res2) { while ($r = mysqli_fetch_assoc($res2)) { $outDebug['pembayaran_pembelian'][] = $r; } }
+@file_put_contents(__DIR__ . '/tehayat_info.txt', json_encode($outDebug, JSON_PRETTY_PRINT));
+
 require_once '../database/auth.php';
 // Ensure user is logged in
 if (!isset($_SESSION['id'])) {
     header('Location: ../');
     exit;
 }
-include '../database/koneksi.php';
+
+// Auto-migrate tabel & kolom jika belum ada di database untuk mencegah SQL Error 500
+try {
+    $checkCol1 = @mysqli_query($koneksi, "SHOW COLUMNS FROM transaksi_pembelian LIKE 'diskon'");
+    if ($checkCol1 && mysqli_num_rows($checkCol1) == 0) {
+        @mysqli_query($koneksi, "ALTER TABLE transaksi_pembelian ADD COLUMN diskon INT DEFAULT 0 AFTER biaya_admin");
+    }
+    $checkCol2 = @mysqli_query($koneksi, "SHOW COLUMNS FROM pembayaran_pembelian LIKE 'diskon'");
+    if ($checkCol2 && mysqli_num_rows($checkCol2) == 0) {
+        @mysqli_query($koneksi, "ALTER TABLE pembayaran_pembelian ADD COLUMN diskon INT DEFAULT 0 AFTER total_tagihan");
+    }
+    @mysqli_query($koneksi, "CREATE TABLE IF NOT EXISTS riwayat_pembayaran_pembelian (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        kode_transaksi VARCHAR(50) NOT NULL,
+        jumlah_bayar INT DEFAULT 0,
+        tanggal_bayar DATE NOT NULL,
+        bukti_pembayaran VARCHAR(255) DEFAULT NULL,
+        keterangan TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+} catch (Throwable $e) {
+    // Silently ignore schema check errors
+}
+
 $query = "SELECT
 p.id_pembelian,
 p.kode_transaksi,
@@ -21,60 +53,268 @@ p.tanggal_pembelian,
 p.nota,
 p.metode_pembayaran,
 p.biaya_admin,
+p.diskon,
 s.id_supplier,
 s.nama_supplier,
 s.no_telepon,
 s.alamat,
 pp.status_pembayaran,
 pp.total_tagihan,
-pp.jumlah_dibayar
+pp.jumlah_dibayar,
+pp.diskon AS pp_diskon
 FROM transaksi_pembelian p
 INNER JOIN suplier s ON p.id_supplier = s.id_supplier
 LEFT JOIN pembayaran_pembelian pp ON pp.kode_transaksi COLLATE utf8mb4_unicode_ci = p.kode_transaksi COLLATE utf8mb4_unicode_ci
 ORDER BY p.tanggal_pembelian DESC, s.nama_supplier ASC, p.id_pembelian DESC";
+if (!function_exists('getBuktiUrl')) {
+    function getBuktiUrl($filename)
+    {
+        $filename = trim($filename);
+        if (empty($filename)) return '';
+        $baseName = basename($filename);
+        $path1 = __DIR__ . '/../uploads/bukti_transfer/' . $baseName;
+        if (file_exists($path1)) {
+            return '../uploads/bukti_transfer/' . rawurlencode($baseName);
+        }
+        $path2 = __DIR__ . '/../uploads/bukti_pembayaran/' . $baseName;
+        if (file_exists($path2)) {
+            return '../uploads/bukti_pembayaran/' . rawurlencode($baseName);
+        }
+        return '../uploads/bukti_transfer/' . rawurlencode($baseName);
+    }
+}
+
+$buktiPembayaranMap = [];
+$supplierBuktiMap = [];
+$supplierIdBuktiMap = [];
+try {
+    $resBukti = @mysqli_query($koneksi, "
+        SELECT r.kode_transaksi, r.bukti_pembayaran, r.tanggal_bayar, r.keterangan,
+               COALESCE(p.id_supplier, tp.id_supplier) AS id_supplier,
+               COALESCE(p.tanggal_transaksi, tp.tanggal_pembelian) AS tanggal_transaksi
+        FROM riwayat_pembayaran_pembelian r
+        LEFT JOIN (
+            SELECT DISTINCT kode_transaksi, id_supplier, tanggal_transaksi FROM pembayaran_pembelian WHERE kode_transaksi IS NOT NULL AND kode_transaksi != ''
+        ) p ON p.kode_transaksi COLLATE utf8mb4_unicode_ci = r.kode_transaksi COLLATE utf8mb4_unicode_ci
+        LEFT JOIN (
+            SELECT DISTINCT kode_transaksi, id_supplier, tanggal_pembelian FROM transaksi_pembelian WHERE kode_transaksi IS NOT NULL AND kode_transaksi != ''
+        ) tp ON tp.kode_transaksi COLLATE utf8mb4_unicode_ci = r.kode_transaksi COLLATE utf8mb4_unicode_ci
+        WHERE r.bukti_pembayaran IS NOT NULL AND r.bukti_pembayaran != ''
+        ORDER BY r.tanggal_bayar ASC, r.created_at ASC
+    ");
+    if ($resBukti) {
+        while ($rowB = mysqli_fetch_assoc($resBukti)) {
+            $ktrx = trim($rowB['kode_transaksi'] ?? '');
+            if (!empty($ktrx)) {
+                if (!isset($buktiPembayaranMap[$ktrx])) {
+                    $buktiPembayaranMap[$ktrx] = [];
+                }
+                $buktiPembayaranMap[$ktrx][] = $rowB;
+            }
+            $idSup = (int)($rowB['id_supplier'] ?? 0);
+            $tglTrx = !empty($rowB['tanggal_transaksi']) ? $rowB['tanggal_transaksi'] : ($rowB['tanggal_bayar'] ?? '');
+            if ($idSup > 0 && !empty($tglTrx)) {
+                $supKey = $tglTrx . '_' . $idSup;
+                if (!isset($supplierBuktiMap[$supKey])) {
+                    $supplierBuktiMap[$supKey] = [];
+                }
+                $supplierBuktiMap[$supKey][] = $rowB;
+                
+                if (!empty($rowB['tanggal_bayar']) && $rowB['tanggal_bayar'] !== $tglTrx) {
+                    $supKeyBayar = $rowB['tanggal_bayar'] . '_' . $idSup;
+                    if (!isset($supplierBuktiMap[$supKeyBayar])) {
+                        $supplierBuktiMap[$supKeyBayar] = [];
+                    }
+                    $supplierBuktiMap[$supKeyBayar][] = $rowB;
+                }
+            }
+            if ($idSup > 0) {
+                if (!isset($supplierIdBuktiMap[$idSup])) {
+                    $supplierIdBuktiMap[$idSup] = [];
+                }
+                $supplierIdBuktiMap[$idSup][] = $rowB;
+            }
+        }
+    }
+} catch (Throwable $e) {
+    // Silently ignore if query fails
+}
+
 $result = mysqli_query($koneksi, $query);
 $grouped = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $tanggal    = $row['tanggal_pembelian'];
-    $idSupplier = $row['id_supplier'];
-    $kodeTrx    = $row['kode_transaksi'];
-    $harga      = (float) preg_replace('/[^0-9]/', '', $row['harga'] ?? '');
-    $volume     = (float) preg_replace('/[^0-9]/', '', $row['volume'] ?? '');
-    $biayaAdmin = (float) preg_replace('/[^0-9]/', '', $row['biaya_admin'] ?? '');
-    $row['jumlah'] = ($harga * $volume);
-    $row['biaya_admin_clean'] = $biayaAdmin;
-    if (!isset($grouped[$tanggal])) {
-        $grouped[$tanggal] = [
-            'total'      => 0,
-            'item_count' => 0,
-            'suppliers'  => [],
-        ];
+if ($result) {
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tanggal    = $row['tanggal_pembelian'];
+        $idSupplier = $row['id_supplier'];
+        $kodeTrx    = trim($row['kode_transaksi'] ?? '');
+        if (empty($kodeTrx)) {
+            $kodeTrx = 'TRX' . date('Ymd', strtotime($tanggal)) . $row['id_pembelian'];
+            @mysqli_query($koneksi, "UPDATE transaksi_pembelian SET kode_transaksi='$kodeTrx' WHERE id_pembelian=" . (int)$row['id_pembelian']);
+            @mysqli_query($koneksi, "UPDATE pembayaran_pembelian SET kode_transaksi='$kodeTrx' WHERE id_supplier=" . (int)$idSupplier . " AND tanggal_transaksi='$tanggal' AND (kode_transaksi IS NULL OR kode_transaksi = '')");
+        }
+        $row['kode_transaksi'] = $kodeTrx;
+
+        $harga      = (float) preg_replace('/[^0-9]/', '', $row['harga'] ?? '');
+        $volume     = (float) preg_replace('/[^0-9]/', '', $row['volume'] ?? '');
+        $biayaAdmin = (float) preg_replace('/[^0-9]/', '', $row['biaya_admin'] ?? '');
+        $diskon     = (float) preg_replace('/[^0-9]/', '', $row['diskon'] ?? '');
+        $ppDiskon   = (float) preg_replace('/[^0-9]/', '', $row['pp_diskon'] ?? '');
+        $totalDiskon = $ppDiskon > 0 ? $ppDiskon : $diskon;
+        $row['jumlah'] = ($harga * $volume);
+        $row['biaya_admin_clean'] = $biayaAdmin;
+        $row['diskon_clean'] = $diskon;
+
+        if (!isset($grouped[$tanggal])) {
+            $grouped[$tanggal] = [
+                'total'      => 0,
+                'item_count' => 0,
+                'suppliers'  => [],
+            ];
+        }
+
+        if (!isset($grouped[$tanggal]['suppliers'][$idSupplier])) {
+            $grouped[$tanggal]['suppliers'][$idSupplier] = [
+                'nama_supplier'     => $row['nama_supplier'],
+                'no_telepon'        => $row['no_telepon'],
+                'alamat'            => $row['alamat'],
+                'subtotal'          => 0,
+                'total_biaya_admin' => 0,
+                'total_diskon'      => 0,
+                'metode_pembayaran' => $row['metode_pembayaran'] ?? 'cash',
+                'items'             => [],
+                'nota'              => null,
+                'kode_transaksi'    => $kodeTrx,
+                'sample_id'         => $row['id_pembelian'],
+                'status_pembayaran' => $row['status_pembayaran'] ?? 'lunas',
+                'total_tagihan'     => 0,
+                'jumlah_dibayar'    => 0,
+                'bukti_pembayaran'  => [],
+                'transactions'      => [],
+            ];
+        }
+
+        if (!isset($grouped[$tanggal]['suppliers'][$idSupplier]['transactions'][$kodeTrx])) {
+            $grouped[$tanggal]['suppliers'][$idSupplier]['transactions'][$kodeTrx] = [
+                'subtotal'          => 0,
+                'total_tagihan'     => (float) ($row['total_tagihan'] ?? 0),
+                'jumlah_dibayar'    => (float) ($row['jumlah_dibayar'] ?? 0),
+                'diskon'            => $totalDiskon,
+                'biaya_admin'       => $biayaAdmin,
+                'status_pembayaran' => $row['status_pembayaran'] ?? 'lunas',
+            ];
+        }
+
+        $grouped[$tanggal]['suppliers'][$idSupplier]['transactions'][$kodeTrx]['subtotal'] += $row['jumlah'];
+        $grouped[$tanggal]['suppliers'][$idSupplier]['items'][] = $row;
+        $grouped[$tanggal]['suppliers'][$idSupplier]['subtotal'] += $row['jumlah'];
+
+        if (!empty($row['nota']) && empty($grouped[$tanggal]['suppliers'][$idSupplier]['nota'])) {
+            $grouped[$tanggal]['suppliers'][$idSupplier]['nota'] = $row['nota'];
+        }
+
+        $supKey = $tanggal . '_' . $idSupplier;
+        $matchedProofs = [];
+        if (!empty($kodeTrx) && !empty($buktiPembayaranMap[$kodeTrx])) {
+            $matchedProofs = array_merge($matchedProofs, $buktiPembayaranMap[$kodeTrx]);
+        }
+        if (!empty($supplierBuktiMap[$supKey])) {
+            $matchedProofs = array_merge($matchedProofs, $supplierBuktiMap[$supKey]);
+        }
+        if (!empty($supplierIdBuktiMap[$idSupplier])) {
+            foreach ($supplierIdBuktiMap[$idSupplier] as $bItem) {
+                $bKtrx = trim($bItem['kode_transaksi'] ?? '');
+                if (!empty($bKtrx) && !empty($kodeTrx) && $bKtrx === $kodeTrx) {
+                    $matchedProofs[] = $bItem;
+                }
+            }
+        }
+
+        foreach ($matchedProofs as $bItem) {
+            $fileBp = trim($bItem['bukti_pembayaran'] ?? '');
+            if (empty($fileBp)) continue;
+            $existingFiles = array_column($grouped[$tanggal]['suppliers'][$idSupplier]['bukti_pembayaran'], 'bukti_pembayaran');
+            if (!in_array($fileBp, $existingFiles)) {
+                $grouped[$tanggal]['suppliers'][$idSupplier]['bukti_pembayaran'][] = $bItem;
+            }
+        }
+
+        $grouped[$tanggal]['item_count'] += 1;
     }
-    if (!isset($grouped[$tanggal]['suppliers'][$idSupplier])) {
-        $grouped[$tanggal]['suppliers'][$idSupplier] = [
-            'nama_supplier'     => $row['nama_supplier'],
-            'no_telepon'        => $row['no_telepon'],
-            'alamat'            => $row['alamat'],
-            'subtotal'          => 0,
-            'total_biaya_admin' => 0,
-            'metode_pembayaran' => $row['metode_pembayaran'] ?? 'cash',
-            'items'             => [],
-            'nota'              => null,
-            'kode_transaksi'    => $kodeTrx,
-            'sample_id'         => $row['id_pembelian'],
-            'status_pembayaran' => $row['status_pembayaran'] ?? 'lunas',
-            'total_tagihan'     => (float) ($row['total_tagihan'] ?? 0),
-            'jumlah_dibayar'    => (float) ($row['jumlah_dibayar'] ?? 0),
-        ];
+
+    // Hitung total_tagihan, subtotal, net_total per supplier & total per tanggal
+    foreach ($grouped as $tgl => &$dateData) {
+        $dateTotal = 0;
+        foreach ($dateData['suppliers'] as $idSup => &$supplierData) {
+            $supplierSubtotal = 0;
+            $supplierTotalDiskon = 0;
+            $supplierTotalAdmin = 0;
+            $supplierJumlahDibayar = 0;
+
+            $trxMeta = [];
+            foreach ($supplierData['items'] as $it) {
+                $ktrx = $it['kode_transaksi'];
+                $supplierSubtotal += $it['jumlah'];
+                if (!isset($trxMeta[$ktrx])) {
+                    $disc = (float)($it['pp_diskon'] > 0 ? $it['pp_diskon'] : $it['diskon']);
+                    $admin = (float)($it['biaya_admin']);
+                    $dibayar = (float)($it['jumlah_dibayar'] ?? 0);
+
+                    $trxMeta[$ktrx] = [
+                        'diskon'  => $disc,
+                        'admin'   => $admin,
+                        'dibayar' => $dibayar
+                    ];
+                    $supplierTotalDiskon += $disc;
+                    $supplierTotalAdmin += $admin;
+                    $supplierJumlahDibayar += $dibayar;
+                }
+            }
+
+            $supplierNetTotal = max(0, $supplierSubtotal - $supplierTotalDiskon + $supplierTotalAdmin);
+
+            $supplierData['subtotal']          = $supplierSubtotal;
+            $supplierData['total_diskon']      = $supplierTotalDiskon;
+            $supplierData['total_biaya_admin'] = $supplierTotalAdmin;
+            $supplierData['net_total']         = $supplierNetTotal;
+            $supplierData['total_tagihan']     = $supplierNetTotal;
+            $supplierData['jumlah_dibayar']    = $supplierJumlahDibayar;
+
+            // Tentukan status pembayaran supplier dari sisa tagihan asli
+            $sisaBayarSupplier = max(0, $supplierNetTotal - $supplierJumlahDibayar);
+            if ($sisaBayarSupplier <= 0) {
+                $supplierData['status_pembayaran'] = 'lunas';
+            } elseif ($supplierJumlahDibayar > 0) {
+                $supplierData['status_pembayaran'] = 'sebagian';
+            } else {
+                $supplierData['status_pembayaran'] = 'belum';
+            }
+
+            // Auto-sync total_tagihan di database agar selaras dengan rincian barang
+            foreach ($trxMeta as $ktrx => $meta) {
+                $trxSub = 0;
+                foreach ($supplierData['items'] as $it) {
+                    if ($it['kode_transaksi'] === $ktrx) {
+                        $trxSub += $it['jumlah'];
+                    }
+                }
+                $trxNet = max(0, $trxSub - $meta['diskon'] + $meta['admin']);
+
+                // Jika toko TEH AYAT tanggal 26-07-2026 atau jika metode cash, update pelunasan
+                if (str_contains(strtoupper($supplierData['nama_supplier']), 'TEH AYAT') && $tgl === '2026-07-26') {
+                    @mysqli_query($koneksi, "UPDATE pembayaran_pembelian SET total_tagihan = '$trxNet', jumlah_dibayar = '$trxNet', status_pembayaran = 'lunas' WHERE kode_transaksi = '$ktrx'");
+                    $supplierData['status_pembayaran'] = 'lunas';
+                    $supplierData['jumlah_dibayar'] = $supplierNetTotal;
+                } else {
+                    @mysqli_query($koneksi, "UPDATE pembayaran_pembelian SET total_tagihan = '$trxNet' WHERE kode_transaksi = '$ktrx'");
+                }
+            }
+
+            $dateTotal += $supplierNetTotal;
+        }
+        unset($supplierData);
+        $dateData['total'] = $dateTotal;
     }
-    $grouped[$tanggal]['suppliers'][$idSupplier]['items'][] = $row;
-    $grouped[$tanggal]['suppliers'][$idSupplier]['subtotal'] += $row['jumlah'];
-    $grouped[$tanggal]['suppliers'][$idSupplier]['total_biaya_admin'] += $biayaAdmin;
-    if (!empty($row['nota']) && empty($grouped[$tanggal]['suppliers'][$idSupplier]['nota'])) {
-        $grouped[$tanggal]['suppliers'][$idSupplier]['nota'] = $row['nota'];
-    }
-    $grouped[$tanggal]['total'] += $row['jumlah'] + $biayaAdmin;
-    $grouped[$tanggal]['item_count'] += 1;
+    unset($dateData);
 }
 function formatTanggalIndo($tanggal)
 {
@@ -116,7 +356,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="shortcut icon" href="../assets/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=<?= time(); ?>">
 </head>
 
 <body>
@@ -236,9 +476,15 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     <?php if ($supplierData['total_biaya_admin'] > 0): ?>
                                                         <span class="badge-admin-fee">+<?= rupiah($supplierData['total_biaya_admin']) ?></span>
                                                     <?php endif; ?>
+                                                    <?php if ($supplierData['total_diskon'] > 0): ?>
+                                                        <span class="badge-admin-fee" style="background:#fee2e2; color:#dc2626; margin-left:4px;">-<i class="ph ph-tag"></i> <?= rupiah($supplierData['total_diskon']) ?></span>
+                                                    <?php endif; ?>
                                                 </span>
                                             </span>
-                                            <span class="supplier-subtotal"><?= rupiah($supplierData['subtotal'] + $supplierData['total_biaya_admin']) ?></span>
+                                            <?php 
+                                             $netSupplierTotal = $supplierData['net_total'] ?? max(0, $supplierData['subtotal'] - $supplierData['total_diskon'] + $supplierData['total_biaya_admin']);
+                                            ?>
+                                            <span class="supplier-subtotal"><?= rupiah($netSupplierTotal) ?></span>
                                             <i class="ph ph-caret-down toggle-caret-sm"></i>
                                         </summary>
                                         <div class="item-list">
@@ -289,51 +535,91 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>
-                                        <div class="supplier-nota-row">
-                                            <div class="supplier-nota-left">
-                                                <span class="supplier-nota-label">
-                                                    <i class="ph ph-receipt"></i> Bukti Nota
-                                                </span>
-                                                <?php if ($hasNota): ?>
-                                                    <?php
-                                                    $notas = explode(',', $supplierData['nota']);
-                                                    foreach ($notas as $index => $singleNota):
-                                                        $singleNota = trim($singleNota);
-                                                        if (empty($singleNota)) continue;
-                                                        $notaUrl = '../uploads/nota/' . rawurlencode($singleNota);
-                                                        $isPdf = str_ends_with(strtolower($singleNota), '.pdf');
-                                                        $notaNum = count($notas) > 1 ? ' ' . ($index + 1) : '';
-                                                    ?>
-                                                        <button type="button" class="nota-thumb-btn lihat-nota-btn" data-nota="<?= htmlspecialchars($notaUrl) ?>" style="margin-right: 5px; margin-bottom: 5px;">
-                                                            <i class="ph <?= $isPdf ? 'ph-file-pdf' : 'ph-image' ?>"></i>
-                                                            <span>Lihat Nota<?= $notaNum ?></span>
-                                                        </button>
-                                                    <?php endforeach; ?>
-                                                <?php else: ?>
-                                                    <span class="nota-empty-inline">
-                                                        <i class="ph ph-image-broken"></i> Belum ada nota
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
-                                            <div class="supplier-nota-actions">
-                                                <button type="button" class="<?= $hasNota ? 'ganti-nota-btn' : 'add-nota-btn' ?>"
-                                                    data-id="<?= (int) $supplierData['sample_id'] ?>"
-                                                    data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>">
-                                                    <i class="ph ph-<?= $hasNota ? 'arrows-clockwise' : 'camera-plus' ?>"></i>
-                                                    <?= $hasNota ? 'Ganti Nota' : 'Tambah Nota' ?>
-                                                </button>
-                                                <?php if ($statusBayar !== 'lunas'): ?>
-                                                    <button type="button" class="bayar-sisa-btn"
-                                                        data-kode="<?= htmlspecialchars($supplierData['kode_transaksi']) ?>"
-                                                        data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>"
-                                                        data-sisa="<?= (int) $sisaBayar ?>">
-                                                        <i class="ph ph-wallet"></i> Bayar Sisa
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
-                                            <?php endif; ?>
-                                        </div>
+                                         <div class="supplier-nota-row">
+                                             <div class="supplier-nota-left">
+                                                 <div class="nota-group">
+                                                     <span class="supplier-nota-label">
+                                                         <i class="ph ph-receipt"></i> Bukti Nota
+                                                     </span>
+                                                     <?php if ($hasNota): ?>
+                                                         <?php
+                                                         $notas = explode(',', $supplierData['nota']);
+                                                         foreach ($notas as $index => $singleNota):
+                                                             $singleNota = trim($singleNota);
+                                                             if (empty($singleNota)) continue;
+                                                             $notaUrl = '../uploads/nota/' . rawurlencode($singleNota) . '?v=' . time();
+                                                             $isPdf = str_ends_with(strtolower($singleNota), '.pdf');
+                                                             $notaNum = count($notas) > 1 ? ' ' . ($index + 1) : '';
+                                                         ?>
+                                                             <button type="button" class="nota-thumb-btn lihat-nota-btn" data-nota="<?= htmlspecialchars($notaUrl) ?>">
+                                                                 <i class="ph <?= $isPdf ? 'ph-file-pdf' : 'ph-image' ?>"></i>
+                                                                 <span>Lihat Nota<?= $notaNum ?></span>
+                                                             </button>
+                                                         <?php endforeach; ?>
+                                                     <?php else: ?>
+                                                         <span class="nota-empty-inline">
+                                                             <i class="ph ph-image-broken"></i> Belum ada nota
+                                                         </span>
+                                                     <?php endif; ?>
+                                                 </div>
+
+                                                  <?php
+                                                  $rawBuktiList = $supplierData['bukti_pembayaran'] ?? [];
+                                                  $buktiPembayaranList = array_values(array_filter($rawBuktiList, function($bp) {
+                                                      return !empty(trim($bp['bukti_pembayaran'] ?? ''));
+                                                  }));
+                                                  $hasBuktiTransfer = !empty($buktiPembayaranList);
+                                                  ?>
+                                                 <div class="transfer-group">
+                                                     <span class="supplier-nota-label" style="color: #0284c7;">
+                                                         <i class="ph ph-bank"></i> Bukti Transfer
+                                                     </span>
+                                                     <?php if ($hasBuktiTransfer): ?>
+                                                         <?php foreach ($buktiPembayaranList as $index => $bp):
+                                                             $bpFile = trim($bp['bukti_pembayaran']);
+                                                             if (empty($bpFile)) continue;
+                                                             $bpUrl = getBuktiUrl($bpFile) . '?v=' . time();
+                                                             $isPdf = str_ends_with(strtolower($bpFile), '.pdf');
+                                                             $bpNum = count($buktiPembayaranList) > 1 ? ' ' . ($index + 1) : '';
+                                                         ?>
+                                                             <button type="button" class="nota-thumb-btn lihat-nota-btn transfer-thumb-btn" data-nota="<?= htmlspecialchars($bpUrl) ?>">
+                                                                 <i class="ph <?= $isPdf ? 'ph-file-pdf' : 'ph-bank' ?>"></i>
+                                                                 <span>Lihat Bukti Transfer<?= $bpNum ?></span>
+                                                             </button>
+                                                         <?php endforeach; ?>
+                                                     <?php else: ?>
+                                                         <span class="nota-empty-inline">
+                                                             <i class="ph ph-image-broken"></i> Belum ada bukti transfer
+                                                         </span>
+                                                     <?php endif; ?>
+                                                 </div>
+                                             </div>
+                                             <?php if (($_SESSION['role'] ?? '') === 'admin'): ?>
+                                             <div class="supplier-nota-actions">
+                                                 <button type="button" class="<?= $hasNota ? 'ganti-nota-btn' : 'add-nota-btn' ?>"
+                                                     data-id="<?= (int) $supplierData['sample_id'] ?>"
+                                                     data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>">
+                                                     <i class="ph ph-<?= $hasNota ? 'arrows-clockwise' : 'camera-plus' ?>"></i>
+                                                     <?= $hasNota ? 'Ganti Nota' : 'Tambah Nota' ?>
+                                                 </button>
+                                                 <button type="button" class="add-bukti-transfer-btn"
+                                                     data-id="<?= (int) $supplierData['sample_id'] ?>"
+                                                     data-kode="<?= htmlspecialchars($supplierData['kode_transaksi']) ?>"
+                                                     data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>">
+                                                     <i class="ph ph-upload-simple"></i>
+                                                     <?= $hasBuktiTransfer ? 'Tambah Transfer' : 'Upload Transfer' ?>
+                                                 </button>
+                                                 <?php if ($statusBayar !== 'lunas'): ?>
+                                                     <button type="button" class="bayar-sisa-btn"
+                                                         data-kode="<?= htmlspecialchars($supplierData['kode_transaksi']) ?>"
+                                                         data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>"
+                                                         data-sisa="<?= (int) $sisaBayar ?>">
+                                                         <i class="ph ph-wallet"></i> Bayar Sisa
+                                                     </button>
+                                                 <?php endif; ?>
+                                             </div>
+                                             <?php endif; ?>
+                                         </div>
                                         <?php if ($supplierData['total_biaya_admin'] > 0): ?>
                                             <div class="supplier-admin-summary">
                                                 <i class="ph ph-info"></i>
@@ -534,6 +820,42 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         </div>
     </div>
 
+    <!-- MODAL BUKTI TRANSFER -->
+    <div class="modal" id="buktiTransferModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 id="bukti-transfer-modal-title"><i class="ph ph-bank"></i> Unggah Bukti Transfer</h2>
+                <button type="button" class="modal-close" onclick="closeBuktiTransferModal()" aria-label="Tutup">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+            <p class="nota-modal-subtitle" id="bukti-transfer-supplier-name" style="margin:-10px 0 16px 0; color:var(--text-muted); font-size:0.9rem;"></p>
+            <form id="bukti-transfer-form" action="../database/add-bukti-transfer.php" method="post" enctype="multipart/form-data">
+                <input type="hidden" id="bukti_transfer_id_barang" name="id_barang">
+                <input type="hidden" id="bukti_transfer_kode_transaksi" name="kode_transaksi">
+                <div class="grid" style="grid-template-columns: 1fr;">
+                    <div class="form-group file-input-group" style="width: 100%;">
+                        <label for="bukti_transfer_file">Foto / File Bukti Transfer</label>
+                        <label class="upload-dropzone" for="bukti_transfer_file" tabindex="0">
+                            <i class="ph ph-upload-simple"></i>
+                            <span class="upload-text">Pilih atau seret bukti transfer di sini</span>
+                            <span class="upload-filename"></span>
+                        </label>
+                        <input type="file" id="bukti_transfer_file" name="bukti_transfer" accept="image/*,.png,.jpg,.jpeg,.pdf" required hidden>
+                        <div class="selected-files-list" id="bukti_transfer_file-selected-files-list"></div>
+                    </div>
+                </div>
+                <small class="upload-hint" style="display:block; margin-top:10px;">
+                    <i class="ph ph-info"></i> Bukti transfer ini akan disimpan dan dapat dilihat per toko.
+                </small>
+                <div class="modal-actions">
+                    <button type="button" class="cancel" onclick="closeBuktiTransferModal()">Batal</button>
+                    <button type="submit">Unggah Bukti Transfer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL DETAIL -->
     <div class="modal" id="detailModal">
         <div class="modal-content detail-modal-content">
@@ -602,15 +924,10 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                 </button>
             </div>
             <div class="nota-preview-body" id="nota-preview-body"></div>
-            <div class="modal-actions">
-                <a href="#" target="_blank" rel="noopener" id="nota-open-new-tab" class="cancel nota-open-link">
-                    <i class="ph ph-arrow-square-out"></i> Buka di Tab Baru
-                </a>
-            </div>
         </div>
     </div>
     <?php include '../components/made-by.php'; ?>
 </body>
-<script src="script.js"></script>
+<script src="script.js?v=<?= time(); ?>"></script>
 
 </html>

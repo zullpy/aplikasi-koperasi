@@ -876,9 +876,14 @@ tr:hover td {
     color: #15803d;
 }
 
-.stok-badge.rendah {
+.stok-badge.menipis {
     background: #fef9c3;
     color: #a16207;
+}
+
+.stok-badge.rendah {
+    background: #ffedd5;
+    color: #c2410c;
 }
 
 .stok-badge.habis {
