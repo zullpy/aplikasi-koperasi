@@ -34,7 +34,14 @@ $pengajuan_id  = intval($data['pengajuan_id']);
 $role_penanda  = $data['role_penanda'];      // 'ketua' | 'bendahara' | 'admin'
 $signature_data = $data['signature_data'];  // base64 PNG
 
-if ($role_penanda !== $userRole) {
+$allowedRoles = [$userRole];
+if (in_array($userRole, ['purchase_stok', 'purchase', 'admin'], true)) {
+    $allowedRoles[] = 'admin';
+    $allowedRoles[] = 'purchase_stok';
+    $allowedRoles[] = 'purchase';
+}
+
+if (!in_array($role_penanda, $allowedRoles, true)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Forbidden: Anda tidak diizinkan menandatangani sebagai role ini.']);
     exit;
@@ -42,9 +49,12 @@ if ($role_penanda !== $userRole) {
 
 // Map role → nama kolom
 $kolom_map = [
-    'ketua'     => 'ttd_ketua',
-    'bendahara' => 'ttd_bendahara',
-    'admin'     => 'ttd_admin',
+    'ketua'         => 'ttd_ketua',
+    'bendahara'     => 'ttd_bendahara',
+    'admin'         => 'ttd_admin',
+    'purchase_stok' => 'ttd_pembuat',
+    'purchase'      => 'ttd_pembuat',
+    'pembuat'       => 'ttd_pembuat',
 ];
 
 if (!isset($kolom_map[$role_penanda])) {

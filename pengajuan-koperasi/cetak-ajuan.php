@@ -357,24 +357,26 @@ $pengajuanId = isset($_GET['id']) ? $_GET['id'] : '';
         }
 
         .sign-area .ttd-slot {
-            height: 60px;
+            height: 75px;
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .sign-area .ttd-slot img {
-            max-height: 60px;
+            max-height: 85px;
             max-width: 100%;
             object-fit: contain;
+            transform: scale(1.3);
         }
 
+        .sign-area .ttd-line,
         .sign-area .ttd-empty {
             border-bottom: 1px solid var(--ink);
             width: 80%;
             height: 1px;
-            margin: 0 auto 4px;
+            margin: 2px auto 4px;
         }
 
         @media print {
@@ -516,15 +518,47 @@ $pengajuanId = isset($_GET['id']) ? $_GET['id'] : '';
             `;
         }
 
-        // ===== TANDA TANGAN (ambil dari kolom ttd_admin / ttd_bendahara / ttd_ketua) =====
+        // ===== TANDA TANGAN (ambil dari kolom ttd_admin / ttd_pembuat / ttd_bendahara / ttd_ketua) =====
         function ttdSlot(ttdData) {
             if (ttdData) {
-                return `<div class="ttd-slot"><img src="${ttdData}" alt="TTD"></div>`;
+                return `<div class="ttd-slot"><img src="${ttdData}" alt="TTD"></div><div class="ttd-line"></div>`;
             }
             return `<div class="ttd-slot"><div class="ttd-empty"></div></div>`;
         }
 
         function renderSignature(i) {
+            if (i.jenis === 'stok') {
+                return `
+                    <div class="sign-area sign-4col">
+                        <div class="sign-head">
+                            <div class="sign-head-left" style="width:48%;">Yang mengajukan,</div>
+                            <div class="sign-head-right" style="width:48%;">Mengetahui dan Menyetujui</div>
+                        </div>
+                        <div class="sign-row" style="display:flex; justify-content:space-between;">
+                            <div class="col" style="width:23%;">
+                                <div class="role">Admin</div>
+                                ${ttdSlot(i.ttd_admin)}
+                                <div class="name">EVIN YENTIANA</div>
+                            </div>
+                            <div class="col" style="width:23%;">
+                                <div class="role">Purchasing</div>
+                                ${ttdSlot(i.ttd_purchase || i.ttd_pembuat)}
+                                <div class="name">SAEPUL MISBAH</div>
+                            </div>
+                            <div class="col" style="width:23%;">
+                                <div class="role">Bendahara</div>
+                                ${ttdSlot(i.ttd_bendahara)}
+                                <div class="name">NANCY FEBI YOLLA</div>
+                            </div>
+                            <div class="col" style="width:23%;">
+                                <div class="role">Ketua</div>
+                                ${ttdSlot(i.ttd_ketua)}
+                                <div class="name">YUDI HENDRIAN</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
             return `
                 <div class="sign-area">
                     <div class="sign-head">

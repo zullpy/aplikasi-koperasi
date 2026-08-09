@@ -228,7 +228,7 @@ function renderTable() {
 
         // Tombol aksi di level MENU CARD
         const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
-        const saldoBtnHtml = `
+        const saldoBtnHtml = (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') ? `
                   <button class="btn-action btn-action-saldo" data-bukti="${safeBuktiTF}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Input / Edit Uang Masuk Per Menu" style="background:#f0f9ff; color:#0284c7; border-color:#bae6fd;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <line x1="12" y1="1" x2="12" y2="23"/>
@@ -236,7 +236,7 @@ function renderTable() {
                     </svg>
                     ${uangMasuk > 0 ? 'Edit Uang Masuk' : '+ Uang Masuk'}
                   </button>
-        `;
+        ` : '';
 
         if (USER_ROLE === 'admin') {
           menuActionsHtml = `
@@ -265,7 +265,7 @@ function renderTable() {
                     PDF
                   </button>
                 `;
-        } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua' || USER_ROLE === 'purchase_stok') {
+        } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua') {
           menuActionsHtml = `
                   ${saldoBtnHtml}
                   <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
@@ -278,6 +278,8 @@ function renderTable() {
                     PDF
                   </button>
                 `;
+        } else {
+          menuActionsHtml = '';
         }
 
         return `
@@ -344,13 +346,22 @@ function renderTable() {
                 selisihHtml = `<span class="menu-selisih menu-selisih-lunas">✓ Pas</span>`;
               }
               const safeBuktiTFBadge = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
-              html += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
-                              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                                <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                              </svg>
-                              Saldo Masuk: <strong>${formatRupiah(uangMasuk)}</strong>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:3px; opacity:0.75;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-                            </span>${selisihHtml}`;
+              if (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') {
+                html += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
+                                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                  <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Saldo Masuk: <strong>${formatRupiah(uangMasuk)}</strong>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:3px; opacity:0.75;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+                              </span>${selisihHtml}`;
+              } else {
+                html += `<span class="menu-saldo-masuk">
+                                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                  <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Saldo Masuk: <strong>${formatRupiah(uangMasuk)}</strong>
+                              </span>${selisihHtml}`;
+              }
             }
             if (biayaAdmin) {
               html += `<span class="menu-biaya-admin">

@@ -488,10 +488,11 @@ function uploadMultiNotaKoperasi($filesNota, $subfolder = 'nota_koperasi', $pref
 function daftarRoleTtdKoperasi()
 {
     return [
-        'admin'     => 'Admin',
-        'purchase'  => 'Purchase',
-        'ketua'     => 'Ketua Koperasi',
-        'bendahara' => 'Bendahara',
+        'admin'         => 'Admin',
+        'purchase'      => 'Purchase',
+        'purchase_stok' => 'Pembuat (Saepul Misbah)',
+        'ketua'         => 'Ketua Koperasi',
+        'bendahara'     => 'Bendahara',
     ];
 }
 
@@ -531,6 +532,9 @@ function getTtdSemuaPengajuanKoperasi($koneksi)
     $grouped = [];
     while ($r = $result->fetch_assoc()) {
         $grouped[$r['pengajuan_id']][$r['role']] = $r;
+        if ($r['role'] === 'purchase') {
+            $grouped[$r['pengajuan_id']]['purchase_stok'] = $r;
+        }
     }
     return $grouped;
 }
@@ -548,6 +552,7 @@ function getTtdSemuaPengajuanKoperasi($koneksi)
 function simpanTtdKoperasi($koneksi, $pengajuanId, $role, $signedBy, $base64Image)
 {
     $pengajuanId = (int) $pengajuanId;
+    $dbRole      = ($role === 'purchase_stok') ? 'purchase' : $role;
     $rolesValid  = array_keys(daftarRoleTtdKoperasi());
 
     if (!in_array($role, $rolesValid, true)) {
@@ -562,7 +567,7 @@ function simpanTtdKoperasi($koneksi, $pengajuanId, $role, $signedBy, $base64Imag
     // Hapus file tanda tangan lama (role + pengajuan yang sama) kalau ada,
     // supaya tidak ada file nota "sampah" menumpuk tiap kali user ganti TTD.
     $stmt = $koneksi->prepare("SELECT signature_path FROM ttd_laporan_koperasi WHERE pengajuan_id = ? AND role = ?");
-    $stmt->bind_param('is', $pengajuanId, $role);
+    $stmt->bind_param('is', $pengajuanId, $dbRole);
     $stmt->execute();
     $lama = $stmt->get_result()->fetch_assoc();
     $stmt->close();
@@ -580,7 +585,7 @@ function simpanTtdKoperasi($koneksi, $pengajuanId, $role, $signedBy, $base64Imag
             signed_by      = VALUES(signed_by),
             signed_at      = NOW()
     ");
-    $stmt->bind_param('isss', $pengajuanId, $role, $path, $signedBy);
+    $stmt->bind_param('isss', $pengajuanId, $dbRole, $path, $signedBy);
     $ok = $stmt->execute();
     $stmt->close();
 
@@ -594,9 +599,10 @@ function simpanTtdKoperasi($koneksi, $pengajuanId, $role, $signedBy, $base64Imag
 function hapusTtdKoperasi($koneksi, $pengajuanId, $role)
 {
     $pengajuanId = (int) $pengajuanId;
+    $dbRole      = ($role === 'purchase_stok') ? 'purchase' : $role;
 
     $stmt = $koneksi->prepare("SELECT signature_path FROM ttd_laporan_koperasi WHERE pengajuan_id = ? AND role = ?");
-    $stmt->bind_param('is', $pengajuanId, $role);
+    $stmt->bind_param('is', $pengajuanId, $dbRole);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
@@ -609,7 +615,7 @@ function hapusTtdKoperasi($koneksi, $pengajuanId, $role)
     }
 
     $stmt = $koneksi->prepare("DELETE FROM ttd_laporan_koperasi WHERE pengajuan_id = ? AND role = ?");
-    $stmt->bind_param('is', $pengajuanId, $role);
+    $stmt->bind_param('is', $pengajuanId, $dbRole);
     $ok = $stmt->execute();
     $stmt->close();
 

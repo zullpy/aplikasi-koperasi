@@ -100,13 +100,17 @@ function formatWaktuIndo($ts)
 }
 
 // ── PEMETAAN ROLE PENANDA TANGAN SESUAI FORM ──
-// Urutan tampil dari kiri ke kanan: Admin, Bendahara, Ketua.
-$urutanRoleTtd = ['admin', 'bendahara', 'ketua'];
+$urutanRoleTtd = ['purchase_stok', 'admin', 'bendahara', 'ketua'];
 $roleMapping = [
-    'admin'     => ['label' => 'Juru Bayar',            'nama' => 'EVIN YENTIANA'],
-    'bendahara' => ['label' => 'Bendahara<br>Koperasi', 'nama' => 'NANCY FEBI YOLLA'],
-    'ketua'     => ['label' => 'Ketua<br>Koperasi',     'nama' => 'YUDI HENDRIAN'],
+    'purchase_stok' => ['label' => 'Purchasing',            'nama' => 'SAEPUL MISBAH'],
+    'admin'         => ['label' => 'Juru Bayar',            'nama' => 'EVIN YENTIANA'],
+    'bendahara'     => ['label' => 'Bendahara<br>Koperasi', 'nama' => 'NANCY FEBI YOLLA'],
+    'ketua'         => ['label' => 'Ketua<br>Koperasi',     'nama' => 'YUDI HENDRIAN'],
 ];
+
+if (!isset($ttdData['purchase_stok']) && isset($ttdData['purchase'])) {
+    $ttdData['purchase_stok'] = $ttdData['purchase'];
+}
 
 function renderTtdBoxKoperasi($roleKey, $roleMapping, $ttdData)
 {
@@ -122,6 +126,7 @@ function renderTtdBoxKoperasi($roleKey, $roleMapping, $ttdData)
                 <div class="ttd-slot">
                     <img src="../uploads/<?= htmlspecialchars($ttd['signature_path']) ?>" alt="TTD <?= htmlspecialchars($mapping['nama']) ?>">
                 </div>
+                <div class="ttd-line"></div>
                 <?php if (!empty($ttd['signed_at'])): ?>
                     <div class="ttd-timestamp"><?= formatWaktuIndo($ttd['signed_at']) ?></div>
                 <?php endif; ?>
@@ -461,12 +466,21 @@ function renderTtdBoxKoperasi($roleKey, $roleMapping, $ttdData)
             display: flex;
             align-items: center;
             justify-content: center;
+            min-height: 75px;
         }
 
         .ttd-slot img {
-            max-height: 60px;
-            max-width: 140px;
+            max-height: 80px;
+            max-width: 160px;
             object-fit: contain;
+            transform: scale(1.25);
+        }
+
+        .ttd-line {
+            border-bottom: 1px solid #111;
+            width: 80%;
+            height: 1px;
+            margin: 2px auto 4px;
         }
 
         .ttd-timestamp {

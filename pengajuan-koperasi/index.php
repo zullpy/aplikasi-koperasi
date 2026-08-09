@@ -252,6 +252,7 @@ $userRole = $_SESSION['role'] ?? '';
                         <option value="ketua">Yudi Hendrian (Ketua Koperasi)</option>
                         <option value="bendahara">Nancy Febi Yolla (Bendahara)</option>
                         <option value="admin">Evin Yentiana (Admin)</option>
+                        <option value="purchase_stok">Saepul Misbah (Purchasing / Staf Pengadaan)</option>
                     </select>
                 </div>
 

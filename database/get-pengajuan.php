@@ -4,7 +4,8 @@ require_once 'koneksi.php';
 
 $result = $koneksi->query("
     SELECT id, jenis, tujuan, keterangan, tanggal, jumlah, status,
-           saldo, catatan, approved_at, alasan, bukti, bukti_name
+           saldo, catatan, approved_at, alasan, bukti, bukti_name,
+           ttd_admin, ttd_pembuat, ttd_bendahara, ttd_ketua
     FROM pengajuan_anggaran
     ORDER BY tanggal DESC, id DESC
 ");
@@ -54,20 +55,24 @@ foreach ($allDetails as $d) {
 $data = [];
 foreach ($pengajuanList as $pa) {
     $data[] = [
-        'id'         => (int)$pa['id'],
-        'jenis'      => $pa['jenis'],
-        'tujuan'     => $pa['tujuan'] ?? '',
-        'keterangan' => $pa['keterangan'] ?? '',
-        'tanggal'    => $pa['tanggal'],
-        'jumlah'     => (float)$pa['jumlah'],
-        'status'     => $pa['status'],
-        'saldo'      => (float)($pa['saldo'] ?? 0),
-        'approvedAt' => $pa['approved_at'] ?? '',
-        'alasan'     => $pa['alasan'] ?? '',
-        'bukti'      => $pa['bukti'] ?? '',
-        'buktiName'  => $pa['bukti_name'] ?? '',
-        'catatan'    => $pa['catatan'] ?? '',
-        'items'      => $detailMap[$pa['id']] ?? [],
+        'id'            => (int)$pa['id'],
+        'jenis'         => $pa['jenis'],
+        'tujuan'        => $pa['tujuan'] ?? '',
+        'keterangan'    => $pa['keterangan'] ?? '',
+        'tanggal'       => $pa['tanggal'],
+        'jumlah'        => (float)$pa['jumlah'],
+        'status'        => $pa['status'],
+        'saldo'         => (float)($pa['saldo'] ?? 0),
+        'approvedAt'    => $pa['approved_at'] ?? '',
+        'alasan'        => $pa['alasan'] ?? '',
+        'bukti'         => $pa['bukti'] ?? '',
+        'buktiName'     => $pa['bukti_name'] ?? '',
+        'catatan'       => $pa['catatan'] ?? '',
+        'ttd_admin'     => $pa['ttd_admin'] ?? '',
+        'ttd_pembuat'   => $pa['ttd_pembuat'] ?? '',
+        'ttd_bendahara' => $pa['ttd_bendahara'] ?? '',
+        'ttd_ketua'     => $pa['ttd_ketua'] ?? '',
+        'items'         => $detailMap[$pa['id']] ?? [],
     ];
 }
 

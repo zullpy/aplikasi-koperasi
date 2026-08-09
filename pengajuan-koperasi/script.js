@@ -382,6 +382,20 @@ function renderRow(i, no = 1) {
         saldoCell = `<span style="color:var(--text-danger);font-size:11px" title="${i.alasan || ''}">Ditolak</span>`;
     }
 
+    let actionsHtml = '';
+    if (SESSION_ROLE === 'purchase_stok') {
+        if (i.jenis === 'stok') {
+            actionsHtml = `<button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"><i class="ti ti-pencil" aria-hidden="true"></i> TTD</button>`;
+        } else {
+            actionsHtml = `<span style="color:var(--text-muted);font-size:12px">—</span>`;
+        }
+    } else {
+        const approvalBtn = (SESSION_ROLE === 'bendahara') ? `<button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>` : '';
+        const ttdBtn = `<button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"><i class="ti ti-pencil" aria-hidden="true"></i> TTD</button>`;
+        const moreBtn = (SESSION_ROLE === 'admin') ? `<button class="btn sm icon-only action-menu-btn" onclick="toggleActionMenu(event, ${i.id})" title="Aksi lainnya"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>` : '';
+        actionsHtml = `${approvalBtn} ${ttdBtn} ${moreBtn}`;
+    }
+
     return `<tr>
         <td style="text-align:center;color:var(--text-muted);font-size:12px">${no}</td>
         <td>${jenisBadge} ${ketEl}</td>
@@ -391,9 +405,7 @@ function renderRow(i, no = 1) {
         <td style="text-align:center">${saldoCell}</td>
         <td>
             <div class="actions" style="justify-content:center">
-                ${(SESSION_ROLE === 'bendahara') ? `<button class="btn sm success-btn" onclick="openApproval(${i.id})" title="Approval"><i class="ti ti-shield-check" aria-hidden="true"></i> Approval</button>` : ''}
-                <button class="btn sm" style="background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;" onclick="openSignature(${i.id})" title="Tanda Tangan"><i class="ti ti-pencil" aria-hidden="true"></i> TTD</button>
-                ${SESSION_ROLE === 'admin' ? `<button class="btn sm icon-only action-menu-btn" onclick="toggleActionMenu(event, ${i.id})" title="Aksi lainnya"><i class="ti ti-dots-vertical" aria-hidden="true"></i></button>` : ''}
+                ${actionsHtml}
             </div>
         </td>
     </tr>`;
@@ -1072,10 +1084,13 @@ function openSignature(id) {
 
     // Auto-set role sesuai login, lalu langsung buka canvas
     const select = document.getElementById('sigRole');
+
     const roleMap = {
         'ketua': 'ketua',
         'bendahara': 'bendahara',
         'admin': 'admin',
+        'purchase_stok': 'purchase_stok',
+        'purchase': 'purchase_stok',
     };
 
     if (SESSION_ROLE && roleMap[SESSION_ROLE]) {
@@ -1255,6 +1270,7 @@ async function fetchSignatures(pengajuanId) {
             if (s.role_penanda === 'ketua') roleName = 'Yudi Hendrian (Ketua)';
             if (s.role_penanda === 'bendahara') roleName = 'Nancy Febi Yolla (Bendahara)';
             if (s.role_penanda === 'admin') roleName = 'Evin Yentiana (Admin)';
+            if (s.role_penanda === 'purchase_stok' || s.role_penanda === 'purchase') roleName = 'Saepul Misbah (Purchasing / Staf Pengadaan)';
 
             html += `<span class="sig-badge ${s.role_penanda} done">
                 <i class="ti ti-check"></i> ${roleName}
