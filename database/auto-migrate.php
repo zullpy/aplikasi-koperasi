@@ -35,7 +35,10 @@ function runAutoMigrations($db, $dbNameLabel = 'db1')
 
     // Kumpulkan semua file .sql dan .php
     $migrationFiles = [];
-    $files = glob($migrationDir . '/*.{sql,php}', GLOB_BRACE) ?: [];
+    $files = array_merge(
+        glob($migrationDir . '/*.sql') ?: [],
+        glob($migrationDir . '/*.php') ?: []
+    );
     foreach ($files as $f) {
         $version = basename($f);
         $migrationFiles[$version] = $f;
