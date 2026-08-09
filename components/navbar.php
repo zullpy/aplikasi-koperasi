@@ -279,7 +279,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                     </a>
                 </li>
                 <?php if ($userRole === 'purchase_stok'): ?>
-                <!-- <li class="nav-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>">
+                <li class="nav-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>">
                     <a href="../laporan-sppg/index.php" class="nav-link">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -289,7 +289,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                         </svg>
                         Laporan Belanja SPPG
                     </a>
-                </li> -->
+                </li>
                 <li class="nav-item <?= $activePage == 'daftar-harga-barang' ? 'active' : '' ?>">
                     <a href="../daftar-harga-barang-food/index.php" class="nav-link">
                         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -361,6 +361,19 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                     <ul class="dropdown-menu" role="menu">
                         <li class="dropdown-group-label">Laporan</li>
                         <li>
+                            <a href="../laporan-sppg/index.php"
+                                class="dropdown-item <?= $activePage == 'laporan-sppg' ? 'active' : '' ?>"
+                                role="menuitem">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <line x1="16" y1="13" x2="8" y2="13" />
+                                    <line x1="16" y1="17" x2="8" y2="17" />
+                                </svg>
+                                Laporan Belanja SPPG
+                            </a>
+                        </li>
+                        <li>
                             <a href="../laporan-koperasi/index.php"
                                 class="dropdown-item <?= $activePage == 'laporan-koperasi' ? 'active' : '' ?>"
                                 role="menuitem">
@@ -371,7 +384,6 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                                 Laporan Belanja Koperasi
                             </a>
                         </li>
-                        
                     </ul>
                 </li>
                 <?php endif; ?>

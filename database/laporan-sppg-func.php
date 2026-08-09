@@ -280,10 +280,8 @@ function kembalikanSaldo($koneksi, $id_pengajuan, $jumlah, $bukti_file = null)
  */
 function simpanTandaTanganLaporan($koneksi, $pengajuan_id, $role_penanda, $user_id, $signature_data)
 {
-    $roleValid = ['bendahara', 'purchase', 'ketua', 'admin'];
-    if (!in_array($role_penanda, $roleValid, true)) {
-        return false;
-    }
+    // Selalu simpan sebagai role 'purchase' (Pembuat: Saepul Misbah)
+    $role_penanda = 'purchase';
 
     $pengajuan_id = (int) $pengajuan_id;
     if ($pengajuan_id <= 0) {
@@ -309,7 +307,6 @@ function simpanTandaTanganLaporan($koneksi, $pengajuan_id, $role_penanda, $user_
 /**
  * Ambil seluruh tanda tangan yang tersimpan untuk satu laporan,
  * dikelompokkan berdasarkan role_penanda.
- * Contoh hasil: ['bendahara' => [...row...], 'ketua' => [...row...]]
  */
 function getTandaTanganLaporan($koneksi, $pengajuan_id)
 {
@@ -335,34 +332,32 @@ function getTandaTanganLaporan($koneksi, $pengajuan_id)
 function labelRole($role)
 {
     $map = [
-        'admin'     => 'Admin',
-        'bendahara' => 'Bendahara',
-        'purchase'  => 'Purchasing',
-        'ketua'     => 'Ketua',
+        'purchase'      => 'Pembuat (Saepul Misbah)',
+        'purchase_stok' => 'Pembuat (Saepul Misbah)',
+        'admin'         => 'Pembuat (Saepul Misbah)',
     ];
-    return $map[$role] ?? ucfirst($role);
+    return $map[$role] ?? 'Pembuat (Saepul Misbah)';
 }
 
 /**
- * Daftar role yang boleh tanda tangan beserta labelnya, urutan tampil
- * di grid status TTD. Key HARUS sama persis dengan $_SESSION['role'].
+ * Daftar role yang boleh tanda tangan di Laporan SPPG.
  */
 function daftarRoleTtdSppg()
 {
     return [
-        'admin'     => labelRole('admin'),
-        'ketua'     => labelRole('ketua'),
-        'bendahara' => labelRole('bendahara'),
+        'purchase'      => 'Pembuat (Saepul Misbah)',
+        'purchase_stok' => 'Pembuat (Saepul Misbah)',
+        'admin'         => 'Pembuat (Saepul Misbah)',
     ];
 }
 
 /**
- * Hapus tanda tangan sebuah role untuk sebuah laporan.
- * Dipakai tombol "Hapus Tanda Tangan" di modal (opsi selain "Ganti").
+ * Hapus tanda tangan untuk sebuah laporan (role_penanda = 'purchase').
  */
 function hapusTandaTanganLaporan($koneksi, $pengajuan_id, $role_penanda)
 {
     $pengajuan_id = (int) $pengajuan_id;
+    $role_penanda = 'purchase';
 
     $sql  = "DELETE FROM ttd_laporan_sppg WHERE pengajuan_id = ? AND role_penanda = ?";
     $stmt = mysqli_prepare($koneksi, $sql);

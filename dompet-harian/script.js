@@ -224,25 +224,20 @@ function renderTable() {
         const totalItem = detailItems.reduce((sum, b) =>
           sum + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
         const status = item.status || 'pending';
-
-        const isSigned = item.ttd_map && (item.ttd_map.purchase || item.ttd_map.admin);
-        const ttdBtnHtml = isSigned
-          ? `<button class="btn-action btn-action-ttd btn-action-ttd-done" onclick="openSignatureModal(${item.id})" title="Edit Tanda Tangan Pembuat (Saepul Misbah)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                    ${USER_ROLE === 'admin' ? '✓ TTD' : 'Sudah TTD'}
-                  </button>`
-          : `<button class="btn-action btn-action-ttd" onclick="openSignatureModal(${item.id})" title="Tanda Tangan Pembuat (Saepul Misbah)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 20h9"/>
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                    </svg>
-                    ${USER_ROLE === 'admin' ? 'TTD' : 'Tanda Tangan'}
-                  </button>`;
+        const uangMasuk = parseFloat(item.uang_masuk) || 0;
 
         // Tombol aksi di level MENU CARD
-        let menuActionsHtml = '';
+        const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
+        const saldoBtnHtml = `
+                  <button class="btn-action btn-action-saldo" data-bukti="${safeBuktiTF}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Input / Edit Uang Masuk Per Menu" style="background:#f0f9ff; color:#0284c7; border-color:#bae6fd;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="12" y1="1" x2="12" y2="23"/>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    ${uangMasuk > 0 ? 'Edit Uang Masuk' : '+ Uang Masuk'}
+                  </button>
+        `;
+
         if (USER_ROLE === 'admin') {
           menuActionsHtml = `
                   <button class="btn-action btn-action-edit" onclick="openEditModal(${item.id})">
@@ -259,7 +254,7 @@ function renderTable() {
                     </svg>
                     Hapus
                   </button>
-                  ${ttdBtnHtml}
+                  ${saldoBtnHtml}
                   <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -270,10 +265,9 @@ function renderTable() {
                     PDF
                   </button>
                 `;
-        } else if (USER_ROLE === 'purchase_stok') {
-          menuActionsHtml = ttdBtnHtml;
-        } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua') {
+        } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua' || USER_ROLE === 'purchase_stok') {
           menuActionsHtml = `
+                  ${saldoBtnHtml}
                   <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -349,11 +343,13 @@ function renderTable() {
               } else {
                 selisihHtml = `<span class="menu-selisih menu-selisih-lunas">✓ Pas</span>`;
               }
-              html += `<span class="menu-saldo-masuk">
+              const safeBuktiTFBadge = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
+              html += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                               </svg>
                               Saldo Masuk: <strong>${formatRupiah(uangMasuk)}</strong>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:3px; opacity:0.75;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
                             </span>${selisihHtml}`;
             }
             if (biayaAdmin) {
@@ -1423,13 +1419,7 @@ function openBuktiTF(urls) {
           </svg>
           ${label}
         </div>
-        <img src="${escHtml(url)}" class="nota-preview-img" alt="${label}" onclick="window.open('${escHtml(url)}','_blank')"/>
-        <a href="${escHtml(url)}" target="_blank" class="nota-preview-open">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M2 11L11 2M11 2H6M11 2V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Buka di Tab Baru
-        </a>
+        <img src="${escHtml(url)}" class="nota-preview-img" alt="${label}"/>
       </div>`;
     } else if (isPdf) {
       return `<div class="nota-preview-item">
@@ -1888,23 +1878,169 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let saldoTargetId = null;
+let _currentBuktiList = [];
 
-function openInputSaldoModal(id, currentSaldo) {
-  if (!['admin'].includes(window.CURRENT_USER_ROLE || '')) {
-    console.warn('[RBAC] openInputSaldoModal: tidak memiliki akses');
-    return;
+function openInputSaldoModalFromBtn(btn, id, currentSaldo) {
+  let rawBukti = null;
+  if (btn && btn.getAttribute('data-bukti')) {
+    try {
+      rawBukti = JSON.parse(decodeURIComponent(escape(atob(btn.getAttribute('data-bukti')))));
+    } catch(e) {
+      rawBukti = btn.getAttribute('data-bukti');
+    }
   }
+  openInputSaldoModal(id, currentSaldo, rawBukti);
+}
+
+function openInputSaldoModal(id, currentSaldo, rawBuktiTF = null) {
   saldoTargetId = id;
   const input = document.getElementById('inputSaldoDirect');
   if (input) input.value = currentSaldo ? Math.round(parseFloat(currentSaldo)).toLocaleString('id-ID') : '';
+  
+  const titleEl = document.getElementById('modalSaldoTitle');
+  if (titleEl) {
+    titleEl.textContent = (currentSaldo && parseFloat(currentSaldo) > 0) ? 'Edit Uang Masuk' : 'Input Uang Masuk';
+  }
+
+  // Parse existing bukti transfer
+  _currentBuktiList = [];
+  if (rawBuktiTF) {
+    if (Array.isArray(rawBuktiTF)) {
+      _currentBuktiList = [...rawBuktiTF];
+    } else {
+      try {
+        const parsed = typeof rawBuktiTF === 'string' ? JSON.parse(rawBuktiTF) : rawBuktiTF;
+        _currentBuktiList = Array.isArray(parsed) ? [...parsed] : [rawBuktiTF];
+      } catch (e) {
+        _currentBuktiList = [rawBuktiTF];
+      }
+    }
+  }
+  _currentBuktiList = _currentBuktiList.filter(u => u && typeof u === 'string');
+
+  renderExistingBuktiPreview();
+
+  // Reset new file input & preview
+  const fileInput = document.getElementById('inputBuktiTFDirect');
+  if (fileInput) fileInput.value = '';
+  const preview = document.getElementById('directBuktiPreviewList');
+  if (preview) preview.innerHTML = '';
+
   const modal = document.getElementById('inputSaldoModalOverlay');
   if (modal) modal.classList.add('active');
+  if (input) {
+    setTimeout(() => { input.focus(); input.select(); }, 100);
+  }
+}
+
+function renderExistingBuktiPreview() {
+  const section = document.getElementById('existingBuktiSection');
+  const container = document.getElementById('existingBuktiList');
+  if (!section || !container) return;
+
+  if (_currentBuktiList.length === 0) {
+    section.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  container.innerHTML = '';
+
+  _currentBuktiList.forEach((filename, index) => {
+    const itemTag = document.createElement('div');
+    itemTag.style.cssText = 'display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; color:#334155; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:500; border:1px solid #cbd5e1; max-width:100%; position:relative;';
+
+    const ext = filename.split('.').pop().toLowerCase();
+    const filePath = '../uploads/bukti_transfer/' + encodeURIComponent(filename);
+
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      const imgLink = document.createElement('a');
+      imgLink.href = filePath;
+      imgLink.target = '_blank';
+      imgLink.title = 'Lihat Foto Full';
+      const img = document.createElement('img');
+      img.src = filePath;
+      img.style.cssText = 'width:24px; height:24px; object-fit:cover; border-radius:4px;';
+      imgLink.appendChild(img);
+      itemTag.appendChild(imgLink);
+    } else {
+      const icon = document.createElement('span');
+      icon.textContent = '📄';
+      itemTag.appendChild(icon);
+    }
+
+    const textLink = document.createElement('a');
+    textLink.href = filePath;
+    textLink.target = '_blank';
+    textLink.style.cssText = 'color:#0284c7; text-decoration:none; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+    textLink.textContent = filename;
+    itemTag.appendChild(textLink);
+
+    const btnDelete = document.createElement('button');
+    btnDelete.type = 'button';
+    btnDelete.style.cssText = 'background:none; border:none; color:#ef4444; font-size:14px; font-weight:700; cursor:pointer; padding:0 2px; margin-left:4px; line-height:1;';
+    btnDelete.innerHTML = '&times;';
+    btnDelete.title = 'Hapus foto ini';
+    btnDelete.onclick = (e) => {
+      e.stopPropagation();
+      removeExistingBuktiItem(index);
+    };
+    itemTag.appendChild(btnDelete);
+
+    container.appendChild(itemTag);
+  });
+}
+
+function removeExistingBuktiItem(index) {
+  _currentBuktiList.splice(index, 1);
+  renderExistingBuktiPreview();
 }
 
 function closeInputSaldoModal() {
   const modal = document.getElementById('inputSaldoModalOverlay');
   if (modal) modal.classList.remove('active');
   saldoTargetId = null;
+  _currentBuktiList = [];
+  const fileInput = document.getElementById('inputBuktiTFDirect');
+  if (fileInput) fileInput.value = '';
+  const preview = document.getElementById('directBuktiPreviewList');
+  if (preview) preview.innerHTML = '';
+}
+
+function onDirectBuktiTFSelected(input) {
+  const preview = document.getElementById('directBuktiPreviewList');
+  if (!preview) return;
+  preview.innerHTML = '';
+
+  if (!input.files || input.files.length === 0) return;
+
+  const countBadge = document.createElement('div');
+  countBadge.style.cssText = 'width:100%; font-size:12px; font-weight:600; color:#0284c7; margin-bottom:4px;';
+  countBadge.textContent = `${input.files.length} file bukti transfer baru dipilih:`;
+  preview.appendChild(countBadge);
+
+  Array.from(input.files).forEach((file) => {
+    const itemTag = document.createElement('div');
+    itemTag.style.cssText = 'display:inline-flex; align-items:center; gap:6px; background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:500; border:1px solid #bae6fd; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      img.style.cssText = 'width:20px; height:20px; object-fit:cover; border-radius:3px;';
+      itemTag.appendChild(img);
+    } else {
+      const icon = document.createElement('span');
+      icon.textContent = '📄';
+      itemTag.appendChild(icon);
+    }
+
+    const textNode = document.createElement('span');
+    textNode.textContent = file.name;
+    itemTag.appendChild(textNode);
+
+    preview.appendChild(itemTag);
+  });
 }
 
 async function saveDirectSaldo() {
@@ -1919,28 +2055,39 @@ async function saveDirectSaldo() {
   }
 
   try {
+    const formData = new FormData();
+    formData.append('id', saldoTargetId);
+    formData.append('uang_masuk', uangMasuk);
+    formData.append('existing_bukti', JSON.stringify(_currentBuktiList));
+
+    const fileInput = document.getElementById('inputBuktiTFDirect');
+    if (fileInput && fileInput.files.length > 0) {
+      for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('bukti_transfer[]', fileInput.files[i]);
+      }
+    }
+
     const res = await fetch('../database/api-belanja.php?action=update_saldo', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: saldoTargetId, uang_masuk: uangMasuk })
+      body: formData
     });
     const result = await res.json();
     if (result.success) {
-      showToast('Saldo masuk berhasil disimpan', 'success');
+      showToast('Uang masuk & bukti transfer berhasil disimpan', 'success');
       closeInputSaldoModal();
       fetchData();
     } else {
-      showToast(result.message || 'Gagal menyimpan saldo', 'error');
+      showToast(result.message || 'Gagal menyimpan uang masuk', 'error');
     }
   } catch (err) {
     console.error(err);
-    showToast('Terjadi kesalahan saat menyimpan saldo', 'error');
+    showToast('Terjadi kesalahan saat menyimpan uang masuk', 'error');
   } finally {
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                         <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg> Simpan Saldo`;
+                    </svg> Simpan Uang Masuk`;
     }
   }
 }

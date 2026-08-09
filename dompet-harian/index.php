@@ -362,66 +362,70 @@ $userRole = $_SESSION['role'] ?? '';
             </div>
         </div>
     </div>
-    <!-- TOAST -->
-    <div id="toast" class="toast"></div>
 
-    <?php if ($userRole === 'admin' || $userRole === 'purchase_stok'): ?>
-    <!-- ============ MODAL TANDA TANGAN DIGITAL ============ -->
-    <div id="signatureModalOverlay" class="modal-overlay">
-        <div class="modal" style="max-width:500px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
+    <!-- ============ MODAL INPUT UANG MASUK PER MENU ============ -->
+    <div id="inputSaldoModalOverlay" class="modal-overlay">
+        <div class="modal" style="max-width:480px; display:flex; flex-direction:column; max-height:90vh; overflow:hidden;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); flex-shrink:0;">
                 <div class="modal-header-left">
-                    <div class="modal-header-icon" style="background:rgba(255,255,255,0.15);">
+                    <div class="modal-header-icon" style="background:rgba(255,255,255,0.2);">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 20h9"/>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                         </svg>
                     </div>
                     <div>
-                        <div class="modal-title">Tanda Tangan Digital</div>
-                        <div style="font-size:11px; color:rgba(255,255,255,0.65); margin-top:2px;">Pembuat · Saepul Misbah</div>
+                        <div class="modal-title" style="color:#fff;" id="modalSaldoTitle">Input Uang Masuk</div>
+                        <div style="font-size:11px; color:rgba(255,255,255,0.8); margin-top:2px;">Masukkan nominal uang masuk & foto bukti TF</div>
                     </div>
                 </div>
-                <button class="modal-close" aria-label="Tutup" onclick="closeSignatureModal()">
+                <button class="modal-close" aria-label="Tutup" onclick="closeInputSaldoModal()">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                         <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
                     </svg>
                 </button>
             </div>
-            <div class="modal-body" style="padding-bottom: 8px;">
-                <div class="sig-instruction">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="8" x2="12" y2="12"/>
-                        <line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    Gambar tanda tangan Anda di area di bawah ini
+            <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+                <div class="form-group">
+                    <label class="form-label" for="inputSaldoDirect">Nominal Uang Masuk (Rp)</label>
+                    <div class="input-icon-wrapper" style="position:relative;">
+                        <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#0284c7; font-size:15px; font-weight:700; pointer-events:none;">Rp</span>
+                        <input type="text" inputmode="numeric" id="inputSaldoDirect" class="form-input" placeholder="0" style="padding-left:38px; font-size:16px; font-weight:600;" />
+                    </div>
                 </div>
-                <div class="sig-canvas-wrap">
-                    <canvas id="signatureCanvas" class="sig-canvas"></canvas>
-                    <div class="sig-guide-line"></div>
-                    <div class="sig-name-label">Saepul Misbah</div>
+                <div id="existingBuktiSection" style="margin-top:16px; display:none;">
+                    <label class="form-label" style="font-weight:600; color:#334155; font-size:12px;">Foto / Bukti Transfer Ter-upload:</label>
+                    <div id="existingBuktiList" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;"></div>
                 </div>
-                <button type="button" class="sig-btn-clear" onclick="clearSignatureCanvas()">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="1 4 1 10 7 10"/>
-                        <path d="M3.51 15a9 9 0 1 0 .49-3.05"/>
-                    </svg>
-                    Ulangi
-                </button>
+                <div class="form-group" style="margin-top:16px;">
+                    <label class="form-label">Upload Bukti Transfer Baru <span style="font-weight:400; color:#64748b;">(Opsional)</span></label>
+                    <div style="border: 2px dashed #cbd5e1; border-radius: 8px; padding: 14px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('inputBuktiTFDirect').click()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 4px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <div style="font-size: 13px; font-weight: 600; color: #1e293b;">Pilih / Upload Foto Bukti Transfer</div>
+                        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Format: JPG, PNG, WEBP, PDF (Bisa pilih lebih dari 2 foto)</div>
+                        <input type="file" id="inputBuktiTFDirect" multiple accept="image/*,.pdf" style="display:none;" onchange="onDirectBuktiTFSelected(this)" />
+                    </div>
+                    <div id="directBuktiPreviewList" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button onclick="closeSignatureModal()" class="btn-cancel">Batal</button>
-                <button id="btnSaveSignature" onclick="saveSignature()" class="btn-save" style="background:linear-gradient(135deg,#1e293b,#334155);">
+            <div class="modal-footer" style="flex-shrink:0;">
+                <button onclick="closeInputSaldoModal()" class="btn-cancel">Batal</button>
+                <button id="btnSaveSaldo" onclick="saveDirectSaldo()" class="btn-save" style="background:linear-gradient(135deg,#0284c7,#0369a1); box-shadow:0 4px 14px rgba(2,132,199,0.35);">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                         <path d="M2 7l3.5 3.5L12 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    Simpan TTD
+                    Simpan Uang Masuk
                 </button>
             </div>
         </div>
     </div>
-    <?php endif; ?>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast"></div>
 
     <script>
         window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';

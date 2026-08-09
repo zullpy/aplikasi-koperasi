@@ -768,6 +768,18 @@ try {
                 throw new Exception('ID tidak valid');
             }
 
+            $resPb = $koneksi->query("SELECT bukti_transfer FROM pengajuan_belanja WHERE id = $id");
+            if ($resPb && $resPb->num_rows > 0) {
+                $pbRow = $resPb->fetch_assoc();
+                $bList = decodeBuktiList($pbRow['bukti_transfer'] ?? null);
+                foreach ($bList as $bFile) {
+                    $bPath = __DIR__ . '/../uploads/bukti_transfer/' . basename($bFile);
+                    if (file_exists($bPath) && is_file($bPath)) {
+                        @unlink($bPath);
+                    }
+                }
+            }
+
             $resNota = $koneksi->query("SELECT file_path FROM upload_nota WHERE pengajuan_id = $id");
             if ($resNota) {
                 while ($nota = $resNota->fetch_assoc()) {
@@ -985,40 +997,94 @@ try {
 
             // ─── UPDATE SALDO: Simpan/update saldo masuk per pengajuan ──────
         case 'update_saldo':
-            if ($userRole !== 'admin') {
+            if (!in_array($userRole, ['admin', 'bendahara', 'ketua', 'purchase_stok', 'purchase'], true)) {
                 http_response_code(403);
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Hanya admin yang dapat memperbarui saldo masuk']);
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Anda tidak memiliki akses untuk memperbarui saldo']);
                 exit;
             }
             if ($method !== 'POST') throw new Exception('Method not allowed');
-            $raw = file_get_contents('php://input');
-            $data = json_decode($raw, true);
-            $id        = intval($data['id'] ?? 0);
-            $uangMasuk = floatval($data['uang_masuk'] ?? 0);
+
+            $id = 0;
+            $uangMasuk = 0.0;
+            if (isset($_POST['id'])) {
+                $id        = intval($_POST['id']);
+                $uangMasuk = floatval($_POST['uang_masuk'] ?? 0);
+            } else {
+                $raw = file_get_contents('php://input');
+                $data = json_decode($raw, true);
+                $id        = intval($data['id'] ?? 0);
+                $uangMasuk = floatval($data['uang_masuk'] ?? 0);
+            }
 
             if (!$id) throw new Exception('ID pengajuan tidak valid');
 
-            $rowPb = $koneksi->query("SELECT total_belanja FROM pengajuan_belanja WHERE id = " . intval($id));
+            ensureBuktiTransferColumnIsText($koneksi);
+
+            $rowPb = $koneksi->query("SELECT total_belanja, bukti_transfer FROM pengajuan_belanja WHERE id = " . intval($id));
             if (!$rowPb || $rowPb->num_rows === 0) throw new Exception('Pengajuan tidak ditemukan');
             $pb = $rowPb->fetch_assoc();
             $totalBelanja = floatval($pb['total_belanja']);
-            $sisaUang     = $uangMasuk - $totalBelanja;
+            $oldBuktiList = decodeBuktiList($pb['bukti_transfer'] ?? null);
+            $existingList = [];
+            if (isset($_POST['existing_bukti'])) {
+                $decoded = json_decode($_POST['existing_bukti'], true);
+                if (is_array($decoded)) {
+                    $existingList = array_values(array_filter($decoded));
+                }
+            } else {
+                $existingList = $oldBuktiList;
+            }
 
-            $stmt = $koneksi->prepare("
-                UPDATE pengajuan_belanja
-                SET uang_masuk = ?, sisa_uang = ?, updated_at = NOW()
-                WHERE id = ?
-            ");
-            if (!$stmt) throw new Exception('Prepare update error: ' . $koneksi->error);
-            $stmt->bind_param('ddi', $uangMasuk, $sisaUang, $id);
+            // Hapus file fisik dari disk jika foto dihapus dari daftar
+            $uploadDir = '../uploads/bukti_transfer/';
+            $removedFiles = array_diff($oldBuktiList, $existingList);
+            foreach ($removedFiles as $fileToRemove) {
+                $filePath = $uploadDir . basename($fileToRemove);
+                if (file_exists($filePath) && is_file($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+
+            $filesToUpload = normalizeUploadedFiles($_FILES['bukti_transfer'] ?? null);
+            $newFileNames = [];
+            if (!empty($filesToUpload)) {
+                $uploadDir = '../uploads/bukti_transfer/';
+                if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
+                foreach ($filesToUpload as $idx => $file) {
+                    $newFileNames[] = uploadOneBuktiFile($file, $id, $idx, $uploadDir);
+                }
+            }
+
+            $finalList = array_merge($existingList, $newFileNames);
+            $buktiJson = !empty($finalList) ? encodeBuktiList($finalList) : null;
+
+            if ($buktiJson !== null) {
+                $stmt = $koneksi->prepare("
+                    UPDATE pengajuan_belanja
+                    SET uang_masuk = ?, sisa_uang = ?, bukti_transfer = ?, updated_at = NOW()
+                    WHERE id = ?
+                ");
+                if (!$stmt) throw new Exception('Prepare update error: ' . $koneksi->error);
+                $stmt->bind_param('ddsi', $uangMasuk, $sisaUang, $buktiJson, $id);
+            } else {
+                $stmt = $koneksi->prepare("
+                    UPDATE pengajuan_belanja
+                    SET uang_masuk = ?, sisa_uang = ?, updated_at = NOW()
+                    WHERE id = ?
+                ");
+                if (!$stmt) throw new Exception('Prepare update error: ' . $koneksi->error);
+                $stmt->bind_param('ddi', $uangMasuk, $sisaUang, $id);
+            }
+
             if (!$stmt->execute()) throw new Exception('Execute update error: ' . $stmt->error);
             $stmt->close();
 
             echo json_encode([
-                'success'    => true,
-                'message'    => 'Saldo masuk berhasil diperbarui',
-                'uang_masuk' => $uangMasuk,
-                'sisa_uang'  => $sisaUang
+                'success'        => true,
+                'message'        => 'Uang masuk berhasil diperbarui',
+                'uang_masuk'     => $uangMasuk,
+                'sisa_uang'      => $sisaUang,
+                'bukti_transfer' => $finalList
             ]);
             exit;
 
