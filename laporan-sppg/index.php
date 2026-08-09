@@ -337,16 +337,6 @@ $bisaTtd       = in_array($role_login_saat_ini, ['admin', 'purchase', 'purchase_
                                                 </svg>
                                                 Detail
                                             </button>
-                                            <?php if ($sisa > 0 && $role_login_saat_ini !== 'purchase_stok' && $role_login_saat_ini !== 'bendahara'): ?>
-                                                <button class="btn btn--warning"
-                                                    onclick="bukaKembalikan(<?= $row['id'] ?>, '<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>', <?= (float) $row['sisa_uang'] ?>)">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                                        <path d="M3 12a9 9 0 1 0 3-6.7" />
-                                                        <path d="M3 4v5h5" />
-                                                    </svg>
-                                                    Kembalikan
-                                                </button>
-                                            <?php endif; ?>
                                             <?php if ($bisaTtd): ?>
                                                 <button type="button" class="btn <?= $ttdSaya ? 'btn--outline' : 'btn--ttd' ?>"
                                                     onclick='bukaTandaTangan(<?= $row['id'] ?>, "<?= htmlspecialchars(addslashes($row['nama_menu'])) ?>", "Pembuat (Saepul Misbah)", <?= $ttdSaya ? json_encode([
