@@ -362,7 +362,7 @@ foreach ($dataBarang as $b) {
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 900px;">
                 <thead>
                     <tr style="background: #f8fafc; color: #475569; font-weight: 600; border-bottom: 2px solid #e2e8f0;">
-                        <th rowspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; vertical-align: middle; min-width: 160px;">Nama Barang</th>
+                        <th rowspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; vertical-align: middle; min-width: 160px; text-align: left;">Nama Barang</th>
                         <th colspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #eff6ff;">Barang Dibeli</th>
                         <th colspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #fff0f0;">Barang Keluar (Terjual)</th>
                         <th colspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #f0fdf4;">Barang Belum Keluar (Stok)</th>
@@ -404,7 +404,7 @@ foreach ($dataBarang as $b) {
                     if ($beliQty == 0 && $beliNominal == 0 && $jualQty == 0 && $jualNominal == 0 && $sisaQty == 0) continue;
                 ?>
                     <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
-                        <td style="padding: 10px 14px; font-weight: 500; border: 1px solid #f1f5f9;"><?= htmlspecialchars($namaBarang); ?></td>
+                        <td style="padding: 10px 14px; font-weight: 500; border: 1px solid #f1f5f9; text-align: left;"><?= htmlspecialchars($namaBarang); ?></td>
                         <!-- Dibeli -->
                         <td style="padding: 10px 14px; text-align: right; border: 1px solid #f1f5f9; background: #f0f7ff;"><?= $beliQty > 0 ? number_format($beliQty, 0, ',', '.') : '-'; ?></td>
                         <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: #2563eb; border: 1px solid #f1f5f9; background: #f0f7ff;"><?= $beliNominal > 0 ? 'Rp ' . number_format($beliNominal, 0, ',', '.') : '-'; ?></td>
@@ -419,7 +419,7 @@ foreach ($dataBarang as $b) {
                 </tbody>
                 <tfoot>
                     <tr style="background: #f1f5f9; font-weight: 700; color: #1e293b; border-top: 2px solid #cbd5e1;">
-                        <td style="padding: 12px 14px; border: 1px solid #e2e8f0;">TOTAL</td>
+                        <td style="padding: 12px 14px; border: 1px solid #e2e8f0; text-align: left;">TOTAL</td>
                         <td style="padding: 12px 14px; text-align: right; border: 1px solid #e2e8f0; background: #dbeafe;"><?= number_format($grandTotalBeliQty, 0, ',', '.'); ?></td>
                         <td style="padding: 12px 14px; text-align: right; color: #2563eb; border: 1px solid #e2e8f0; background: #dbeafe;">Rp <?= number_format($grandTotalBeliNominal, 0, ',', '.'); ?></td>
                         <td style="padding: 12px 14px; text-align: right; border: 1px solid #fca5a5; background: #fee2e2;"><?= number_format($grandTotalJualQty, 0, ',', '.'); ?></td>
