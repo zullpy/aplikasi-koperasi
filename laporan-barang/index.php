@@ -19,6 +19,25 @@ $qPembelian = "SELECT SUM(harga * volume + biaya_admin) AS total FROM transaksi_
 $resPembelian = $koneksi->query($qPembelian);
 $totalPembelian = $resPembelian ? (float)$resPembelian->fetch_assoc()['total'] : 0;
 
+// Rekap pembelian per nama barang (qty = volume, nominal = harga * volume + biaya_admin)
+$pembelianPerBarang = [];
+$qPembelianDetail = "SELECT LOWER(TRIM(nama_barang)) AS nama_key, nama_barang,
+                            SUM(volume) AS total_qty,
+                            SUM(harga * volume + biaya_admin) AS total_nominal
+                     FROM transaksi_pembelian
+                     GROUP BY LOWER(TRIM(nama_barang)), nama_barang
+                     ORDER BY nama_barang ASC";
+$resPembelianDetail = $koneksi->query($qPembelianDetail);
+if ($resPembelianDetail) {
+    while ($r = $resPembelianDetail->fetch_assoc()) {
+        $pembelianPerBarang[$r['nama_key']] = [
+            'nama'          => $r['nama_barang'],
+            'total_qty'     => (float)$r['total_qty'],
+            'total_nominal' => (float)$r['total_nominal'],
+        ];
+    }
+}
+
 // ----------------------------------------------------------
 // 2. TOTAL PENJUALAN SPPG (Foodcost + Addcost)
 // pengambilan_barang & pengambilan_barang_detail ada di $koneksi2,
@@ -80,6 +99,7 @@ function cariHargaBerlakuLaporan($riwayatList, $tglTransaksi) {
 
 // 2c. Hitung total penjualan manual (qty x harga berlaku)
 $totalPenjualan = 0;
+$penjualanPerBarang = [];
 if ($resPenjualanRaw) {
     while ($row = $resPenjualanRaw->fetch_assoc()) {
         $key = strtolower(trim($row['nama_barang']));
@@ -95,7 +115,16 @@ if ($resPenjualanRaw) {
                 $harga = $bersih === '' ? 0 : (float) $bersih;
             }
         }
-        $totalPenjualan += ((float) $row['qty']) * $harga;
+        $qty     = (float) $row['qty'];
+        $nominal = $qty * $harga;
+        $totalPenjualan += $nominal;
+
+        // Kumpulkan per barang
+        if (!isset($penjualanPerBarang[$key])) {
+            $penjualanPerBarang[$key] = ['nama' => $row['nama_barang'], 'total_qty' => 0, 'total_nominal' => 0];
+        }
+        $penjualanPerBarang[$key]['total_qty']     += $qty;
+        $penjualanPerBarang[$key]['total_nominal']  += $nominal;
     }
 }
 
@@ -221,8 +250,11 @@ foreach ($items as $it) {
 
     $it['stok_transit_grosir'] = $stokTransitGrosir;
     $it['stok_transit_eceran'] = $stokTransitEceran;
-    $it['total_qty_eceran'] = $totalQtyEceran;
-    $it['nilai_aset'] = $nilaiAset;
+    $it['total_qty_eceran']    = $totalQtyEceran;
+    $it['total_qty_grosir']    = $it['pusat']['stok_grosir'] + $stokTransitGrosir;
+    $it['nilai_aset']          = $nilaiAset;
+    // Nilai aset berbasis harga beli grosir
+    $it['nilai_aset_grosir']   = $it['total_qty_grosir'] * $it['harga_beli'];
 
     $dataBarang[] = $it;
 }
@@ -283,49 +315,121 @@ foreach ($dataBarang as $b) {
 <body>
 
 <div class="container">
-    <h1><i class="ph ph-package"></i> Laporan Barang</h1>
+    <h1><i class="ph ph-package"></i> Laporan Stok Barang</h1>
     <div class="subtitle">Laporan ringkasan total nilai aset barang, total pembelian, dan total penjualan SPPG</div>
 
-    <!-- SUMMARY CARDS -->
-    <div class="summary-cards">
-        <div class="summary-card info">
-            <div class="card-icon">
-                <i class="ph ph-shopping-cart"></i>
-            </div>
-            <div class="card-content">
-                <span class="label">Total Pembelian Barang</span>
-                <span class="value">Rp <?= number_format($totalPembelian, 0, ',', '.'); ?></span>
-            </div>
-        </div>
 
-        <div class="summary-card success">
-            <div class="card-icon">
-                <i class="ph ph-currency-dollar"></i>
-            </div>
-            <div class="card-content">
-                <span class="label">Total Penjualan SPPG</span>
-                <span class="value">Rp <?= number_format($totalPenjualan, 0, ',', '.'); ?></span>
-            </div>
-        </div>
-        <div class="summary-card primary">
-            <div class="card-icon">
-                <i class="ph ph-archive"></i>
-            </div>
-            <div class="card-content">
-                <span class="label">Total Nilai Barang (Aset Gudang)</span>
-                <span class="value">Rp <?= number_format($totalNilaiBarang, 0, ',', '.'); ?></span>
-            </div>
-        </div>
-        <div class="summary-card danger">
-            <div class="card-icon" style="background: rgba(220, 38, 38, 0.1); color: var(--danger);">
-                <i class="ph ph-trash"></i>
-            </div>
-            <div class="card-content">
-                <span class="label">Total Nilai Barang Reject</span>
-                <span class="value">Rp <?= number_format($totalReject, 0, ',', '.'); ?></span>
-            </div>
-        </div>
+    <!-- TABEL REKAP BARANG -->
+    <?php
+    // Gabungkan semua nama barang dari pembelian, penjualan, dan stok
+    $allKeys = array_unique(array_merge(
+        array_keys($pembelianPerBarang),
+        array_keys($penjualanPerBarang),
+        array_map(fn($it) => $it['nama_key'], $dataBarang)
+    ));
+    sort($allKeys);
 
+    // Build stok map dari dataBarang
+    $stokMap = [];
+    foreach ($dataBarang as $it) {
+        $stokMap[$it['nama_key']] = [
+            'nama'             => $it['nama'],
+            'total_grosir'     => $it['total_qty_grosir'],
+            'total_eceran'     => $it['total_qty_eceran'],
+            'harga_modal'      => $it['harga_modal_eceran'],
+            'nilai_aset'       => $it['nilai_aset'],
+            'nilai_aset_grosir'=> $it['nilai_aset_grosir'],
+            'satuan'           => $it['satuan'],
+            'satuan_eceran'    => $it['satuan_eceran'],
+        ];
+    }
+
+    $grandTotalBeliQty     = 0;
+    $grandTotalBeliNominal = 0;
+    $grandTotalJualQty     = 0;
+    $grandTotalJualNominal = 0;
+    $grandTotalSisaQty     = 0;
+    $grandTotalSisaNominal = 0;
+    ?>
+    <div style="margin-top: 30px; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); padding: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; font-size: 18px; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-table" style="color: #2563eb; font-size: 22px;"></i>
+                Rekap Barang per Nama Barang
+            </h2>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 900px;">
+                <thead>
+                    <tr style="background: #f8fafc; color: #475569; font-weight: 600; border-bottom: 2px solid #e2e8f0;">
+                        <th rowspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; vertical-align: middle; min-width: 160px;">Nama Barang</th>
+                        <th colspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #eff6ff;">Barang Dibeli</th>
+                        <th colspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #fff0f0;">Barang Keluar (Terjual)</th>
+                        <th colspan="2" style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #f0fdf4;">Barang Belum Keluar (Stok)</th>
+                    </tr>
+                    <tr style="background: #f8fafc; color: #475569; font-weight: 600;">
+                        <th style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #eff6ff;">Qty</th>
+                        <th style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #eff6ff;">Nominal</th>
+                        <th style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #fff0f0;">Qty</th>
+                        <th style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #fff0f0;">Nominal</th>
+                        <th style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #f0fdf4;">Qty</th>
+                        <th style="padding: 10px 14px; border: 1px solid #e2e8f0; text-align: center; background: #f0fdf4;">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($allKeys as $key):
+                    $namaBarang = $pembelianPerBarang[$key]['nama']
+                        ?? $penjualanPerBarang[$key]['nama']
+                        ?? $stokMap[$key]['nama']
+                        ?? ucwords(str_replace('-', ' ', $key));
+
+                    $beliQty     = $pembelianPerBarang[$key]['total_qty']     ?? 0;
+                    $beliNominal = $pembelianPerBarang[$key]['total_nominal']  ?? 0;
+
+                    $jualQty     = $penjualanPerBarang[$key]['total_qty']     ?? 0;
+                    $jualNominal = $penjualanPerBarang[$key]['total_nominal']  ?? 0;
+
+                    $sisaQty      = $stokMap[$key]['total_grosir']       ?? 0;
+                    $sisaNominal  = $stokMap[$key]['nilai_aset_grosir']   ?? 0;
+                    $satuanSisa   = $stokMap[$key]['satuan']               ?? '';
+
+                    $grandTotalBeliQty     += $beliQty;
+                    $grandTotalBeliNominal += $beliNominal;
+                    $grandTotalJualQty     += $jualQty;
+                    $grandTotalJualNominal += $jualNominal;
+                    $grandTotalSisaQty     += $sisaQty;
+                    $grandTotalSisaNominal += $sisaNominal;
+
+                    // Skip baris jika semua 0
+                    if ($beliQty == 0 && $beliNominal == 0 && $jualQty == 0 && $jualNominal == 0 && $sisaQty == 0) continue;
+                ?>
+                    <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                        <td style="padding: 10px 14px; font-weight: 500; border: 1px solid #f1f5f9;"><?= htmlspecialchars($namaBarang); ?></td>
+                        <!-- Dibeli -->
+                        <td style="padding: 10px 14px; text-align: right; border: 1px solid #f1f5f9; background: #f0f7ff;"><?= $beliQty > 0 ? number_format($beliQty, 0, ',', '.') : '-'; ?></td>
+                        <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: #2563eb; border: 1px solid #f1f5f9; background: #f0f7ff;"><?= $beliNominal > 0 ? 'Rp ' . number_format($beliNominal, 0, ',', '.') : '-'; ?></td>
+                        <!-- Terjual -->
+                        <td style="padding: 10px 14px; text-align: right; border: 1px solid #fecaca; background: #fff0f0;"><?= $jualQty > 0 ? number_format($jualQty, 0, ',', '.') : '-'; ?></td>
+                        <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: #dc2626; border: 1px solid #fecaca; background: #fff0f0;"><?= $jualNominal > 0 ? 'Rp ' . number_format($jualNominal, 0, ',', '.') : '-'; ?></td>
+                        <!-- Stok sisa -->
+                        <td style="padding: 10px 14px; text-align: right; border: 1px solid #bbf7d0; background: #f0fdf4;"><?= $sisaQty > 0 ? number_format($sisaQty, 0, ',', '.') . ($satuanSisa ? ' ' . htmlspecialchars($satuanSisa) : '') : '-'; ?></td>
+                        <td style="padding: 10px 14px; text-align: right; font-weight: 600; color: #16a34a; border: 1px solid #bbf7d0; background: #f0fdf4;"><?= $sisaNominal > 0 ? 'Rp ' . number_format($sisaNominal, 0, ',', '.') : '-'; ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot>
+                    <tr style="background: #f1f5f9; font-weight: 700; color: #1e293b; border-top: 2px solid #cbd5e1;">
+                        <td style="padding: 12px 14px; border: 1px solid #e2e8f0;">TOTAL</td>
+                        <td style="padding: 12px 14px; text-align: right; border: 1px solid #e2e8f0; background: #dbeafe;"><?= number_format($grandTotalBeliQty, 0, ',', '.'); ?></td>
+                        <td style="padding: 12px 14px; text-align: right; color: #2563eb; border: 1px solid #e2e8f0; background: #dbeafe;">Rp <?= number_format($grandTotalBeliNominal, 0, ',', '.'); ?></td>
+                        <td style="padding: 12px 14px; text-align: right; border: 1px solid #fca5a5; background: #fee2e2;"><?= number_format($grandTotalJualQty, 0, ',', '.'); ?></td>
+                        <td style="padding: 12px 14px; text-align: right; font-weight: 700; color: #dc2626; border: 1px solid #fca5a5; background: #fee2e2;">Rp <?= number_format($grandTotalJualNominal, 0, ',', '.'); ?></td>
+                        <td style="padding: 12px 14px; text-align: right; border: 1px solid #86efac; background: #dcfce7;"><?= number_format($grandTotalSisaQty, 0, ',', '.'); ?></td>
+                        <td style="padding: 12px 14px; text-align: right; font-weight: 700; color: #16a34a; border: 1px solid #86efac; background: #dcfce7;">Rp <?= number_format($grandTotalSisaNominal, 0, ',', '.'); ?></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
     </div>
 
     <!-- LOG BARANG REJECT -->
