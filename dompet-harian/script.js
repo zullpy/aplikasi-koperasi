@@ -312,7 +312,8 @@ function renderTable() {
                           ${escHtml(item.keterangan)}
                         </span>
                         ` : ''}
-                        ${(() => {
+                      </div>
+                      ${(() => {
             const uangMasuk = parseFloat(item.uang_masuk) || 0;
             const biayaAdmin = parseFloat(item.biaya_admin) || 0;
 
@@ -334,7 +335,8 @@ function renderTable() {
             }
             buktiTFUrls = buktiTFUrls.filter(u => u);
 
-            let html = '';
+            // Baris 2: Saldo Masuk + Biaya Admin
+            let row2 = '';
             if (uangMasuk) {
               const selisih = uangMasuk - totalItem;
               let selisihHtml = '';
@@ -347,7 +349,7 @@ function renderTable() {
               }
               const safeBuktiTFBadge = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
               if (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') {
-                html += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
+                row2 += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
                                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                   <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
@@ -355,7 +357,7 @@ function renderTable() {
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:3px; opacity:0.75;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
                               </span>${selisihHtml}`;
               } else {
-                html += `<span class="menu-saldo-masuk">
+                row2 += `<span class="menu-saldo-masuk">
                                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                   <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
@@ -364,7 +366,7 @@ function renderTable() {
               }
             }
             if (biayaAdmin) {
-              html += `<span class="menu-biaya-admin">
+              row2 += `<span class="menu-biaya-admin">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1.5" y="3" width="10" height="7.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
                                 <path d="M1.5 5.5h10" stroke="currentColor" stroke-width="1.3"/>
@@ -372,9 +374,12 @@ function renderTable() {
                               Biaya Admin: <strong>${formatRupiah(biayaAdmin)}</strong>
                             </span>`;
             }
+
+            // Baris 3: Bukti TF
+            let row3 = '';
             if (buktiTFUrls.length > 0 && !isPurchase) {
               const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(buktiTFUrls))));
-              html += `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
+              row3 = `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1" y="2" width="11" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
                                 <path d="M1 9.5l3-3 2 2 1.5-1.5L12 9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -383,9 +388,12 @@ function renderTable() {
                               Bukti TF${buktiTFUrls.length > 1 ? ` (${buktiTFUrls.length})` : ''}
                             </button>`;
             }
-            return html;
+
+            let result = '';
+            if (row2) result += `<div class="menu-card-info menu-card-info-row2">${row2}</div>`;
+            if (row3) result += `<div class="menu-card-info menu-card-info-row3">${row3}</div>`;
+            return result;
           })()}
-                      </div>
                     </div>
                     <div class="menu-card-right">
                       <div class="menu-total">${formatRupiah(totalItem)}</div>
@@ -403,15 +411,16 @@ function renderTable() {
                         <thead>
                           <tr>
                             <th style="width:4%">No</th>
-                            <th style="width:${isPurchase ? '22%' : (USER_ROLE === 'admin' ? '23%' : '30%')}">Nama Barang</th>
+                            <th style="width:${isPurchase ? '22%' : (USER_ROLE === 'admin' ? '18%' : '30%')}">Nama Barang</th>
                             <th style="width:7%">Qty</th>
                             <th style="width:7%">Satuan</th>
                             <th style="width:11%">Estimasi Harga</th>
                             <th style="width:10%">Biaya Admin</th>
                             <th style="width:9%">Subtotal</th>
                             ${isPurchase ? '<th style="width:14%">Status</th>' : ''}
-                            <th style="width:${isPurchase ? '16%' : (USER_ROLE === 'admin' ? '14%' : '18%')}">Nota</th>
-                            ${USER_ROLE === 'admin' ? '<th style="width:14%; text-align:center;">Aksi</th>' : ''}
+                            ${USER_ROLE === 'admin' ? '<th style="width:12%; text-align:center;">Status Pembayaran</th>' : ''}
+                            <th style="width:${isPurchase ? '16%' : (USER_ROLE === 'admin' ? '11%' : '18%')}">Nota</th>
+                            ${USER_ROLE === 'admin' ? '<th style="width:11%; text-align:center;">Aksi</th>' : ''}
                           </tr>
                         </thead>
                         <tbody>
@@ -419,6 +428,8 @@ function renderTable() {
             const itemId = b.id || b.id_detail;
             const statusBeli = b.status_beli || 'belum';
             const isBought = statusBeli === 'sudah';
+            const statusLunas = b.status_lunas || 'belum';
+            const isLunas = statusLunas === 'lunas';
 
             // Kolom status (khusus purchase)
             const statusCell = isPurchase ? `
@@ -445,7 +456,20 @@ function renderTable() {
                                       </svg>
                                       Sudah Dibeli
                                     </button>`)
-              }
+                }
+                              </td>
+                            ` : '';
+
+            const adminLunasCell = USER_ROLE === 'admin' ? `
+                              <td style="text-align:center;">
+                                ${isLunas
+                  ? `<button class="btn-item-lunas btn-item-lunas-done" onclick="confirmLunas(${itemId}, 'belum')" title="Klik untuk ubah ke belum dibayar">
+                                        Sudah Dibayar
+                                      </button>`
+                  : `<button class="btn-item-lunas btn-item-lunas-pending" onclick="confirmLunas(${itemId}, 'lunas')" title="Klik untuk konfirmasi pembayaran">
+                                        Belum Dibayar
+                                      </button>`
+                }
                               </td>
                             ` : '';
 
@@ -479,6 +503,7 @@ function renderTable() {
                                 <td>${formatRupiah(b.biaya_admin || 0)}</td>
                                 <td class="subtotal-cell">${formatRupiah(((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0))}</td>
                                 ${statusCell}
+                                ${adminLunasCell}
                                 <td class="nota-cell">
                                   ${(() => {
                 const urls = b.nota_urls
@@ -545,19 +570,30 @@ function renderTable() {
 
 // ─── Mark Item as Bought (per item detail) ───────────────────────────────────
 async function markItemAsBought(detailId) {
-  if (!confirm('Tandai barang ini sudah dibeli?')) return;
+  const result = await Swal.fire({
+    title: 'Tandai Sudah Dibeli?',
+    text: 'Barang ini akan ditandai sebagai sudah dibeli.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#16a34a',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '<svg width="14" height="14" viewBox="0 0 12 12" fill="none" style="vertical-align:middle;margin-right:4px"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Ya, Sudah Dibeli',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!result.isConfirmed) return;
   try {
     const res = await fetch('../database/api-belanja.php?action=update_item_status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: detailId, status_beli: 'sudah' })
     });
-    const result = await res.json();
-    if (result.success) {
+    const data = await res.json();
+    if (data.success) {
       showToast('Barang ditandai sudah dibeli', 'success');
       fetchData();
     } else {
-      showToast(result.message || 'Gagal update status', 'error');
+      showToast(data.message || 'Gagal update status', 'error');
     }
   } catch (err) {
     console.error(err);
@@ -565,11 +601,58 @@ async function markItemAsBought(detailId) {
   }
 }
 
+// ─── Confirm Lunas per item (KHUSUS ADMIN) ────────────────────────────────────
+async function confirmLunas(detailId, statusLunas) {
+  const isLunas = statusLunas === 'lunas';
+  const swalResult = await Swal.fire({
+    title: isLunas ? 'Konfirmasi Sudah Dibayar?' : 'Ubah ke Belum Dibayar?',
+    text: isLunas
+      ? 'Item ini akan ditandai sebagai sudah dibayar (lunas).'
+      : 'Status pembayaran item ini akan diubah kembali ke belum dibayar.',
+    icon: isLunas ? 'question' : 'warning',
+    showCancelButton: true,
+    confirmButtonColor: isLunas ? '#16a34a' : '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: isLunas ? '✓ Ya, Sudah Dibayar' : '✗ Ya, Belum Dibayar',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!swalResult.isConfirmed) return;
+  try {
+    const res = await fetch('../database/api-belanja.php?action=confirm_lunas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: detailId, status_lunas: statusLunas })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast(result.message || 'Status pembayaran diperbarui', 'success');
+      fetchData();
+    } else {
+      showToast(result.message || 'Gagal update status pembayaran', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('Terjadi kesalahan saat update status pembayaran', 'error');
+  }
+}
+
 // ─── Approval Functions ───────────────────────────────────────────────────────
 async function approveItem(id) {
   // Guard: role purchase tidak boleh approve
   if (IS_PURCHASE_ROLE) { console.warn('[RBAC] approveItem: role purchase tidak memiliki akses'); return; }
-  if (!confirm('Setujui pengajuan ini?')) return;
+  const result = await Swal.fire({
+    title: 'Setujui Pengajuan?',
+    text: 'Pengajuan belanja ini akan disetujui.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#16a34a',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '✓ Ya, Setujui',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!result.isConfirmed) return;
   await updateStatus(id, 'approved', '');
 }
 
@@ -595,7 +678,14 @@ async function confirmReject() {
   const id = document.getElementById('rejectTargetId').value;
   const reason = document.getElementById('rejectionReason').value.trim();
   if (!reason) {
-    alert('Mohon isi alasan penolakan.');
+    Swal.fire({
+      title: 'Alasan Kosong',
+      text: 'Mohon isi alasan penolakan terlebih dahulu.',
+      icon: 'warning',
+      confirmButtonColor: '#f59e0b',
+      confirmButtonText: 'OK',
+      customClass: { popup: 'swal-kopdes' }
+    });
     return;
   }
   await updateStatus(id, 'rejected', reason);
@@ -1248,7 +1338,18 @@ async function saveSingleItem() {
 
 async function deleteSingleItem(detailId, pengajuanId) {
   if (USER_ROLE !== 'admin') return;
-  if (!confirm('Apakah Anda yakin ingin menghapus barang ini?')) return;
+  const result = await Swal.fire({
+    title: 'Hapus Barang?',
+    text: 'Barang ini akan dihapus dari daftar belanja. Tindakan ini tidak dapat dibatalkan.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '🗑 Ya, Hapus',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!result.isConfirmed) return;
 
   try {
     const res = await fetch('../database/api-belanja.php?action=delete_single_item', {
@@ -1256,13 +1357,13 @@ async function deleteSingleItem(detailId, pengajuanId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_detail: detailId, pengajuan_id: pengajuanId })
     });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message || 'Gagal menghapus barang');
-    if (result.success) {
-      showToast(result.message || 'Barang berhasil dihapus', 'success');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Gagal menghapus barang');
+    if (data.success) {
+      showToast(data.message || 'Barang berhasil dihapus', 'success');
       fetchData();
     } else {
-      showToast(result.message || 'Gagal menghapus barang', 'error');
+      showToast(data.message || 'Gagal menghapus barang', 'error');
     }
   } catch (err) {
     console.error('deleteSingleItem error:', err);
@@ -1356,23 +1457,32 @@ function closeNotaModal() {
 }
 
 async function deleteNota(filePath) {
-  if (!confirm('Apakah Anda yakin ingin menghapus nota ini? File nota fisik akan dihapus secara permanen.')) {
-    return;
-  }
+  const result = await Swal.fire({
+    title: 'Hapus Nota?',
+    text: 'File nota fisik akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '🗑 Ya, Hapus Permanen',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!result.isConfirmed) return;
   try {
     const res = await fetch('../database/api-belanja.php?action=delete_nota', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ file_path: filePath })
     });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message || 'Gagal menghapus nota');
-    if (result.success) {
-      showToast(result.message || 'Nota berhasil dihapus', 'success');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Gagal menghapus nota');
+    if (data.success) {
+      showToast(data.message || 'Nota berhasil dihapus', 'success');
       closeNotaModal();
       fetchData();
     } else {
-      showToast(result.message || 'Gagal menghapus nota', 'error');
+      showToast(data.message || 'Gagal menghapus nota', 'error');
     }
   } catch (err) {
     console.error('deleteNota error:', err);
@@ -1746,15 +1856,26 @@ function closeUploadNotaModal() {
 async function deleteItem(id) {
   // Guard: hanya admin yang boleh hapus data
   if (USER_ROLE !== 'admin') { console.warn('[RBAC] deleteItem: selain admin tidak memiliki akses'); return; }
-  if (!confirm('Hapus data belanja ini?')) return;
+  const result = await Swal.fire({
+    title: 'Hapus Data Belanja?',
+    text: 'Seluruh data belanja beserta rincian barang akan dihapus. Tindakan ini tidak dapat dibatalkan!',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: '🗑 Ya, Hapus Semua',
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!result.isConfirmed) return;
   try {
     const res = await fetch('../database/api-belanja.php?action=delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
     });
-    const result = await res.json();
-    if (result.success) { showToast('Data dihapus', 'success'); fetchData(); }
+    const data = await res.json();
+    if (data.success) { showToast('Data dihapus', 'success'); fetchData(); }
     else showToast('Gagal menghapus data', 'error');
   } catch (error) {
     console.error('Delete error:', error);
@@ -1762,14 +1883,26 @@ async function deleteItem(id) {
   }
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
+// ─── Toast (SweetAlert2 mixin) ────────────────────────────────────────────────
+const Toast = Swal.mixin({
+  toast: true,
+  position: 'top-end',
+  showConfirmButton: false,
+  timer: 2800,
+  timerProgressBar: true,
+  didOpen: (toast) => {
+    toast.onmouseenter = Swal.stopTimer;
+    toast.onmouseleave = Swal.resumeTimer;
+  }
+});
+
 let toastTimer = null;
 function showToast(msg, type = '') {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.className = 'toast show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.className = 'toast'; }, 2800);
+  const iconMap = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+  Toast.fire({
+    icon: iconMap[type] || 'info',
+    title: msg
+  });
 }
 
 function exportPDF(id) {

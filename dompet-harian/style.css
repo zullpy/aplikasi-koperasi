@@ -118,7 +118,7 @@ body {
 }
 
 .app-main {
-    max-width: 960px;
+    max-width: 1500px;
     margin: 0 auto;
     padding: 1.75rem 1.25rem 4rem;
 }
@@ -1794,6 +1794,11 @@ body {
     gap: 0.6rem;
 }
 
+.menu-card-info-row2,
+.menu-card-info-row3 {
+    margin-top: 0.3rem;
+}
+
 .menu-porsi {
     display: inline-flex;
     align-items: center;
@@ -2301,6 +2306,78 @@ body {
     flex-wrap: wrap;
 }
 
+.item-lunas-group {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* ===== TOMBOL KONFIRMASI LUNAS PER ITEM (ADMIN) ===== */
+.btn-item-lunas {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.32rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-family: var(--font);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    white-space: nowrap;
+}
+
+.btn-item-lunas-pending {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.btn-item-lunas-pending:hover {
+    background: linear-gradient(135deg, #fecaca, #fca5a5);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3);
+}
+
+.btn-item-lunas-done {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+    cursor: pointer;
+}
+
+.btn-item-lunas-done:hover {
+    background: linear-gradient(135deg, #a7f3d0, #6ee7b7);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);
+}
+
+.btn-item-lunas-batal {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid #fca5a5;
+    background: #fee2e2;
+    color: #b91c1c;
+    cursor: pointer;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.btn-item-lunas-batal:hover {
+    background: #fecaca;
+    border-color: #f87171;
+    transform: scale(1.1);
+}
+
+
 /* ===== UPLOAD NOTA — TOMBOL KAMERA & GALERI MOBILE ===== */
 .upload-nota-source-row {
     display: grid;
@@ -2613,4 +2690,41 @@ body {
 .btn-action-ttd-done:hover {
     background: linear-gradient(135deg, #047857 0%, #059669 100%) !important;
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35) !important;
+}
+
+/* ===== SWEETALERT2 CUSTOM THEME (KOPDES) ===== */
+.swal-kopdes {
+    border-radius: 16px !important;
+    font-family: var(--font, 'Inter', sans-serif) !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+    padding: 1.8rem !important;
+}
+
+.swal-kopdes .swal2-title {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+}
+
+.swal-kopdes .swal2-html-container,
+.swal-kopdes .swal2-content {
+    font-size: 0.875rem !important;
+    color: #64748b !important;
+}
+
+.swal-kopdes .swal2-confirm,
+.swal-kopdes .swal2-cancel {
+    border-radius: 8px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1.1rem !important;
+}
+
+.swal2-popup.swal2-toast {
+    border-radius: 10px !important;
+    font-family: var(--font, 'Inter', sans-serif) !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    padding: 0.65rem 1rem !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
 }

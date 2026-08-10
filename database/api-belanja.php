@@ -166,7 +166,16 @@ function ensureBiayaAdminColumnExists($koneksi)
     }
 }
 
+function ensureStatusLunasColumnExists($koneksi)
+{
+    $checkCol = $koneksi->query("SHOW COLUMNS FROM detail_item_belanja LIKE 'status_lunas'");
+    if (!$checkCol || $checkCol->num_rows === 0) {
+        @$koneksi->query("ALTER TABLE detail_item_belanja ADD COLUMN status_lunas ENUM('belum','lunas') DEFAULT 'belum' AFTER status_beli");
+    }
+}
+
 try {
+    ensureStatusLunasColumnExists($koneksi);
     switch ($action) {
         // ─── LIST: Ambil semua data belanja dengan detailnya ────────────────
         case 'list':
@@ -209,6 +218,9 @@ try {
 
                     if (!isset($d['status_beli']) || $d['status_beli'] === null) {
                         $d['status_beli'] = 'belum';
+                    }
+                    if (!isset($d['status_lunas']) || $d['status_lunas'] === null) {
+                        $d['status_lunas'] = 'belum';
                     }
                     $items[] = $d;
                 }
@@ -993,6 +1005,54 @@ try {
                 throw new Exception('Gagal update status beli: ' . $stmt->error);
             }
             $stmt->close();
+            exit;
+
+            // ─── CONFIRM LUNAS: Konfirmasi sudah lunas per item (KHUSUS ADMIN) ──────
+        case 'confirm_lunas':
+            if ($userRole !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Hanya admin yang dapat mengkonfirmasi pelunasan']);
+                exit;
+            }
+            if ($method !== 'POST') {
+                throw new Exception('Method not allowed');
+            }
+            $raw = file_get_contents('php://input');
+            $data = json_decode($raw, true);
+            $id          = intval($data['id'] ?? 0);
+            $statusLunas = $data['status_lunas'] ?? 'lunas';
+
+            if (!$id) {
+                throw new Exception('Item ID tidak valid');
+            }
+
+            $validStatusLunas = ['belum', 'lunas'];
+            if (!in_array($statusLunas, $validStatusLunas)) {
+                throw new Exception('Status lunas tidak valid');
+            }
+
+            ensureStatusLunasColumnExists($koneksi);
+
+            $stmtLunas = $koneksi->prepare("
+                UPDATE detail_item_belanja
+                SET status_lunas = ?
+                WHERE id = ?
+            ");
+            if (!$stmtLunas) {
+                throw new Exception('Prepare error: ' . $koneksi->error);
+            }
+            $stmtLunas->bind_param("si", $statusLunas, $id);
+            if ($stmtLunas->execute()) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => $statusLunas === 'lunas'
+                        ? 'Item dikonfirmasi sudah lunas'
+                        : 'Status lunas dibatalkan'
+                ]);
+            } else {
+                throw new Exception('Gagal update status lunas: ' . $stmtLunas->error);
+            }
+            $stmtLunas->close();
             exit;
 
             // ─── UPDATE SALDO: Simpan/update saldo masuk per pengajuan ──────
