@@ -51,36 +51,40 @@ function fmtStok(d, g) {
     if (stokGrosir <= 0 && stokEceran <= 0) return null;
 
     const isi = d.isi_per_satuan;
+    const satG = ucSatuan(d.satuan);
+    const satE = ucSatuan(d.satuan_eceran || d.satuan);
 
     // Jika tidak ada konversi satuan, tampilkan polos
     if (!isi || isi <= 0) {
         if (stokEceran > 0) {
-            return `${fmtQty(stokEceran)} ${ucSatuan(d.satuan_eceran || d.satuan)}`;
+            return `${fmtQty(stokEceran)} ${satE}`;
         }
-        return `${fmtQty(stokGrosir)} ${ucSatuan(d.satuan)}`;
+        return `${fmtQty(stokGrosir)} ${satG}`;
     }
 
-    // Hitung sisa eceran setelah dikurangi yang sudah dalam bentuk grosir
-    // qty_eceran adalah total, jadi kita kurangi dengan (grosir × isi)
     const totalDariGrosir = stokGrosir * isi;
     let sisaEceran = stokEceran - totalDariGrosir;
 
-    // Jika sisa negatif atau sangat kecil (karena floating point), set ke 0
     if (sisaEceran < 0.01) sisaEceran = 0;
     sisaEceran = Math.round(sisaEceran * 100) / 100;
 
     const parts = [];
 
     if (stokGrosir > 0) {
-        parts.push(`${fmtQty(stokGrosir)} ${ucSatuan(d.satuan)}`);
+        parts.push(`${fmtQty(stokGrosir)} ${satG}`);
     }
 
     if (sisaEceran > 0) {
-        parts.push(`${fmtQty(sisaEceran)} ${ucSatuan(d.satuan_eceran)}`);
+        parts.push(`${fmtQty(sisaEceran)} ${satE}`);
     }
 
     if (parts.length === 0) return null;
-    return parts.join(' ');
+    const mainText = parts.join(' ');
+
+    if (stokEceran > 0 && satE.toLowerCase() !== satG.toLowerCase()) {
+        return `${mainText}<span class="num-sub-eceran">(≈ ${fmtQty(stokEceran)} ${satE})</span>`;
+    }
+    return mainText;
 }
 
 function totalQtyOf(d) {
@@ -301,11 +305,14 @@ function drawMobileCards(slice, total) {
 
 
 function fmtTotalQty(d, totalQty) {
-    if (!totalQty || totalQty <= 0) return `0 ${ucSatuan(d.satuan_eceran)}`;
+    const satG = ucSatuan(d.satuan);
+    const satE = ucSatuan(d.satuan_eceran || d.satuan);
+
+    if (!totalQty || totalQty <= 0) return `0 ${satE}`;
 
     const isi = d.isi_per_satuan;
     if (!isi || isi <= 0) {
-        return `${fmtQty(totalQty)} ${ucSatuan(d.satuan_eceran || d.satuan)}`;
+        return `${fmtQty(totalQty)} ${satE}`;
     }
 
     const besar = Math.floor(totalQty / isi);
@@ -313,11 +320,16 @@ function fmtTotalQty(d, totalQty) {
     sisa = Math.round(sisa * 100) / 100;
 
     const parts = [];
-    if (besar > 0) parts.push(`${fmtQty(besar)} ${ucSatuan(d.satuan)}`);
-    if (sisa > 0) parts.push(`${fmtQty(sisa)} ${ucSatuan(d.satuan_eceran)}`);
+    if (besar > 0) parts.push(`${fmtQty(besar)} ${satG}`);
+    if (sisa > 0) parts.push(`${fmtQty(sisa)} ${satE}`);
 
-    if (parts.length === 0) return `0 ${ucSatuan(d.satuan_eceran)}`;
-    return parts.join(' ');
+    if (parts.length === 0) return `0 ${satE}`;
+    const mainText = parts.join(' ');
+
+    if (totalQty > 0 && satE.toLowerCase() !== satG.toLowerCase()) {
+        return `${mainText}<span class="num-sub-eceran">(≈ ${fmtQty(totalQty)} ${satE})</span>`;
+    }
+    return mainText;
 }
 
 function goPage(p) {
