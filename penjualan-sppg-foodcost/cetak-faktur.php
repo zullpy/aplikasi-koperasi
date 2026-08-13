@@ -201,17 +201,35 @@ $stmtDetail->bind_param('i', $id);
 $stmtDetail->execute();
 $resultDetail = $stmtDetail->get_result();
 
-// Ambil riwayat harga per barang (db_barang.riwayat_harga), supaya faktur
-// yang dicetak ulang tetap menampilkan harga yang berlaku SAAT transaksi
-// terjadi, bukan harga barang yang berlaku sekarang. Pakai koneksi $koneksi.
+// Ambil riwayat harga per barang & mapping grosir/eceran dari db_barang (pakai $koneksi).
 $riwayatByBarang = []; // key: nama_barang (lowercase, trim) => list riwayat harga terurut naik berdasarkan tanggal
-$hargaFallback   = []; // key: nama_barang => harga_beli terbaru di tabel barang (jaga-jaga kalau riwayat kosong)
+$barangMap       = []; // key: nama_barang => info grosir & eceran barang
 
-$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+$resBarang = $koneksi->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
 if ($resBarang) {
     while ($rb = $resBarang->fetch_assoc()) {
         $key = strtolower(trim($rb['nama_barang']));
-        $hargaFallback[$key] = $rb['harga_beli'];
+        $hargaGrosir    = bersihkanHarga($rb['harga_beli'] ?? 0);
+        $hargaEceranRaw = bersihkanHarga($rb['harga_eceran'] ?? 0);
+        $isiRaw         = ((float)($rb['isi_per_satuan'] ?? 0) > 0) ? (float)$rb['isi_per_satuan'] : 0;
+        $satGrosir      = strtolower(trim($rb['satuan'] ?? ''));
+        $satEceran      = strtolower(trim($rb['satuan_eceran'] ?? ''));
+
+        if ($satEceran !== '' && $hargaEceranRaw > 0) {
+            $hargaEceran = $hargaEceranRaw;
+        } elseif ($satEceran !== '' && $isiRaw > 0 && $hargaGrosir > 0) {
+            $hargaEceran = $hargaGrosir / $isiRaw;
+        } else {
+            $hargaEceran = $hargaGrosir;
+        }
+
+        $barangMap[$key] = [
+            'satuan_grosir'  => $satGrosir,
+            'satuan_eceran'  => $satEceran,
+            'isi_per_satuan' => $isiRaw,
+            'harga_grosir'   => $hargaGrosir,
+            'harga_eceran'   => $hargaEceran,
+        ];
     }
 }
 
@@ -237,14 +255,39 @@ $total = 0;
 $tglTransaksi = trim($trx['tanggal_pengambilan'] . ' ' . ($trx['jam_pengambilan'] ?: '00:00:00'));
 
 while ($row = $resultDetail->fetch_assoc()) {
-    $keyBarang = strtolower(trim($row['nama_barang']));
+    $keyBarang   = strtolower(trim($row['nama_barang']));
+    $satuanInput = strtolower(trim($row['satuan']));
+
+    $b = $barangMap[$keyBarang] ?? null;
+
+    $isEceran = false;
+    if ($b) {
+        $satEceranNorm = $b['satuan_eceran'];
+        $satGrosirNorm = $b['satuan_grosir'];
+        if ($satEceranNorm !== '' && $satuanInput === $satEceranNorm && $satuanInput !== $satGrosirNorm) {
+            $isEceran = true;
+        }
+    }
 
     if (!empty($riwayatByBarang[$keyBarang])) {
-        // ambil harga yang berlaku pada tanggal & jam pengambilan
-        $harga = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
+        // ambil harga grosir yang berlaku pada tanggal & jam pengambilan
+        $hargaGrosirBerlaku = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
     } else {
         // barang ini belum pernah punya riwayat harga, fallback ke harga di tabel barang
-        $harga = bersihkanHarga($hargaFallback[$keyBarang] ?? null);
+        $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
+    }
+
+    if ($isEceran && $b) {
+        if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
+            $ratio = $b['harga_eceran'] / $b['harga_grosir'];
+            $harga = $hargaGrosirBerlaku * $ratio;
+        } elseif ($b['isi_per_satuan'] > 0) {
+            $harga = $hargaGrosirBerlaku / $b['isi_per_satuan'];
+        } else {
+            $harga = $hargaGrosirBerlaku;
+        }
+    } else {
+        $harga = $hargaGrosirBerlaku;
     }
 
     $qty      = (float) $row['qty'];

@@ -170,13 +170,33 @@ $stmtDetail->bind_param('i', $id);
 $stmtDetail->execute();
 $resultDetail = $stmtDetail->get_result();
 
-// Ambil semua harga barang dari db_barang (pakai $koneksi)
-$hargaLookup = [];
-$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+// Ambil semua harga & info grosir/eceran barang dari db_barang (pakai $koneksi)
+$barangMap = [];
+$resBarang = $koneksi->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
 if ($resBarang) {
     while ($rb = $resBarang->fetch_assoc()) {
         $key = strtolower(trim($rb['nama_barang']));
-        $hargaLookup[$key] = $rb['harga_beli'];
+        $hargaGrosir    = bersihkanHarga($rb['harga_beli'] ?? 0);
+        $hargaEceranRaw = bersihkanHarga($rb['harga_eceran'] ?? 0);
+        $isiRaw         = ((float)($rb['isi_per_satuan'] ?? 0) > 0) ? (float)$rb['isi_per_satuan'] : 0;
+        $satGrosir      = strtolower(trim($rb['satuan'] ?? ''));
+        $satEceran      = strtolower(trim($rb['satuan_eceran'] ?? ''));
+
+        if ($satEceran !== '' && $hargaEceranRaw > 0) {
+            $hargaEceran = $hargaEceranRaw;
+        } elseif ($satEceran !== '' && $isiRaw > 0 && $hargaGrosir > 0) {
+            $hargaEceran = $hargaGrosir / $isiRaw;
+        } else {
+            $hargaEceran = $hargaGrosir;
+        }
+
+        $barangMap[$key] = [
+            'satuan_grosir'  => $satGrosir,
+            'satuan_eceran'  => $satEceran,
+            'isi_per_satuan' => $isiRaw,
+            'harga_grosir'   => $hargaGrosir,
+            'harga_eceran'   => $hargaEceran,
+        ];
     }
 }
 
@@ -184,9 +204,25 @@ $items = [];
 $total = 0;
 
 while ($row = $resultDetail->fetch_assoc()) {
-    $keyBarang = strtolower(trim($row['nama_barang']));
-    $hargaMentah = $hargaLookup[$keyBarang] ?? null;
-    $harga    = bersihkanHarga($hargaMentah);
+    $keyBarang   = strtolower(trim($row['nama_barang']));
+    $satuanInput = strtolower(trim($row['satuan']));
+    $b           = $barangMap[$keyBarang] ?? null;
+
+    $isEceran = false;
+    if ($b) {
+        $satEceranNorm = $b['satuan_eceran'];
+        $satGrosirNorm = $b['satuan_grosir'];
+        if ($satEceranNorm !== '' && $satuanInput === $satEceranNorm && $satuanInput !== $satGrosirNorm) {
+            $isEceran = true;
+        }
+    }
+
+    if ($isEceran && $b) {
+        $harga = $b['harga_eceran'];
+    } else {
+        $harga = $b ? $b['harga_grosir'] : 0;
+    }
+
     $qty      = (float) $row['qty'];
     $subtotal = $harga * $qty;
     $total   += $subtotal;
