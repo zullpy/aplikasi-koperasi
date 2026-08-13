@@ -15,6 +15,29 @@ let barangRowCount = 0;
 const USER_ROLE = window.CURRENT_USER_ROLE || 'admin';
 const IS_PURCHASE_ROLE = USER_ROLE === 'purchase' || USER_ROLE === 'purchase_stok';
 
+// ─── Accordion State ─────────────────────────────────────────────────────────
+const expandedMenuCards = new Set();
+
+function toggleMenuAccordion(event, itemId) {
+  if (event && event.target && event.target.closest('.menu-actions, .btn-action, .btn-bukti-tf, .menu-saldo-masuk, input, button, a')) {
+    return;
+  }
+  const cardEl = document.getElementById(`menu-card-${itemId}`);
+  const bodyEl = document.getElementById(`menu-accordion-body-${itemId}`);
+  if (!cardEl || !bodyEl) return;
+
+  const isExpanded = expandedMenuCards.has(itemId);
+  if (isExpanded) {
+    expandedMenuCards.delete(itemId);
+    cardEl.classList.remove('is-expanded');
+    bodyEl.style.display = 'none';
+  } else {
+    expandedMenuCards.add(itemId);
+    cardEl.classList.add('is-expanded');
+    bodyEl.style.display = 'block';
+  }
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatRupiah(num) {
   if (!num && num !== 0) return 'Rp 0';
@@ -223,13 +246,18 @@ function renderTable() {
         const detailItems = item.items || item.detail_items || [];
         const totalItem = detailItems.reduce((sum, b) =>
           sum + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
+        const totalBelumDibayar = detailItems.reduce((sum, b) =>
+          (b.status_lunas !== 'lunas'
+            ? sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0))
+            : sum), 0);
+        const isExpanded = expandedMenuCards.has(item.id);
         const status = item.status || 'pending';
         const uangMasuk = parseFloat(item.uang_masuk) || 0;
 
         // Tombol aksi di level MENU CARD
         const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
         const saldoBtnHtml = (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') ? `
-                  <button class="btn-action btn-action-saldo" data-bukti="${safeBuktiTF}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Input / Edit Uang Masuk Per Menu" style="background:#f0f9ff; color:#0284c7; border-color:#bae6fd;">
+                  <button class="btn-action btn-action-saldo" data-bukti="${safeBuktiTF}" onclick="event.stopPropagation(); openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Input / Edit Uang Masuk Per Menu" style="background:#f0f9ff; color:#0284c7; border-color:#bae6fd;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <line x1="12" y1="1" x2="12" y2="23"/>
                       <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
@@ -240,14 +268,14 @@ function renderTable() {
 
         if (USER_ROLE === 'admin') {
           menuActionsHtml = `
-                  <button class="btn-action btn-action-edit" onclick="openEditModal(${item.id})">
+                  <button class="btn-action btn-action-edit" onclick="event.stopPropagation(); openEditModal(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                       <path d="M2 9.5L8.5 3l1.5 1.5L3.5 11H2V9.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
                       <path d="M7.5 4l1.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
                     </svg>
                     Edit
                   </button>
-                  <button class="btn-action btn-action-delete" onclick="deleteItem(${item.id})">
+                  <button class="btn-action btn-action-delete" onclick="event.stopPropagation(); deleteItem(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                       <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
                       <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -255,7 +283,7 @@ function renderTable() {
                     Hapus
                   </button>
                   ${saldoBtnHtml}
-                  <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
+                  <button class="btn-action btn-action-pdf" onclick="event.stopPropagation(); exportPDF(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                       <polyline points="14 2 14 8 20 8"/>
@@ -268,7 +296,7 @@ function renderTable() {
         } else if (USER_ROLE === 'bendahara' || USER_ROLE === 'ketua') {
           menuActionsHtml = `
                   ${saldoBtnHtml}
-                  <button class="btn-action btn-action-pdf" onclick="exportPDF(${item.id})">
+                  <button class="btn-action btn-action-pdf" onclick="event.stopPropagation(); exportPDF(${item.id})">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                       <polyline points="14 2 14 8 20 8"/>
@@ -283,9 +311,9 @@ function renderTable() {
         }
 
         return `
-                <div class="menu-card">
+                <div class="menu-card ${isExpanded ? 'is-expanded' : ''}" id="menu-card-${item.id}">
                   <!-- Header menu: nama menu, porsi, status, tombol -->
-                  <div class="menu-card-header">
+                  <div class="menu-card-header" onclick="toggleMenuAccordion(event, ${item.id})">
                     <div class="menu-card-meta">
                       <div class="menu-card-title">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -313,6 +341,25 @@ function renderTable() {
                         </span>
                         ` : ''}
                       </div>
+
+                      <!-- Subinfo: Total Item & Total Uang Belum Dibayar -->
+                      <div class="menu-card-subinfo">
+                        <span class="menu-stat-badge menu-stat-items" title="Total jumlah item barang">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                          </svg>
+                          Total Item: <strong>${detailItems.length} item</strong>
+                        </span>
+                        <span class="menu-stat-badge ${totalBelumDibayar > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}" title="Total nominal item yang belum dibayar">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                          </svg>
+                          Total Belum Dibayar: <strong>${formatRupiah(totalBelumDibayar)}</strong>
+                        </span>
+                      </div>
+
                       ${(() => {
             const uangMasuk = parseFloat(item.uang_masuk) || 0;
             const biayaAdmin = parseFloat(item.biaya_admin) || 0;
@@ -349,7 +396,7 @@ function renderTable() {
               }
               const safeBuktiTFBadge = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
               if (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') {
-                row2 += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
+                row2 += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="event.stopPropagation(); openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
                                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                   <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
@@ -379,7 +426,7 @@ function renderTable() {
             let row3 = '';
             if (buktiTFUrls.length > 0 && !isPurchase) {
               const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(buktiTFUrls))));
-              row3 = `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
+              row3 = `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="event.stopPropagation(); openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1" y="2" width="11" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
                                 <path d="M1 9.5l3-3 2 2 1.5-1.5L12 9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -396,17 +443,26 @@ function renderTable() {
           })()}
                     </div>
                     <div class="menu-card-right">
-                      <div class="menu-total">${formatRupiah(totalItem)}</div>
-                      ${menuActionsHtml ? `<div class="menu-actions">${menuActionsHtml}</div>` : ''}
+                      <div class="menu-total-wrapper">
+                        <div class="menu-total">${formatRupiah(totalItem)}</div>
+                        <div class="accordion-toggle-btn" title="${isExpanded ? 'Tutup Detail' : 'Buka Detail'}">
+                          <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </div>
+                      </div>
+                      ${menuActionsHtml ? `<div class="menu-actions" onclick="event.stopPropagation()">${menuActionsHtml}</div>` : ''}
                     </div>
                   </div>
 
-                  <!-- Tabel rincian barang -->
-                  <div class="menu-card-body">
-                    <div class="menu-card-body-header">
-                      <span>Rincian Barang</span>
-                    </div>
-                    ${detailItems.length > 0 ? `
+                  <!-- ACCORDION BODY CONTAINER -->
+                  <div class="menu-accordion-body" id="menu-accordion-body-${item.id}" style="${isExpanded ? 'display: block;' : 'display: none;'}">
+                    <!-- Tabel rincian barang -->
+                    <div class="menu-card-body">
+                      <div class="menu-card-body-header">
+                        <span>Rincian Barang</span>
+                      </div>
+                      ${detailItems.length > 0 ? `
                       <table class="rincian-table">
                         <thead>
                           <tr>
@@ -545,20 +601,21 @@ function renderTable() {
                       </table>
                     ` : `<p class="no-barang">Belum ada rincian barang.</p>`}
                   </div>
+                  ${USER_ROLE === 'admin' ? `
+                    <div class="card-add-barang-wrap">
+                      <button class="btn-card-add-barang" onclick="openAddItemModal(${item.id})">
+                        <span class="btn-card-add-barang-icon">
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                          </svg>
+                        </span>
+                        Tambah Barang
+                      </button>
+                    </div>
+                  ` : ''}
                 </div>
-                ${USER_ROLE === 'admin' ? `
-                  <div class="card-add-barang-wrap">
-                    <button class="btn-card-add-barang" onclick="openAddItemModal(${item.id})">
-                      <span class="btn-card-add-barang-icon">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                        </svg>
-                      </span>
-                      Tambah Barang
-                    </button>
-                  </div>
-                ` : ''}
-              `;
+              </div>
+            `;
       }).join('')}
           </div>
         </div>
