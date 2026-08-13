@@ -246,10 +246,10 @@ function renderTable() {
         const detailItems = item.items || item.detail_items || [];
         const totalItem = detailItems.reduce((sum, b) =>
           sum + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
-        const totalBelumDibayar = detailItems.reduce((sum, b) =>
-          (b.status_lunas !== 'lunas'
-            ? sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0))
-            : sum), 0);
+        const unpaidItems = detailItems.filter(b => b.status_lunas !== 'lunas');
+        const unpaidItemsCount = unpaidItems.length;
+        const totalBelumDibayar = unpaidItems.reduce((sum, b) =>
+          sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
         const isExpanded = expandedMenuCards.has(item.id);
         const status = item.status || 'pending';
         const uangMasuk = parseFloat(item.uang_masuk) || 0;
@@ -342,13 +342,13 @@ function renderTable() {
                         ` : ''}
                       </div>
 
-                      <!-- Subinfo: Total Item & Total Uang Belum Dibayar -->
+                      <!-- Subinfo: Total Item Belum Dibayar & Total Uang Belum Dibayar -->
                       <div class="menu-card-subinfo">
-                        <span class="menu-stat-badge menu-stat-items" title="Total jumlah item barang">
+                        <span class="menu-stat-badge ${unpaidItemsCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}" title="Jumlah item barang yang belum dibayar">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                           </svg>
-                          Total Item: <strong>${detailItems.length} item</strong>
+                          Item Belum Dibayar: <strong>${unpaidItemsCount} item</strong>
                         </span>
                         <span class="menu-stat-badge ${totalBelumDibayar > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}" title="Total nominal item yang belum dibayar">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
