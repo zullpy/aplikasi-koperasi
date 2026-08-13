@@ -213,18 +213,36 @@ if ($keyword !== '') {
 $sql .= " ORDER BY pb.tanggal_pengambilan DESC, pb.id_pengambilan DESC, pbd.id_detail ASC";
 
 // ----------------------------------------------------------
-// Ambil riwayat harga per barang (db_draft_barang.riwayat_harga)
-// supaya transaksi lama tetap pakai harga yang berlaku saat itu,
-// bukan harga terbaru. Pakai koneksi $koneksi (bukan $koneksi2).
+// Ambil data & riwayat harga per barang (db_draft_barang)
 // ----------------------------------------------------------
 $riwayatByBarang = []; // key: nama_barang (lowercase, trim) => list riwayat harga terurut naik berdasarkan tanggal
-$hargaFallback   = []; // key: nama_barang => harga_beli terbaru di tabel barang (jaga-jaga kalau riwayat kosong)
+$barangMap       = []; // key: nama_barang => info grosir & eceran barang
 
-$resBarang = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+$resBarang = $koneksi->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
 if ($resBarang) {
     while ($rb = $resBarang->fetch_assoc()) {
         $key = strtolower(trim($rb['nama_barang']));
-        $hargaFallback[$key] = $rb['harga_beli'];
+        $hargaGrosir    = bersihkanHarga($rb['harga_beli'] ?? 0);
+        $hargaEceranRaw = bersihkanHarga($rb['harga_eceran'] ?? 0);
+        $isiRaw         = ((float)($rb['isi_per_satuan'] ?? 0) > 0) ? (float)$rb['isi_per_satuan'] : 0;
+        $satGrosir      = strtolower(trim($rb['satuan'] ?? ''));
+        $satEceran      = strtolower(trim($rb['satuan_eceran'] ?? ''));
+
+        if ($satEceran !== '' && $hargaEceranRaw > 0) {
+            $hargaEceran = $hargaEceranRaw;
+        } elseif ($satEceran !== '' && $isiRaw > 0 && $hargaGrosir > 0) {
+            $hargaEceran = $hargaGrosir / $isiRaw;
+        } else {
+            $hargaEceran = $hargaGrosir;
+        }
+
+        $barangMap[$key] = [
+            'satuan_grosir'  => $satGrosir,
+            'satuan_eceran'  => $satEceran,
+            'isi_per_satuan' => $isiRaw,
+            'harga_grosir'   => $hargaGrosir,
+            'harga_eceran'   => $hargaEceran,
+        ];
     }
 }
 
@@ -282,24 +300,49 @@ while ($row = $result->fetch_assoc()) {
     }
 
     $keyBarang    = strtolower(trim($row['nama_barang']));
+    $satuanInput  = strtolower(trim($row['satuan']));
     $tglTransaksi = trim($row['tanggal_pengambilan'] . ' ' . ($row['jam_pengambilan'] ?: '00:00:00'));
 
+    $b = $barangMap[$keyBarang] ?? null;
+
+    $isEceran = false;
+    if ($b) {
+        $satEceranNorm = $b['satuan_eceran'];
+        $satGrosirNorm = $b['satuan_grosir'];
+        if ($satEceranNorm !== '' && $satuanInput === $satEceranNorm && $satuanInput !== $satGrosirNorm) {
+            $isEceran = true;
+        }
+    }
+
     if (!empty($riwayatByBarang[$keyBarang])) {
-        // ambil harga yang berlaku pada tanggal & jam pengambilan
-        $hargaBeli = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
+        // ambil harga grosir yang berlaku pada tanggal & jam pengambilan
+        $hargaGrosirBerlaku = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
     } else {
         // barang ini belum pernah punya riwayat harga, fallback ke harga di tabel barang
-        $hargaBeli = bersihkanHarga($hargaFallback[$keyBarang] ?? null);
+        $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
+    }
+
+    if ($isEceran && $b) {
+        if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
+            $ratio = $b['harga_eceran'] / $b['harga_grosir'];
+            $hargaTerpakai = $hargaGrosirBerlaku * $ratio;
+        } elseif ($b['isi_per_satuan'] > 0) {
+            $hargaTerpakai = $hargaGrosirBerlaku / $b['isi_per_satuan'];
+        } else {
+            $hargaTerpakai = $hargaGrosirBerlaku;
+        }
+    } else {
+        $hargaTerpakai = $hargaGrosirBerlaku;
     }
 
     $qty       = (float) $row['qty'];
-    $subtotal  = $hargaBeli * $qty;
+    $subtotal  = $hargaTerpakai * $qty;
 
     $transaksi[$idPengambilan]['detail'][] = [
         'nama_barang' => $row['nama_barang'],
         'satuan'      => $row['satuan'],
         'qty'         => $qty,
-        'harga_beli'  => $hargaBeli,
+        'harga_beli'  => $hargaTerpakai,
         'subtotal'    => $subtotal,
     ];
 
