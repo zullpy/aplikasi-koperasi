@@ -258,7 +258,7 @@ while ($row = $result->fetch_assoc()) {
     if ($b) {
         $satEceranNorm = $b['satuan_eceran'];
         $satGrosirNorm = $b['satuan_grosir'];
-        if ($satEceranNorm !== '' && $satuanInput === $satEceranNorm && $satuanInput !== $satGrosirNorm) {
+        if ($satEceranNorm !== '' && isSatuanEceranMatch($satuanInput, $satEceranNorm, $satGrosirNorm)) {
             $isEceran = true;
         }
     }
@@ -357,13 +357,14 @@ foreach ($transaksi as $idT => &$t) {
 }
 unset($t);
 
-$grandTotal = 0;
+$grandTotal   = 0;
 $grandDibayar = 0;
+$grandSisa    = 0;
 foreach ($transaksi as $t) {
     $grandTotal   += $t['total'];
     $grandDibayar += $t['total_dibayar'];
+    $grandSisa    += $t['sisa_bayar'];
 }
-$grandSisa = max($grandTotal - $grandDibayar, 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">

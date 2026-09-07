@@ -1523,7 +1523,11 @@ async function deleteNota(filePath) {
     cancelButtonColor: '#6b7280',
     confirmButtonText: '🗑 Ya, Hapus Permanen',
     cancelButtonText: 'Batal',
-    customClass: { popup: 'swal-kopdes' }
+    customClass: { popup: 'swal-kopdes' },
+    didOpen: () => {
+      const container = document.querySelector('.swal2-container');
+      if (container) container.style.zIndex = '9999';
+    }
   });
   if (!result.isConfirmed) return;
   try {

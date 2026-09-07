@@ -264,7 +264,7 @@ while ($row = $resultDetail->fetch_assoc()) {
     if ($b) {
         $satEceranNorm = $b['satuan_eceran'];
         $satGrosirNorm = $b['satuan_grosir'];
-        if ($satEceranNorm !== '' && $satuanInput === $satEceranNorm && $satuanInput !== $satGrosirNorm) {
+        if ($satEceranNorm !== '' && isSatuanEceranMatch($satuanInput, $satEceranNorm, $satGrosirNorm)) {
             $isEceran = true;
         }
     }

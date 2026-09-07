@@ -43,41 +43,99 @@ if ($resultHutang) {
 }
 
 // ----------------------------------------------------------
+// FUNGSI BANTU PERHITUNGAN HARGA
+// ----------------------------------------------------------
+function bersihkanHarga($str)
+{
+    if ($str === null) return 0;
+    $bersih = preg_replace('/[^0-9]/', '', $str);
+    return $bersih === '' ? 0 : (float) $bersih;
+}
+
+function cariHargaBerlaku($riwayatList, $tglTransaksi)
+{
+    $hargaTerpilih = null;
+
+    foreach ($riwayatList as $r) {
+        if ($r['tanggal'] <= $tglTransaksi) {
+            $hargaTerpilih = $r['harga_beli'];
+        } else {
+            break;
+        }
+    }
+
+    if ($hargaTerpilih === null && !empty($riwayatList)) {
+        $hargaTerpilih = $riwayatList[0]['harga_beli'];
+    }
+
+    return $hargaTerpilih;
+}
+
+// ----------------------------------------------------------
 // 2. DATA PIUTANG (Penjualan SPPG yang belum lunas)
-// pengambilan_barang, pengambilan_barang_detail, pembayaran,
-// faktur_ttd ada di database $koneksi2. Tabel barang & riwayat_harga
-// ada di database $koneksi (db_barang). Karena beda database & beda
-// user MySQL, tidak bisa di-JOIN langsung -> diambil terpisah lalu
-// digabung manual di PHP.
-//
-// PENTING #1: harga yang dipakai untuk hitung total_tagihan HARUS
-// harga yang berlaku PADA tanggal_pengambilan, bukan harga_beli
-// terkini di tabel barang. Kalau pakai harga terkini, nilai rekap
-// bisa beda dengan nilai di faktur yang sudah dicetak (karena harga
-// barang bisa berubah setelah faktur dibuat). Makanya di sini kita
-// ambil dari tabel riwayat_harga (snapshot histori harga per barang).
-//
-// PENTING #2: satu id_pengambilan bisa menghasilkan 2 faktur terpisah
-// (foodcost & addcost), karena item di dalamnya ditandai per baris
-// lewat kolom pbd.jenis. Jadi total_tagihan HARUS dihitung per
-// (id_pengambilan + jenis), bukan digabung jadi satu per id_pengambilan
-// -> supaya nilai transaksi foodcost dan addcost tidak nyampur.
-//
-// PENTING #3: tabel pembayaran cuma mencatat total bayar per
-// id_pengambilan (tidak dipisah foodcost/addcost). Karena itu, saat
-// satu id_pengambilan punya 2 baris (foodcost & addcost), uang masuk
-// dibagi PROPORSIONAL sesuai porsi nilai transaksi masing-masing
-// terhadap total gabungan id_pengambilan tersebut.
+// Mengikuti logika perhitungan presisi dari Penjualan SPPG
+// Foodcost dan Addcost (termasuk satuan eceran vs grosir & riwayat harga).
 // ----------------------------------------------------------
 
-// 2a. Ambil header + detail pengambilan (tanpa harga), pakai $koneksi2
+// 2a. Ambil info barang, satuan grosir/eceran, dan harga dari db_barang (pakai $koneksi)
+$barangMap = [];
+$resBarang = $koneksi->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
+if ($resBarang) {
+    while ($rb = $resBarang->fetch_assoc()) {
+        $key = strtolower(trim($rb['nama_barang']));
+        $hargaGrosir    = bersihkanHarga($rb['harga_beli'] ?? 0);
+        $hargaEceranRaw = bersihkanHarga($rb['harga_eceran'] ?? 0);
+        $isiRaw         = ((float)($rb['isi_per_satuan'] ?? 0) > 0) ? (float)$rb['isi_per_satuan'] : 0;
+        $satGrosir      = strtolower(trim($rb['satuan'] ?? ''));
+        $satEceran      = strtolower(trim($rb['satuan_eceran'] ?? ''));
+
+        if ($satEceran !== '' && $hargaEceranRaw > 0) {
+            $hargaEceran = $hargaEceranRaw;
+        } elseif ($satEceran !== '' && $isiRaw > 0 && $hargaGrosir > 0) {
+            $hargaEceran = $hargaGrosir / $isiRaw;
+        } else {
+            $hargaEceran = $hargaGrosir;
+        }
+
+        $barangMap[$key] = [
+            'satuan_grosir'  => $satGrosir,
+            'satuan_eceran'  => $satEceran,
+            'isi_per_satuan' => $isiRaw,
+            'harga_grosir'   => $hargaGrosir,
+            'harga_eceran'   => $hargaEceran,
+        ];
+    }
+}
+
+// 2b. Ambil riwayat harga untuk transaksi foodcost dari db_barang
+$riwayatByBarang = [];
+$sqlRiwayat = "
+    SELECT b.nama_barang, r.harga_beli, r.tanggal
+    FROM riwayat_harga r
+    INNER JOIN barang b ON b.id_barang = r.id_barang
+    ORDER BY r.id_barang ASC, r.tanggal ASC, r.id_riwayat ASC
+";
+$resRiwayat = $koneksi->query($sqlRiwayat);
+if ($resRiwayat) {
+    while ($rr = $resRiwayat->fetch_assoc()) {
+        $key = strtolower(trim($rr['nama_barang']));
+        $riwayatByBarang[$key][] = [
+            'tanggal'    => $rr['tanggal'],
+            'harga_beli' => (float) $rr['harga_beli'],
+        ];
+    }
+}
+
+// 2c. Ambil header + detail pengambilan dari db_mbg (pakai $koneksi2)
 $queryPiutangRaw = "
     SELECT 
         pb.id_pengambilan,
         pb.no_pengambilan,
         pb.tanggal_pengambilan,
+        pb.jam_pengambilan,
         pb.nama_sppg,
         pbd.nama_barang,
+        pbd.satuan,
         pbd.qty, 
         pbd.jenis
     FROM pengambilan_barang pb
@@ -86,68 +144,6 @@ $queryPiutangRaw = "
 ";
 $resultPiutangRaw = $koneksi2->query($queryPiutangRaw);
 
-// 2b. Mapping nama_barang -> id_barang, pakai $koneksi (database db_barang)
-$idBarangLookup = [];
-$resBarang = $koneksi->query("SELECT id_barang, nama_barang, harga_beli FROM barang");
-$hargaSekarangLookup = []; // fallback kalau barang belum punya riwayat_harga sama sekali
-if ($resBarang) {
-    while ($rb = $resBarang->fetch_assoc()) {
-        $key = strtolower(trim($rb['nama_barang']));
-        $idBarangLookup[$key] = $rb['id_barang'];
-
-        $bersih = preg_replace('/[^0-9]/', '', $rb['harga_beli']);
-        $hargaSekarangLookup[$rb['id_barang']] = $bersih === '' ? 0 : (float) $bersih;
-    }
-}
-
-// 2c. Ambil semua riwayat harga, dikelompokkan per id_barang, urut tanggal ASC
-$riwayatHargaMap = []; // id_barang => [ ['tanggal' => ..., 'harga' => ...], ... ] urut ascending
-$resRiwayat = $koneksi->query("SELECT id_barang, harga_beli, tanggal FROM riwayat_harga ORDER BY id_barang ASC, tanggal ASC");
-if ($resRiwayat) {
-    while ($rr = $resRiwayat->fetch_assoc()) {
-        $riwayatHargaMap[$rr['id_barang']][] = [
-            'tanggal' => $rr['tanggal'],
-            'harga'   => (float) $rr['harga_beli'],
-        ];
-    }
-}
-
-/**
- * Cari harga barang yang berlaku pada tanggal tertentu.
- * Ambil record riwayat_harga terakhir yang tanggalnya <= tanggal transaksi.
- * Kalau belum ada riwayat yang <= tanggal itu (barang "baru" setelah transaksi
- * lama), pakai riwayat paling awal yang ada. Kalau riwayat kosong total,
- * fallback ke harga_beli terkini di tabel barang.
- */
-function cariHargaPadaTanggal($idBarang, $tanggalTransaksi, array $riwayatHargaMap, array $hargaSekarangLookup)
-{
-    if (!isset($riwayatHargaMap[$idBarang]) || empty($riwayatHargaMap[$idBarang])) {
-        return $hargaSekarangLookup[$idBarang] ?? 0;
-    }
-
-    $tsTransaksi = strtotime($tanggalTransaksi);
-    $hargaTerpilih = null;
-
-    foreach ($riwayatHargaMap[$idBarang] as $r) {
-        if (strtotime($r['tanggal']) <= $tsTransaksi) {
-            $hargaTerpilih = $r['harga']; // terus ditimpa sampai lewat tanggal transaksi
-        } else {
-            break; // sudah urut ASC, begitu lewat tanggal transaksi langsung berhenti
-        }
-    }
-
-    // Belum ada riwayat sebelum/at tanggal transaksi -> pakai riwayat paling awal yang tercatat
-    if ($hargaTerpilih === null) {
-        $hargaTerpilih = $riwayatHargaMap[$idBarang][0]['harga'];
-    }
-
-    return $hargaTerpilih;
-}
-
-// 2d. Susun total_tagihan per transaksi, GABUNG lagi jadi 1 baris per id_pengambilan
-// (foodcost + addcost dijumlahkan). Tapi tetap dicatat daftar jenis apa saja yang
-// ada di transaksi itu (jenis_list), supaya nanti tombol Cetak Faktur bisa
-// dimunculkan sesuai jenis yang benar-benar ada (bisa 1 atau 2 tombol).
 $piutangRaw = [];
 if ($resultPiutangRaw) {
     while ($row = $resultPiutangRaw->fetch_assoc()) {
@@ -164,26 +160,64 @@ if ($resultPiutangRaw) {
             ];
         }
 
-        // Catat jenis item ini (foodcost/addcost) kalau belum pernah tercatat
-        $jenisRow = strtolower(trim($row['jenis'] ?? ''));
+        // Catat jenis item ini (foodcost/addcost) untuk tombol cetak faktur
+        $jenisRow = strtolower(trim($row['jenis'] ?? 'foodcost'));
         if ($jenisRow !== '' && !in_array($jenisRow, $piutangRaw[$id]['jenis_list'], true)) {
             $piutangRaw[$id]['jenis_list'][] = $jenisRow;
         }
 
-        // Harga diambil dari riwayat_harga sesuai tanggal_pengambilan
-        $key = strtolower(trim($row['nama_barang']));
-        $idBarang = $idBarangLookup[$key] ?? null;
+        $keyBarang    = strtolower(trim($row['nama_barang']));
+        $satuanInput  = strtolower(trim($row['satuan'] ?? ''));
+        $tglTransaksi = trim($row['tanggal_pengambilan'] . ' ' . ($row['jam_pengambilan'] ?: '00:00:00'));
 
-        $harga = 0;
-        if ($idBarang !== null) {
-            $harga = cariHargaPadaTanggal($idBarang, $row['tanggal_pengambilan'], $riwayatHargaMap, $hargaSekarangLookup);
+        $b = $barangMap[$keyBarang] ?? null;
+
+        $isEceran = false;
+        if ($b) {
+            $satEceranNorm = $b['satuan_eceran'];
+            $satGrosirNorm = $b['satuan_grosir'];
+            if ($satEceranNorm !== '' && isSatuanEceranMatch($satuanInput, $satEceranNorm, $satGrosirNorm)) {
+                $isEceran = true;
+            }
         }
 
-        $piutangRaw[$id]['total_tagihan'] += ((float) $row['qty']) * $harga;
+        if ($jenisRow === 'addcost') {
+            // Logika Addcost (menggunakan harga barang aktif)
+            if ($isEceran && $b) {
+                $hargaTerpakai = $b['harga_eceran'];
+            } else {
+                $hargaTerpakai = $b ? $b['harga_grosir'] : 0;
+            }
+        } else {
+            // Logika Foodcost (menggunakan riwayat harga berlaku)
+            if (!empty($riwayatByBarang[$keyBarang])) {
+                $hargaGrosirBerlaku = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
+            } else {
+                $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
+            }
+
+            if ($isEceran && $b) {
+                if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
+                    $ratio = $b['harga_eceran'] / $b['harga_grosir'];
+                    $hargaTerpakai = $hargaGrosirBerlaku * $ratio;
+                } elseif ($b['isi_per_satuan'] > 0) {
+                    $hargaTerpakai = $hargaGrosirBerlaku / $b['isi_per_satuan'];
+                } else {
+                    $hargaTerpakai = $hargaGrosirBerlaku;
+                }
+            } else {
+                $hargaTerpakai = $hargaGrosirBerlaku;
+            }
+        }
+
+        $qty      = (float) $row['qty'];
+        $subtotal = $hargaTerpakai * $qty;
+
+        $piutangRaw[$id]['total_tagihan'] += $subtotal;
     }
 }
 
-// 2e. Ambil total pembayaran per id_pengambilan (gabungan, belum dipisah jenis), pakai $koneksi2
+// 2d. Ambil total pembayaran per id_pengambilan dari db_mbg (pakai $koneksi2)
 $bayarMap = [];
 $resBayar = $koneksi2->query("SELECT id_pengambilan, SUM(jumlah_dibayar) AS total_bayar FROM pembayaran GROUP BY id_pengambilan");
 if ($resBayar) {
@@ -192,7 +226,7 @@ if ($resBayar) {
     }
 }
 
-// 2f. Ambil file faktur per tanggal, pakai $koneksi2
+// 2e. Ambil file faktur per tanggal dari db_mbg
 $fakturMap = [];
 $resFaktur = $koneksi2->query("SELECT tanggal, file_faktur FROM faktur_ttd");
 if ($resFaktur) {
@@ -201,15 +235,13 @@ if ($resFaktur) {
     }
 }
 
-// 2g. Gabungkan semuanya jadi $dataPiutang (1 baris per id_pengambilan).
-// Uang masuk diambil langsung dari total pembayaran transaksi itu (tidak dipecah lagi).
-// Hanya yang masih ada sisa pembayaran yang ditampilkan.
+// 2f. Gabungkan semuanya jadi $dataPiutang (1 baris per id_pengambilan).
 $dataPiutang = [];
 $totalPiutang = 0;
 foreach ($piutangRaw as $p) {
     $id = $p['id_pengambilan'];
     $uangMasuk = $bayarMap[$id] ?? 0;
-    $sisa = $p['total_tagihan'] - $uangMasuk;
+    $sisa = max($p['total_tagihan'] - $uangMasuk, 0);
 
     if ($sisa > 0) {
         $p['uang_masuk']      = $uangMasuk;
@@ -221,8 +253,6 @@ foreach ($piutangRaw as $p) {
 }
 // Urutkan terbaru dulu (menggantikan ORDER BY di query asli)
 usort($dataPiutang, fn($a, $b) => strcmp($b['tanggal_pengambilan'], $a['tanggal_pengambilan']));
-
-// $selisih = $totalPiutang - $totalHutang;
 ?>
 <!DOCTYPE html>
 <html lang="id">

@@ -75,21 +75,23 @@ if ($resP) {
     while ($p = mysqli_fetch_assoc($resP)) {
         $key = $p['nama_key'];
         $vol = (float)($p['volume'] ?? 0);
-        $sat = strtolower(trim($p['satuan'] ?? ''));
+        $sat = $p['satuan'] ?? '';
         
         if (!isset($purchasesMap[$key])) $purchasesMap[$key] = 0;
         
         $isi = null;
         $satEceran = null;
+        $satGrosir = null;
         foreach ($items as $it) {
             if ($it['nama_key'] === $key) {
                 $isi = $it['isi_per_satuan'];
-                $satEceran = strtolower(trim($it['satuan_eceran']));
+                $satEceran = $it['satuan_eceran'];
+                $satGrosir = $it['satuan'];
                 break;
             }
         }
         
-        if ($isi && $sat !== $satEceran) {
+        if ($isi && !isSatuanEceranMatch($sat, $satEceran, $satGrosir)) {
             $purchasesMap[$key] += ($vol * $isi);
         } else {
             $purchasesMap[$key] += $vol;
@@ -109,21 +111,23 @@ if ($resT) {
     while ($t = mysqli_fetch_assoc($resT)) {
         $key = $t['nama_key'];
         $qty = (float)($t['qty'] ?? 0);
-        $sat = strtolower(trim($t['satuan'] ?? ''));
+        $sat = $t['satuan'] ?? '';
         
         if (!isset($takingsMap[$key])) $takingsMap[$key] = 0;
         
         $isi = null;
         $satEceran = null;
+        $satGrosir = null;
         foreach ($items as $it) {
             if ($it['nama_key'] === $key) {
                 $isi = $it['isi_per_satuan'];
-                $satEceran = strtolower(trim($it['satuan_eceran']));
+                $satEceran = $it['satuan_eceran'];
+                $satGrosir = $it['satuan'];
                 break;
             }
         }
         
-        if ($isi && $sat !== $satEceran) {
+        if ($isi && !isSatuanEceranMatch($sat, $satEceran, $satGrosir)) {
             $takingsMap[$key] += ($qty * $isi);
         } else {
             $takingsMap[$key] += $qty;

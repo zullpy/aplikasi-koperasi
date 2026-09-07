@@ -47,7 +47,7 @@ if ($resPembelianDetail) {
 
 // 2a. Ambil detail pengambilan (tanpa harga), pakai $koneksi2
 $qPenjualanRaw = "
-    SELECT pb.tanggal_pengambilan, pb.jam_pengambilan, pbd.nama_barang, pbd.qty
+    SELECT pb.tanggal_pengambilan, pb.jam_pengambilan, pbd.nama_barang, pbd.qty, pbd.satuan, pbd.jenis
     FROM pengambilan_barang pb
     INNER JOIN pengambilan_barang_detail pbd ON pbd.id_pengambilan = pb.id_pengambilan
     WHERE pb.status = 'verified'
@@ -55,12 +55,32 @@ $qPenjualanRaw = "
 $resPenjualanRaw = $koneksi2->query($qPenjualanRaw);
 
 // 2b. Lookup harga barang & riwayat harga, pakai $koneksi
-$hargaLookupPenjualan = [];
-$resHargaJual = $koneksi->query("SELECT nama_barang, harga_beli FROM barang");
+$barangLookupPenjualan = [];
+$resHargaJual = $koneksi->query("SELECT nama_barang, satuan, satuan_eceran, isi_per_satuan, harga_beli, harga_eceran FROM barang");
 if ($resHargaJual) {
     while ($rb = $resHargaJual->fetch_assoc()) {
         $key = strtolower(trim($rb['nama_barang']));
-        $hargaLookupPenjualan[$key] = $rb['harga_beli'];
+        $hargaGrosir    = (float)preg_replace('/[^0-9]/', '', $rb['harga_beli'] ?? '0');
+        $hargaEceranRaw = (float)($rb['harga_eceran'] ?? 0);
+        $isiRaw         = ((float)($rb['isi_per_satuan'] ?? 0) > 0) ? (float)$rb['isi_per_satuan'] : 0;
+        $satGrosir      = trim($rb['satuan'] ?? '');
+        $satEceran      = trim($rb['satuan_eceran'] ?? '');
+
+        if ($satEceran !== '' && $hargaEceranRaw > 0) {
+            $hargaEceran = $hargaEceranRaw;
+        } elseif ($satEceran !== '' && $isiRaw > 0 && $hargaGrosir > 0) {
+            $hargaEceran = $hargaGrosir / $isiRaw;
+        } else {
+            $hargaEceran = $hargaGrosir;
+        }
+
+        $barangLookupPenjualan[$key] = [
+            'satuan_grosir'  => $satGrosir,
+            'satuan_eceran'  => $satEceran,
+            'isi_per_satuan' => $isiRaw,
+            'harga_grosir'   => $hargaGrosir,
+            'harga_eceran'   => $hargaEceran,
+        ];
     }
 }
 
@@ -103,27 +123,58 @@ $penjualanPerBarang = [];
 if ($resPenjualanRaw) {
     while ($row = $resPenjualanRaw->fetch_assoc()) {
         $key = strtolower(trim($row['nama_barang']));
+        $satuanInput = trim($row['satuan'] ?? '');
+        $jenisRow = strtolower(trim($row['jenis'] ?? 'foodcost'));
         $tglTransaksi = trim(($row['tanggal_pengambilan'] ?? '') . ' ' . ($row['jam_pengambilan'] ?? '00:00:00'));
 
-        $harga = 0;
-        if (!empty($riwayatByBarangPenjualan[$key])) {
-            $harga = cariHargaBerlakuLaporan($riwayatByBarangPenjualan[$key], $tglTransaksi);
-        } else {
-            $hargaMentah = $hargaLookupPenjualan[$key] ?? null;
-            if ($hargaMentah !== null) {
-                $bersih = preg_replace('/[^0-9]/', '', $hargaMentah);
-                $harga = $bersih === '' ? 0 : (float) $bersih;
+        $b = $barangLookupPenjualan[$key] ?? null;
+        $isEceran = false;
+        if ($b) {
+            $satEceranNorm = $b['satuan_eceran'];
+            $satGrosirNorm = $b['satuan_grosir'];
+            if ($satEceranNorm !== '' && isSatuanEceranMatch($satuanInput, $satEceranNorm, $satGrosirNorm)) {
+                $isEceran = true;
             }
         }
+
+        if ($jenisRow === 'addcost') {
+            if ($isEceran && $b) {
+                $hargaTerpakai = $b['harga_eceran'];
+            } else {
+                $hargaTerpakai = $b ? $b['harga_grosir'] : 0;
+            }
+        } else {
+            if (!empty($riwayatByBarangPenjualan[$key])) {
+                $hargaGrosirBerlaku = cariHargaBerlakuLaporan($riwayatByBarangPenjualan[$key], $tglTransaksi);
+            } else {
+                $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
+            }
+
+            if ($isEceran && $b) {
+                if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
+                    $ratio = $b['harga_eceran'] / $b['harga_grosir'];
+                    $hargaTerpakai = $hargaGrosirBerlaku * $ratio;
+                } elseif ($b['isi_per_satuan'] > 0) {
+                    $hargaTerpakai = $hargaGrosirBerlaku / $b['isi_per_satuan'];
+                } else {
+                    $hargaTerpakai = $hargaGrosirBerlaku;
+                }
+            } else {
+                $hargaTerpakai = $hargaGrosirBerlaku;
+            }
+        }
+
         $qty     = (float) $row['qty'];
-        $nominal = $qty * $harga;
+        $nominal = $qty * $hargaTerpakai;
         $totalPenjualan += $nominal;
 
-        // Kumpulkan per barang
+        // Kumpulkan per barang (konversi ke satuan grosir jika satuan eceran)
+        $qtyGrosirDisplay = ($isEceran && $b && $b['isi_per_satuan'] > 0) ? ($qty / $b['isi_per_satuan']) : $qty;
+
         if (!isset($penjualanPerBarang[$key])) {
             $penjualanPerBarang[$key] = ['nama' => $row['nama_barang'], 'total_qty' => 0, 'total_nominal' => 0];
         }
-        $penjualanPerBarang[$key]['total_qty']     += $qty;
+        $penjualanPerBarang[$key]['total_qty']     += $qtyGrosirDisplay;
         $penjualanPerBarang[$key]['total_nominal']  += $nominal;
     }
 }
