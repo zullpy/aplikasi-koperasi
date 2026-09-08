@@ -176,7 +176,10 @@ $total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
                 <div class="barang-section">
                     <div class="section-header">
                         <h3>Daftar Barang</h3>
-                        <button type="button" class="btn-tambah-barang" onclick="tambahBarang()">+ Tambah Barang</button>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="badgeJumlahBarangJual" class="badge-item-count" style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.65rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:20px; font-size:0.78rem; font-weight:700;">1 Barang</span>
+                            <button type="button" class="btn-tambah-barang" onclick="tambahBarang()">+ Tambah Barang</button>
+                        </div>
                     </div>
                     <div class="grand-total-box">
                         <span>Total Keseluruhan</span>

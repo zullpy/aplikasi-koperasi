@@ -150,12 +150,22 @@ $userRole = $_SESSION['role'] ?? '';
                 <div id="daftarBarangSection">
                     <div class="form-section-title">
                         <span>Daftar Barang</span>
-                        <button type="button" class="btn-mini btn-mini-primary" id="btnAddBarangRow">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-                            </svg>
-                            Tambah Baris
-                        </button>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span id="badgeJumlahBarang" class="badge-item-count">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                </svg>
+                                <span>1 Barang</span>
+                            </span>
+                            <button type="button" class="btn-mini btn-mini-primary" id="btnAddBarangRow">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                                </svg>
+                                Tambah Baris
+                            </button>
+                        </div>
                     </div>
                     <div id="barangList" class="barang-list"></div>
                     <div id="errorBarang" class="form-error"></div>

@@ -2,6 +2,13 @@
 function openModal() { document.getElementById("modalTransaksi").classList.add("active"); }
 function closeModal() { document.getElementById("modalTransaksi").classList.remove("active"); }
 
+function updateBadgeJumlahBarangJual() {
+    const badge = document.getElementById("badgeJumlahBarangJual");
+    if (!badge) return;
+    const count = document.querySelectorAll("#barangContainer .barang-row").length;
+    badge.textContent = `${count} Barang`;
+}
+
 // ===== TAMBAH BARANG =====
 function tambahBarang() {
     const container = document.getElementById("barangContainer");
@@ -20,8 +27,13 @@ function tambahBarang() {
         <button type="button" class="hapus-barang" onclick="hapusBarang(this)"><i class="ph ph-trash"></i></button>
     `;
     container.appendChild(row);
+    updateBadgeJumlahBarangJual();
 }
-function hapusBarang(button) { button.parentElement.remove(); hitungGrandTotal(); }
+function hapusBarang(button) {
+    button.parentElement.remove();
+    hitungGrandTotal();
+    updateBadgeJumlahBarangJual();
+}
 
 // ===== AUTOCOMPLETE BARANG =====
 document.addEventListener("input", async function (e) {
