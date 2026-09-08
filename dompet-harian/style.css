@@ -33,6 +33,28 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+    transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.7);
 }
 
 body {
@@ -490,6 +512,12 @@ body {
     align-items: center;
     justify-content: center;
     padding: 1rem;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+body:has(.modal-overlay.active) {
+    overflow: hidden !important;
 }
 
 .modal-overlay.active {
@@ -501,10 +529,13 @@ body {
     border-radius: var(--radius-lg);
     width: 100%;
     max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     box-shadow: var(--shadow-lg);
     animation: modalIn 0.25s var(--ease);
+    position: relative;
 }
 
 @keyframes modalIn {
@@ -526,6 +557,8 @@ body {
     padding: 1.25rem 1.5rem;
     background: var(--primary-gradient);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    flex-shrink: 0;
+    z-index: 10;
 }
 
 .modal-header-left {
@@ -577,6 +610,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    overscroll-behavior: contain;
 }
 
 .form-row {
@@ -697,7 +734,12 @@ body {
     align-items: center;
     justify-content: flex-end;
     gap: 0.6rem;
-    padding: 1rem 1.5rem 1.5rem;
+    padding: 1rem 1.5rem 1.25rem;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    z-index: 10;
 }
 
 .btn-cancel {

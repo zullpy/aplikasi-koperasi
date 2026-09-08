@@ -2405,6 +2405,15 @@ document.addEventListener('DOMContentLoaded', () => {
     inputSaldoDirect.addEventListener('input', () => formatLiveCurrency(inputSaldoDirect));
   }
 
+  // Auto lock body scroll when any modal is open
+  const modalObserver = new MutationObserver(() => {
+    const hasActiveModal = document.querySelector('.modal-overlay.active');
+    document.body.style.overflow = hasActiveModal ? 'hidden' : '';
+  });
+  document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modalObserver.observe(modal, { attributes: true, attributeFilter: ['class'] });
+  });
+
   initSearch();
 });
 

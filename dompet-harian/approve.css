@@ -933,6 +933,12 @@ body {
     align-items: center;
     justify-content: center;
     padding: 20px;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+body:has(.modal.active) {
+    overflow: hidden !important;
 }
 
 .modal.active {
@@ -945,10 +951,13 @@ body {
     border-radius: var(--radius);
     width: 100%;
     max-width: 500px;
+    max-height: calc(100vh - 40px);
     box-shadow: var(--shadow);
     animation: modalIn .2s ease;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    position: relative;
 }
 
 .modal-content-lg {
@@ -973,6 +982,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -1016,6 +1026,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    overscroll-behavior: contain;
 }
 
 .modal-footer {
@@ -1024,6 +1038,8 @@ body {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+    background: var(--surface);
+    flex-shrink: 0;
 }
 
 /* ── APPROVE MODAL SPECIFIC ── */
