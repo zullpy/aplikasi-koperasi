@@ -180,7 +180,7 @@ function addItemRow() {
             </div>
             <div class="item-input-field field-volume">
                 <label class="item-field-label">Volume</label>
-                <input type="number" name="volume[]" class="item-volume-input" placeholder="0" min="1" required data-idx="${idx}">
+                <input type="number" name="volume[]" class="item-volume-input" placeholder="0" min="0.001" step="any" required data-idx="${idx}">
             </div>
             <div class="item-input-field field-satuan">
                 <label class="item-field-label">Satuan</label>

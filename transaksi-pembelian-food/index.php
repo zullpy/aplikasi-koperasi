@@ -155,7 +155,7 @@ if ($result) {
         $row['kode_transaksi'] = $kodeTrx;
 
         $harga      = (float) preg_replace('/[^0-9]/', '', $row['harga'] ?? '');
-        $volume     = (float) preg_replace('/[^0-9]/', '', $row['volume'] ?? '');
+        $volume     = (float) preg_replace('/[^0-9.]/', '', $row['volume'] ?? '');
         $biayaAdmin = (float) preg_replace('/[^0-9]/', '', $row['biaya_admin'] ?? '');
         $diskon     = (float) preg_replace('/[^0-9]/', '', $row['diskon'] ?? '');
         $ppDiskon   = (float) preg_replace('/[^0-9]/', '', $row['pp_diskon'] ?? '');
@@ -499,7 +499,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                     </div>
                                                     <div class="item-qty-col">
                                                         <span class="col-label">Qty</span>
-                                                        <?= htmlspecialchars($row['volume']) ?> <?= htmlspecialchars($row['satuan']) ?>
+                                                        <?= htmlspecialchars(rtrim(rtrim($row['volume'], '0'), '.')) ?> <?= htmlspecialchars($row['satuan']) ?>
                                                     </div>
                                                     <div class="item-price-col">
                                                         <span class="col-label">Harga</span>
