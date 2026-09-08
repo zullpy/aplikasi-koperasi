@@ -160,6 +160,24 @@ function formatQty($angka)
     return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
 }
 
+// Cari harga yang BERLAKU pada tanggal (& jam) transaksi tertentu,
+// berdasarkan riwayat harga barang yang sudah terurut naik (ASC) per tanggal.
+function cariHargaBerlaku($riwayatList, $tglTransaksi)
+{
+    $hargaTerpilih = null;
+    foreach ($riwayatList as $r) {
+        if ($r['tanggal'] <= $tglTransaksi) {
+            $hargaTerpilih = (float) $r['harga_beli'];
+        } else {
+            break;
+        }
+    }
+    if ($hargaTerpilih === null && !empty($riwayatList)) {
+        $hargaTerpilih = (float) $riwayatList[0]['harga_beli'];
+    }
+    return $hargaTerpilih;
+}
+
 $stmtDetail = $koneksi2->prepare("
     SELECT pbd.nama_barang, pbd.satuan, pbd.qty
     FROM pengambilan_barang_detail pbd
@@ -200,8 +218,34 @@ if ($resBarang) {
     }
 }
 
+// Ambil riwayat harga terurut naik (gabungan riwayat_harga & transaksi_pembelian)
+$riwayatByBarang = [];
+$sqlRiwayat = "
+    SELECT nama_barang, harga_beli, tanggal FROM (
+        SELECT b.nama_barang, r.harga_beli, r.tanggal
+        FROM riwayat_harga r
+        INNER JOIN barang b ON b.id_barang = r.id_barang
+        UNION
+        SELECT tp.nama_barang, tp.harga AS harga_beli, CONCAT(tp.tanggal_pembelian, ' 00:00:00') AS tanggal
+        FROM transaksi_pembelian tp
+        WHERE tp.harga > 0 AND tp.tanggal_pembelian IS NOT NULL
+    ) AS combined
+    ORDER BY nama_barang ASC, tanggal ASC
+";
+$resRiwayat = $koneksi->query($sqlRiwayat);
+if ($resRiwayat) {
+    while ($rr = $resRiwayat->fetch_assoc()) {
+        $key = strtolower(trim($rr['nama_barang']));
+        $riwayatByBarang[$key][] = [
+            'tanggal'    => $rr['tanggal'],
+            'harga_beli' => (float) $rr['harga_beli'],
+        ];
+    }
+}
+
 $items = [];
 $total = 0;
+$tglTransaksi = trim($trx['tanggal_pengambilan'] . ' ' . (!empty($trx['jam_pengambilan']) && $trx['jam_pengambilan'] !== '00:00:00' ? $trx['jam_pengambilan'] : '23:59:59'));
 
 while ($row = $resultDetail->fetch_assoc()) {
     $keyBarang   = strtolower(trim($row['nama_barang']));
@@ -217,10 +261,23 @@ while ($row = $resultDetail->fetch_assoc()) {
         }
     }
 
-    if ($isEceran && $b) {
-        $harga = $b['harga_eceran'];
+    if (!empty($riwayatByBarang[$keyBarang])) {
+        $hargaGrosirBerlaku = cariHargaBerlaku($riwayatByBarang[$keyBarang], $tglTransaksi);
     } else {
-        $harga = $b ? $b['harga_grosir'] : 0;
+        $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
+    }
+
+    if ($isEceran && $b) {
+        if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
+            $ratio = $b['harga_eceran'] / $b['harga_grosir'];
+            $harga = $hargaGrosirBerlaku * $ratio;
+        } elseif ($b['isi_per_satuan'] > 0) {
+            $harga = $hargaGrosirBerlaku / $b['isi_per_satuan'];
+        } else {
+            $harga = $hargaGrosirBerlaku;
+        }
+    } else {
+        $harga = $hargaGrosirBerlaku;
     }
 
     $qty      = (float) $row['qty'];

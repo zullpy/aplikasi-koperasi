@@ -56,13 +56,19 @@ function formatQty($angka)
 function cariHargaBerlaku($riwayatList, $tglTransaksi)
 {
     $hargaTerpilih = null;
+    $waktuTransaksi = strtotime($tglTransaksi);
 
     foreach ($riwayatList as $r) {
-        if ($r['tanggal'] <= $tglTransaksi) {
+        $waktuRiwayat = strtotime($r['tanggal']);
+        if ($waktuRiwayat !== false && $waktuTransaksi !== false) {
+            if ($waktuRiwayat <= $waktuTransaksi) {
+                $hargaTerpilih = $r['harga_beli'];
+            } else {
+                break;
+            }
+        } elseif ($r['tanggal'] <= $tglTransaksi) {
             $hargaTerpilih = $r['harga_beli'];
         } else {
-            // karena list sudah terurut ASC, begitu ketemu tanggal
-            // yang lebih baru dari transaksi, langsung berhenti
             break;
         }
     }
@@ -247,10 +253,16 @@ if ($resBarang) {
 }
 
 $sqlRiwayat = "
-    SELECT b.nama_barang, r.harga_beli, r.tanggal
-    FROM riwayat_harga r
-    INNER JOIN barang b ON b.id_barang = r.id_barang
-    ORDER BY r.id_barang ASC, r.tanggal ASC, r.id_riwayat ASC
+    SELECT nama_barang, harga_beli, tanggal FROM (
+        SELECT b.nama_barang, r.harga_beli, r.tanggal
+        FROM riwayat_harga r
+        INNER JOIN barang b ON b.id_barang = r.id_barang
+        UNION
+        SELECT tp.nama_barang, tp.harga AS harga_beli, CONCAT(tp.tanggal_pembelian, ' 00:00:00') AS tanggal
+        FROM transaksi_pembelian tp
+        WHERE tp.harga > 0 AND tp.tanggal_pembelian IS NOT NULL
+    ) AS combined
+    ORDER BY nama_barang ASC, tanggal ASC
 ";
 $resRiwayat = $koneksi->query($sqlRiwayat);
 if ($resRiwayat) {
@@ -301,7 +313,8 @@ while ($row = $result->fetch_assoc()) {
 
     $keyBarang    = strtolower(trim($row['nama_barang']));
     $satuanInput  = strtolower(trim($row['satuan']));
-    $tglTransaksi = trim($row['tanggal_pengambilan'] . ' ' . ($row['jam_pengambilan'] ?: '00:00:00'));
+    $jamTransaksi = !empty($row['jam_pengambilan']) && $row['jam_pengambilan'] !== '00:00:00' ? $row['jam_pengambilan'] : '23:59:59';
+    $tglTransaksi = trim($row['tanggal_pengambilan'] . ' ' . $jamTransaksi);
 
     $b = $barangMap[$keyBarang] ?? null;
 

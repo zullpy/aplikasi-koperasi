@@ -86,10 +86,16 @@ if ($resHargaJual) {
 
 $riwayatByBarangPenjualan = [];
 $sqlRiwayat = "
-    SELECT b.nama_barang, r.harga_beli, r.tanggal
-    FROM riwayat_harga r
-    INNER JOIN barang b ON b.id_barang = r.id_barang
-    ORDER BY r.id_barang ASC, r.tanggal ASC, r.id_riwayat ASC
+    SELECT nama_barang, harga_beli, tanggal FROM (
+        SELECT b.nama_barang, r.harga_beli, r.tanggal
+        FROM riwayat_harga r
+        INNER JOIN barang b ON b.id_barang = r.id_barang
+        UNION
+        SELECT tp.nama_barang, tp.harga AS harga_beli, CONCAT(tp.tanggal_pembelian, ' 00:00:00') AS tanggal
+        FROM transaksi_pembelian tp
+        WHERE tp.harga > 0 AND tp.tanggal_pembelian IS NOT NULL
+    ) AS combined
+    ORDER BY nama_barang ASC, tanggal ASC
 ";
 $resRiwayat = $koneksi->query($sqlRiwayat);
 if ($resRiwayat) {
@@ -104,8 +110,16 @@ if ($resRiwayat) {
 
 function cariHargaBerlakuLaporan($riwayatList, $tglTransaksi) {
     $hargaTerpilih = null;
+    $waktuTransaksi = strtotime($tglTransaksi);
     foreach ($riwayatList as $r) {
-        if ($r['tanggal'] <= $tglTransaksi) {
+        $waktuRiwayat = strtotime($r['tanggal']);
+        if ($waktuRiwayat !== false && $waktuTransaksi !== false) {
+            if ($waktuRiwayat <= $waktuTransaksi) {
+                $hargaTerpilih = $r['harga_beli'];
+            } else {
+                break;
+            }
+        } elseif ($r['tanggal'] <= $tglTransaksi) {
             $hargaTerpilih = $r['harga_beli'];
         } else {
             break;
@@ -125,7 +139,8 @@ if ($resPenjualanRaw) {
         $key = strtolower(trim($row['nama_barang']));
         $satuanInput = trim($row['satuan'] ?? '');
         $jenisRow = strtolower(trim($row['jenis'] ?? 'foodcost'));
-        $tglTransaksi = trim(($row['tanggal_pengambilan'] ?? '') . ' ' . ($row['jam_pengambilan'] ?? '00:00:00'));
+        $jamTransaksi = !empty($row['jam_pengambilan']) && $row['jam_pengambilan'] !== '00:00:00' ? $row['jam_pengambilan'] : '23:59:59';
+        $tglTransaksi = trim(($row['tanggal_pengambilan'] ?? '') . ' ' . $jamTransaksi);
 
         $b = $barangLookupPenjualan[$key] ?? null;
         $isEceran = false;
@@ -137,31 +152,23 @@ if ($resPenjualanRaw) {
             }
         }
 
-        if ($jenisRow === 'addcost') {
-            if ($isEceran && $b) {
-                $hargaTerpakai = $b['harga_eceran'];
-            } else {
-                $hargaTerpakai = $b ? $b['harga_grosir'] : 0;
-            }
+        if (!empty($riwayatByBarangPenjualan[$key])) {
+            $hargaGrosirBerlaku = cariHargaBerlakuLaporan($riwayatByBarangPenjualan[$key], $tglTransaksi);
         } else {
-            if (!empty($riwayatByBarangPenjualan[$key])) {
-                $hargaGrosirBerlaku = cariHargaBerlakuLaporan($riwayatByBarangPenjualan[$key], $tglTransaksi);
-            } else {
-                $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
-            }
+            $hargaGrosirBerlaku = $b ? $b['harga_grosir'] : 0;
+        }
 
-            if ($isEceran && $b) {
-                if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
-                    $ratio = $b['harga_eceran'] / $b['harga_grosir'];
-                    $hargaTerpakai = $hargaGrosirBerlaku * $ratio;
-                } elseif ($b['isi_per_satuan'] > 0) {
-                    $hargaTerpakai = $hargaGrosirBerlaku / $b['isi_per_satuan'];
-                } else {
-                    $hargaTerpakai = $hargaGrosirBerlaku;
-                }
+        if ($isEceran && $b) {
+            if ($b['harga_grosir'] > 0 && $b['harga_eceran'] > 0) {
+                $ratio = $b['harga_eceran'] / $b['harga_grosir'];
+                $hargaTerpakai = $hargaGrosirBerlaku * $ratio;
+            } elseif ($b['isi_per_satuan'] > 0) {
+                $hargaTerpakai = $hargaGrosirBerlaku / $b['isi_per_satuan'];
             } else {
                 $hargaTerpakai = $hargaGrosirBerlaku;
             }
+        } else {
+            $hargaTerpakai = $hargaGrosirBerlaku;
         }
 
         $qty     = (float) $row['qty'];
