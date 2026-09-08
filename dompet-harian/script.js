@@ -137,7 +137,11 @@ function statusBadge(status) {
 }
 
 // ─── Fetch Data dari Database ────────────────────────────────────────────────
-async function fetchData() {
+async function fetchData(targetCardId = null, preserveScroll = true) {
+  const savedScrollY = (preserveScroll !== false) ? window.scrollY : 0;
+  if (targetCardId) {
+    expandedMenuCards.add(targetCardId);
+  }
   try {
     const [resBelanja, resBarang] = await Promise.all([
       fetch('../database/api-belanja.php?action=list&_t=' + Date.now()),
@@ -177,11 +181,55 @@ async function fetchData() {
       }
     }
     if (dataBarang.success) masterBarang = dataBarang.data;
+    
+    if (targetCardId) {
+      expandedMenuCards.add(targetCardId);
+    }
+
     renderTable();
+
+    // Kembalikan posisi scroll agar pengguna tetap di tanggal yang sama
+    if (savedScrollY > 0) {
+      window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+        setTimeout(() => {
+          window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+        }, 60);
+      });
+    }
   } catch (error) {
     console.error('Gagal fetch data:', error);
     showToast('Gagal memuat data dari server', 'error');
   }
+}
+
+// ─── Helper Render Isi Kolom Nota (Re-usable untuk in-place update) ───────────
+function renderNotaCellContent(b, itemId, pengajuanId) {
+  const isPurchase = IS_PURCHASE_ROLE;
+  const urls = b.nota_urls
+    ? (Array.isArray(b.nota_urls) ? b.nota_urls : JSON.parse(b.nota_urls || '[]'))
+    : (b.nota_url ? [b.nota_url] : []);
+  const safeUrls = btoa(unescape(encodeURIComponent(JSON.stringify(urls))));
+  const viewBtn = urls.length > 0
+    ? `<button class="btn-nota-icon btn-nota-view-icon" data-nota-urls="${safeUrls}" data-nota-nama="${escHtml(b.nama_barang)}" onclick="openNotaModalFromBtn(this)" title="Lihat ${urls.length} nota">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect x="1" y="2.5" width="12" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="5" cy="6.5" r="1.2" fill="currentColor"/>
+          <path d="M1 11l3.5-3.5 2 2 2-2L13 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="nota-count-badge">${urls.length}</span>
+      </button>`
+    : `<span class="nota-empty-label">—</span>`;
+  const uploadBtn = (((isPurchase && USER_ROLE !== 'purchase_stok') || USER_ROLE === 'admin'))
+    ? `<button class="btn-nota-icon btn-nota-upload-icon" title="Upload nota" onclick="openUploadNotaForItem(${itemId}, ${pengajuanId})">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 10V4M4 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>`
+    : '';
+  return `<div class="nota-action-group">${viewBtn}${uploadBtn}</div>`;
 }
 
 // ─── Render Table (Grouped by Date → per Menu) ───────────────────────────────
@@ -560,32 +608,8 @@ function renderTable() {
                                 <td class="subtotal-cell">${formatRupiah(((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0))}</td>
                                 ${statusCell}
                                 ${adminLunasCell}
-                                <td class="nota-cell">
-                                  ${(() => {
-                const urls = b.nota_urls
-                  ? (Array.isArray(b.nota_urls) ? b.nota_urls : JSON.parse(b.nota_urls || '[]'))
-                  : (b.nota_url ? [b.nota_url] : []);
-                const safeUrls = btoa(unescape(encodeURIComponent(JSON.stringify(urls))));
-                const viewBtn = urls.length > 0
-                  ? `<button class="btn-nota-icon btn-nota-view-icon" data-nota-urls="${safeUrls}" data-nota-nama="${escHtml(b.nama_barang)}" onclick="openNotaModalFromBtn(this)" title="Lihat ${urls.length} nota">
-                                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                            <rect x="1" y="2.5" width="12" height="9" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-                                            <circle cx="5" cy="6.5" r="1.2" fill="currentColor"/>
-                                            <path d="M1 11l3.5-3.5 2 2 2-2L13 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-                                          </svg>
-                                          <span class="nota-count-badge">${urls.length}</span>
-                                        </button>`
-                  : `<span class="nota-empty-label">—</span>`;
-                const uploadBtn = (((isPurchase && USER_ROLE !== 'purchase_stok') || USER_ROLE === 'admin'))
-                  ? `<button class="btn-nota-icon btn-nota-upload-icon" title="Upload nota" onclick="openUploadNotaForItem(${itemId}, ${item.id})">
-                                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                          <path d="M7 10V4M4 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                          <path d="M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                        </svg>
-                                      </button>`
-                  : '';
-                return `<div class="nota-action-group">${viewBtn}${uploadBtn}</div>`;
-              })()}
+                                <td class="nota-cell" id="nota-cell-${itemId}">
+                                  ${renderNotaCellContent(b, itemId, item.id)}
                                 </td>
                                 ${adminItemActionCell}
                               </tr>
@@ -648,7 +672,28 @@ async function markItemAsBought(detailId) {
     const data = await res.json();
     if (data.success) {
       showToast('Barang ditandai sudah dibeli', 'success');
-      fetchData();
+
+      // Update in-memory data
+      for (const item of allData) {
+        const dItems = item.items || item.detail_items || [];
+        const found = dItems.find(b => (b.id || b.id_detail) == detailId);
+        if (found) {
+          found.status_beli = 'sudah';
+          break;
+        }
+      }
+
+      // Update DOM tombol langsung tanpa reload
+      const btn = document.querySelector(`button[onclick*="markItemAsBought(${detailId})"]`);
+      if (btn && btn.parentElement) {
+        btn.parentElement.innerHTML = `
+          <span class="btn-item-bought btn-item-bought-done">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Sudah Dibeli
+          </span>`;
+      }
     } else {
       showToast(data.message || 'Gagal update status', 'error');
     }
@@ -684,7 +729,65 @@ async function confirmLunas(detailId, statusLunas) {
     const result = await res.json();
     if (result.success) {
       showToast(result.message || 'Status pembayaran diperbarui', 'success');
-      fetchData();
+
+      // Update in-memory data
+      let targetPengajuan = null;
+      for (const item of allData) {
+        const dItems = item.items || item.detail_items || [];
+        const found = dItems.find(b => (b.id || b.id_detail) == detailId);
+        if (found) {
+          found.status_lunas = statusLunas;
+          targetPengajuan = item;
+          break;
+        }
+      }
+
+      // Update tombol langsung di baris tabel tanpa reload
+      const btn = document.querySelector(`button[onclick*="confirmLunas(${detailId}"]`);
+      if (btn) {
+        if (isLunas) {
+          btn.className = 'btn-item-lunas btn-item-lunas-done';
+          btn.setAttribute('onclick', `confirmLunas(${detailId}, 'belum')`);
+          btn.textContent = 'Sudah Dibayar';
+          btn.title = 'Klik untuk ubah ke belum dibayar';
+        } else {
+          btn.className = 'btn-item-lunas btn-item-lunas-pending';
+          btn.setAttribute('onclick', `confirmLunas(${detailId}, 'lunas')`);
+          btn.textContent = 'Belum Dibayar';
+          btn.title = 'Klik untuk konfirmasi pembayaran';
+        }
+      }
+
+      // Update subinfo badge di card header menu
+      if (targetPengajuan) {
+        const detailItems = targetPengajuan.items || targetPengajuan.detail_items || [];
+        const unpaid = detailItems.filter(b => b.status_lunas !== 'lunas');
+        const unpaidCount = unpaid.length;
+        const totalUnpaid = unpaid.reduce((sum, b) =>
+          sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
+
+        const card = document.getElementById(`menu-card-${targetPengajuan.id}`);
+        if (card) {
+          const badges = card.querySelectorAll('.menu-card-subinfo .menu-stat-badge');
+          if (badges.length >= 2) {
+            badges[0].className = `menu-stat-badge ${unpaidCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+            badges[0].innerHTML = `
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              </svg>
+              Item Belum Dibayar: <strong>${unpaidCount} item</strong>`;
+
+            badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+            badges[1].innerHTML = `
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              Total Belum Dibayar: <strong>${formatRupiah(totalUnpaid)}</strong>`;
+          }
+        }
+      }
     } else {
       showToast(result.message || 'Gagal update status pembayaran', 'error');
     }
@@ -1383,7 +1486,7 @@ async function saveSingleItem() {
     if (result.success) {
       showToast(result.message || 'Barang berhasil disimpan', 'success');
       closeItemModal();
-      fetchData();
+      fetchData(pengajuanId, true);
     } else {
       showToast(result.message || 'Gagal menyimpan barang', 'error');
     }
@@ -1418,7 +1521,87 @@ async function deleteSingleItem(detailId, pengajuanId) {
     if (!res.ok) throw new Error(data.message || 'Gagal menghapus barang');
     if (data.success) {
       showToast(data.message || 'Barang berhasil dihapus', 'success');
-      fetchData();
+      
+      // Update in-memory allData
+      let targetPengajuan = null;
+      for (const item of allData) {
+        if (item.id == pengajuanId || item.id_pengajuan == pengajuanId) {
+          const dItems = item.items || item.detail_items || [];
+          const idx = dItems.findIndex(b => (b.id || b.id_detail) == detailId);
+          if (idx !== -1) {
+            dItems.splice(idx, 1);
+            item.items = dItems;
+            item.detail_items = dItems;
+            targetPengajuan = item;
+            break;
+          }
+        }
+      }
+
+      // Hapus baris tr di DOM secara halus
+      const cell = document.getElementById(`nota-cell-${detailId}`);
+      const tr = cell ? cell.closest('tr') : null;
+      if (tr && targetPengajuan) {
+        tr.style.transition = 'opacity 0.25s ease';
+        tr.style.opacity = '0';
+        setTimeout(() => {
+          tr.remove();
+          
+          // Update nomor urut baris di tabel ini
+          const card = document.getElementById(`menu-card-${pengajuanId}`);
+          if (card) {
+            const rows = card.querySelectorAll('tbody tr');
+            rows.forEach((r, idx) => {
+              const firstTd = r.querySelector('td:first-child');
+              if (firstTd) firstTd.textContent = idx + 1;
+            });
+
+            const dItems = targetPengajuan.items || targetPengajuan.detail_items || [];
+            const newTotal = dItems.reduce((sum, b) =>
+              sum + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
+
+            // Update footer total
+            const footTotal = card.querySelector('.tfoot-total');
+            if (footTotal) footTotal.textContent = formatRupiah(newTotal);
+
+            // Update header menu total
+            const headerTotal = card.querySelector('.menu-total');
+            if (headerTotal) headerTotal.textContent = formatRupiah(newTotal);
+
+            // Update badge item belum dibayar
+            const unpaid = dItems.filter(b => b.status_lunas !== 'lunas');
+            const totalUnpaid = unpaid.reduce((sum, b) =>
+              sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
+            const badges = card.querySelectorAll('.menu-stat-badge');
+            if (badges.length >= 2) {
+              badges[0].className = `menu-stat-badge ${unpaid.length > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+              badges[0].innerHTML = `
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+                Item Belum Dibayar: <strong>${unpaid.length} item</strong>`;
+              badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+              badges[1].innerHTML = `
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Total Belum Dibayar: <strong>${formatRupiah(totalUnpaid)}</strong>`;
+            }
+
+            // Jika item habis
+            if (dItems.length === 0) {
+              const tableWrap = card.querySelector('.table-wrapper');
+              if (tableWrap) tableWrap.innerHTML = '<p class="no-barang">Belum ada rincian barang.</p>';
+            }
+          }
+        }, 250);
+      } else {
+        fetchData(pengajuanId, true);
+      }
     } else {
       showToast(data.message || 'Gagal menghapus barang', 'error');
     }
@@ -1541,7 +1724,36 @@ async function deleteNota(filePath) {
     if (data.success) {
       showToast(data.message || 'Nota berhasil dihapus', 'success');
       closeNotaModal();
-      fetchData();
+
+      // Update in-memory allData & update cell in-place
+      let targetItem = null;
+      let targetPengajuan = null;
+      let targetDetailId = null;
+      for (const item of allData) {
+        const dItems = item.items || item.detail_items || [];
+        for (const b of dItems) {
+          let urls = b.nota_urls
+            ? (Array.isArray(b.nota_urls) ? b.nota_urls : JSON.parse(b.nota_urls || '[]'))
+            : (b.nota_url ? [b.nota_url] : []);
+          if (urls.includes(filePath)) {
+            b.nota_urls = urls.filter(u => u !== filePath);
+            targetItem = b;
+            targetPengajuan = item;
+            targetDetailId = b.id || b.id_detail;
+            break;
+          }
+        }
+        if (targetItem) break;
+      }
+
+      if (targetDetailId && targetItem && targetPengajuan) {
+        const cell = document.getElementById(`nota-cell-${targetDetailId}`);
+        if (cell) {
+          cell.innerHTML = renderNotaCellContent(targetItem, targetDetailId, targetPengajuan.id);
+        }
+      } else {
+        fetchData(null, true);
+      }
     } else {
       showToast(data.message || 'Gagal menghapus nota', 'error');
     }
@@ -1652,6 +1864,9 @@ function openUploadNotaForItem(detailId, pengajuanId) {
   uploadNotaFiles = [];
   uploadNotaCurrentDetail = detailId;
   uploadNotaCurrentPengajuan = pengajuanId;
+  if (pengajuanId) {
+    expandedMenuCards.add(pengajuanId);
+  }
 
   // Cari nama barang dari data
   let namaBarang = 'Barang';
@@ -1744,24 +1959,31 @@ function openUploadNotaForItem(detailId, pengajuanId) {
 
   // Mobile: tampilkan tombol kamera+galeri; Desktop: tampilkan dropzone
   if (!isMobile) {
-    document.querySelector('.upload-nota-source-row').style.display = 'none';
-    document.querySelector('.upload-nota-hint').style.display = 'none';
-    dropzone.style.display = '';
-    desktopInput.addEventListener('change', () => handleUploadNotaFiles(desktopInput.files));
-    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      handleUploadNotaFiles(e.dataTransfer.files);
-    });
+    const sourceRow = document.querySelector('.upload-nota-source-row');
+    const hintEl = document.querySelector('.upload-nota-hint');
+    if (sourceRow) sourceRow.style.display = 'none';
+    if (hintEl) hintEl.style.display = 'none';
+    if (dropzone) dropzone.style.display = '';
+    if (desktopInput) desktopInput.addEventListener('change', () => handleUploadNotaFiles(desktopInput.files));
+    if (dropzone) {
+      dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+      dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+      dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        handleUploadNotaFiles(e.dataTransfer.files);
+      });
+    }
   }
 
-  fileInput.addEventListener('change', () => handleUploadNotaFiles(fileInput.files));
-  cameraInput.addEventListener('change', () => handleUploadNotaFiles(cameraInput.files));
+  if (fileInput) fileInput.addEventListener('change', () => handleUploadNotaFiles(fileInput.files));
+  if (cameraInput) cameraInput.addEventListener('change', () => handleUploadNotaFiles(cameraInput.files));
 
   // Wire submit button
-  document.getElementById('btnSubmitUploadNota').onclick = () => doUploadNota(detailId, pengajuanId);
+  const submitBtn = document.getElementById('btnSubmitUploadNota');
+  if (submitBtn) {
+    submitBtn.onclick = () => doUploadNota(detailId, pengajuanId);
+  }
 
   overlay.classList.add('active');
   syncUploadNotaQueue();
@@ -1886,8 +2108,64 @@ async function doUploadNota(detailId, pengajuanId) {
         statusMsg.className = 'upload-nota-status visible success';
       }
       showToast(`${uploadNotaFiles.length} nota berhasil diunggah`, 'success');
+
+      // Update in-memory allData
+      const targetPengajuanId = uploadNotaCurrentPengajuan || pengajuanId;
+      const targetDetailId = uploadNotaCurrentDetail || detailId;
+      const newFiles = (result.files || []).map(f => f.file_path);
+
+      let targetItem = null;
+      let targetPengajuan = null;
+      for (const item of allData) {
+        if (targetPengajuanId && (item.id == targetPengajuanId || item.id_pengajuan == targetPengajuanId)) {
+          const dItems = item.items || item.detail_items || [];
+          const found = dItems.find(b => (b.id || b.id_detail) == targetDetailId);
+          if (found) {
+            targetItem = found;
+            targetPengajuan = item;
+            break;
+          }
+        }
+      }
+
+      // Fallback jika belum ketemu
+      if (!targetItem) {
+        for (const item of allData) {
+          const dItems = item.items || item.detail_items || [];
+          const found = dItems.find(b => (b.id || b.id_detail) == targetDetailId);
+          if (found) {
+            targetItem = found;
+            targetPengajuan = item;
+            break;
+          }
+        }
+      }
+
+      if (targetItem) {
+        let existingUrls = [];
+        if (targetItem.nota_urls) {
+          existingUrls = Array.isArray(targetItem.nota_urls)
+            ? [...targetItem.nota_urls]
+            : JSON.parse(targetItem.nota_urls || '[]');
+        } else if (targetItem.nota_url) {
+          existingUrls = [targetItem.nota_url];
+        }
+        targetItem.nota_urls = [...existingUrls, ...newFiles];
+      }
+
+      // Update nota cell in-place di DOM
+      const cell = document.getElementById(`nota-cell-${targetDetailId}`);
+      if (cell && targetItem && targetPengajuan) {
+        cell.innerHTML = renderNotaCellContent(targetItem, targetDetailId, targetPengajuan.id);
+      } else if (!cell) {
+        const currentPengajuan = uploadNotaCurrentPengajuan || pengajuanId;
+        fetchData(currentPengajuan, true);
+      }
+
       uploadNotaFiles = [];
-      setTimeout(() => { fetchData(); closeUploadNotaModal(); }, 800);
+      setTimeout(() => {
+        closeUploadNotaModal();
+      }, 400);
     } else {
       if (statusMsg) {
         statusMsg.textContent = `✗ ${result.message || 'Gagal mengunggah nota'}`;
@@ -1936,8 +2214,40 @@ async function deleteItem(id) {
       body: JSON.stringify({ id })
     });
     const data = await res.json();
-    if (data.success) { showToast('Data dihapus', 'success'); fetchData(); }
-    else showToast('Gagal menghapus data', 'error');
+    if (data.success) {
+      showToast('Data dihapus', 'success');
+      // Update in-memory allData
+      const idx = allData.findIndex(item => item.id == id || item.id_pengajuan == id);
+      if (idx !== -1) allData.splice(idx, 1);
+
+      // Hapus DOM card secara halus
+      const card = document.getElementById(`menu-card-${id}`);
+      if (card) {
+        const dateGroup = card.closest('.date-group');
+        card.style.transition = 'opacity 0.25s ease';
+        card.style.opacity = '0';
+        setTimeout(() => {
+          card.remove();
+          if (dateGroup) {
+            const remainingCards = dateGroup.querySelectorAll('.menu-card');
+            if (remainingCards.length === 0) {
+              dateGroup.remove();
+            } else {
+              const countEl = dateGroup.querySelector('.date-group-count');
+              if (countEl) countEl.textContent = `(${remainingCards.length} menu)`;
+            }
+          }
+          if (allData.length === 0) {
+            const emptyState = document.getElementById('emptyState');
+            if (emptyState) emptyState.style.display = 'flex';
+          }
+        }, 250);
+      } else {
+        fetchData(null, true);
+      }
+    } else {
+      showToast('Gagal menghapus data', 'error');
+    }
   } catch (error) {
     console.error('Delete error:', error);
     showToast('Terjadi kesalahan saat menghapus', 'error');
@@ -2279,8 +2589,9 @@ async function saveDirectSaldo() {
     const result = await res.json();
     if (result.success) {
       showToast('Uang masuk & bukti transfer berhasil disimpan', 'success');
+      const targetId = saldoTargetId;
       closeInputSaldoModal();
-      fetchData();
+      fetchData(targetId, true);
     } else {
       showToast(result.message || 'Gagal menyimpan uang masuk', 'error');
     }

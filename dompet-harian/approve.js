@@ -213,8 +213,11 @@ function cariMenuSebelumnya(currentId) {
 }
 
 // ── FETCH DATA ────────────────────────────────
-async function fetchData() {
-    showSkeletons();
+async function fetchData(preserveScroll = false) {
+    const savedY = preserveScroll ? window.scrollY : 0;
+    if (!preserveScroll) {
+        showSkeletons();
+    }
     try {
         const res = await fetch('../database/api-belanja.php?action=list');
         const result = await res.json();
@@ -228,14 +231,21 @@ async function fetchData() {
             updateStats();
             updateTabCounts();
             renderCards();
+
+            if (preserveScroll && savedY > 0) {
+                window.scrollTo({ top: savedY, behavior: 'instant' });
+                requestAnimationFrame(() => {
+                    window.scrollTo({ top: savedY, behavior: 'instant' });
+                });
+            }
         } else {
             showToast(result.message || 'Gagal memuat data', 'error');
-            document.getElementById('cardsGrid').innerHTML = '';
+            if (!preserveScroll) document.getElementById('cardsGrid').innerHTML = '';
         }
     } catch (err) {
         console.error(err);
         showToast('Gagal memuat data dari server', 'error');
-        document.getElementById('cardsGrid').innerHTML = '';
+        if (!preserveScroll) document.getElementById('cardsGrid').innerHTML = '';
     }
 }
 
@@ -722,7 +732,7 @@ async function submitApprove() {
                 : 'Pengajuan berhasil disetujui!';
             showToast(pesan, 'success');
             closeApproveModal();
-            fetchData();
+            fetchData(true);
         } else {
             showToast(result.message || 'Gagal menyetujui pengajuan', 'error');
             btn.classList.remove('btn-loading');
@@ -771,7 +781,7 @@ async function updateStatus(id, status, catatan) {
         if (result.success) {
             showToast(status === 'rejected' ? 'Pengajuan ditolak' : 'Status diperbarui', 'success');
             closeRejectModal();
-            fetchData();
+            fetchData(true);
         } else {
             showToast(result.message || 'Gagal update status', 'error');
         }
@@ -965,7 +975,7 @@ async function uploadBuktiTransfer(event, id) {
         const result = await res.json();
         if (result.success) {
             showToast('Bukti transfer berhasil diupload!', 'success');
-            fetchData();
+            fetchData(true);
         } else {
             showToast(result.message || 'Gagal upload bukti transfer', 'error');
         }
