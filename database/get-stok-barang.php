@@ -45,7 +45,7 @@ while ($r = mysqli_fetch_assoc($resMaster)) {
     $satuanEceran  = trim($r['satuan_eceran'] ?? '') ?: $satuanGrosir;
     
     // Stok pusat (dalam satuan grosir)
-    $stokGrosirPusat = (int)$r['stok_akhir'];
+    $stokGrosirPusat = (float)$r['stok_akhir'];
     // Konversi ke eceran untuk nilai barang
     $stokEceranPusat = $isi ? ($stokGrosirPusat * $isi) : $stokGrosirPusat;
     

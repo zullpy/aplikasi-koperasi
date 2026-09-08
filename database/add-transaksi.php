@@ -299,7 +299,7 @@ foreach ($nama_barang as $i => $barang_nama) {
         $stok_lama = 0;
     } else {
         $id_barang = $barang['id_barang'];
-        $stok_lama = (int) $barang['stok_akhir'];
+        $stok_lama = (float) $barang['stok_akhir'];
     }
 
     $stok_baru = $stok_lama + $volume_esc;

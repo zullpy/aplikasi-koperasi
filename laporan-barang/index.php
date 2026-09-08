@@ -212,7 +212,7 @@ if ($resMaster) {
         $satuanGrosir  = trim($r['satuan'] ?? '') ?: '-';
         $satuanEceran  = trim($r['satuan_eceran'] ?? '') ?: $satuanGrosir;
 
-        $stokGrosirPusat = (int)$r['stok_akhir'];
+        $stokGrosirPusat = (float)$r['stok_akhir'];
         $stokEceranPusat = $isi ? ($stokGrosirPusat * $isi) : $stokGrosirPusat;
 
         $items[$id] = [

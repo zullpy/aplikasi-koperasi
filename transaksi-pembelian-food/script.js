@@ -1235,7 +1235,7 @@ function loadEditData(id) {
                     document.getElementById('harga_jual').value = 'Rp ' + Number(data.harga_jual).toLocaleString('id-ID');
                 }
 
-                document.getElementById('volume').value = data.volume || '';
+                document.getElementById('volume').value = data.volume ? String(parseFloat(data.volume)) : '';
                 document.getElementById('satuan').value = data.satuan || '';
                 document.getElementById('keterangan').value = data.keterangan || '';
 
