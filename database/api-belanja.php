@@ -702,7 +702,7 @@ try {
             }
             exit;
 
-        // ─── DELETE SINGLE ITEM: Hapus Barang Per Item ─────────────────────
+        // ─── DELETE SINGLE ITEM: Hapus Barang Per Item (Single / Batch) ──
         case 'delete_single_item':
             if ($userRole !== 'admin') {
                 http_response_code(403);
@@ -715,15 +715,20 @@ try {
             if (!$data) throw new Exception('Data tidak valid');
 
             $idDetail = intval($data['id_detail'] ?? 0);
+            $idDetails = isset($data['id_details']) && is_array($data['id_details'])
+                ? array_values(array_filter(array_map('intval', $data['id_details'])))
+                : ($idDetail ? [$idDetail] : []);
             $idPengajuan = intval($data['pengajuan_id'] ?? 0);
 
-            if (!$idDetail || !$idPengajuan) {
+            if (empty($idDetails) || !$idPengajuan) {
                 throw new Exception('ID barang dan ID pengajuan wajib diisi');
             }
 
+            $idListStr = implode(',', $idDetails);
+
             $koneksi->begin_transaction();
             try {
-                $resNota = $koneksi->query("SELECT file_path FROM upload_nota WHERE item_id = $idDetail");
+                $resNota = $koneksi->query("SELECT file_path FROM upload_nota WHERE item_id IN ($idListStr)");
                 if ($resNota) {
                     while ($nota = $resNota->fetch_assoc()) {
                         $filePath = $nota['file_path'];
@@ -732,8 +737,8 @@ try {
                         if (file_exists($filePath)) @unlink($filePath);
                     }
                 }
-                $koneksi->query("DELETE FROM upload_nota WHERE item_id = $idDetail");
-                $koneksi->query("DELETE FROM detail_item_belanja WHERE id = $idDetail AND pengajuan_id = $idPengajuan");
+                $koneksi->query("DELETE FROM upload_nota WHERE item_id IN ($idListStr)");
+                $koneksi->query("DELETE FROM detail_item_belanja WHERE id IN ($idListStr) AND pengajuan_id = $idPengajuan");
 
                 $resSums = $koneksi->query("SELECT COALESCE(SUM((qty * harga) + biaya_admin), 0) AS total_belanja, COALESCE(SUM(biaya_admin), 0) AS biaya_admin FROM detail_item_belanja WHERE pengajuan_id = $idPengajuan");
                 $sums = $resSums ? $resSums->fetch_assoc() : ['total_belanja' => 0, 'biaya_admin' => 0];
@@ -753,7 +758,10 @@ try {
                 }
 
                 $koneksi->commit();
-                echo json_encode(['success' => true, 'message' => 'Barang berhasil dihapus']);
+                $msg = count($idDetails) > 1
+                    ? count($idDetails) . ' barang berhasil dihapus'
+                    : 'Barang berhasil dihapus';
+                echo json_encode(['success' => true, 'message' => $msg, 'deleted_ids' => $idDetails]);
             } catch (Exception $e) {
                 $koneksi->rollback();
                 throw $e;
@@ -1007,7 +1015,7 @@ try {
             $stmt->close();
             exit;
 
-            // ─── CONFIRM LUNAS: Konfirmasi sudah lunas per item (KHUSUS ADMIN) ──────
+        // ─── CONFIRM LUNAS: Konfirmasi sudah lunas per item (Single / Batch) ──
         case 'confirm_lunas':
             if ($userRole !== 'admin') {
                 http_response_code(403);
@@ -1020,9 +1028,12 @@ try {
             $raw = file_get_contents('php://input');
             $data = json_decode($raw, true);
             $id          = intval($data['id'] ?? 0);
+            $ids         = isset($data['ids']) && is_array($data['ids'])
+                ? array_values(array_filter(array_map('intval', $data['ids'])))
+                : ($id ? [$id] : []);
             $statusLunas = $data['status_lunas'] ?? 'lunas';
 
-            if (!$id) {
+            if (empty($ids)) {
                 throw new Exception('Item ID tidak valid');
             }
 
@@ -1033,21 +1044,28 @@ try {
 
             ensureStatusLunasColumnExists($koneksi);
 
+            $inPlaceholders = implode(',', array_fill(0, count($ids), '?'));
+            $types = 's' . str_repeat('i', count($ids));
+            $params = array_merge([$statusLunas], $ids);
+
             $stmtLunas = $koneksi->prepare("
                 UPDATE detail_item_belanja
                 SET status_lunas = ?
-                WHERE id = ?
+                WHERE id IN ($inPlaceholders)
             ");
             if (!$stmtLunas) {
                 throw new Exception('Prepare error: ' . $koneksi->error);
             }
-            $stmtLunas->bind_param("si", $statusLunas, $id);
+            $stmtLunas->bind_param($types, ...$params);
             if ($stmtLunas->execute()) {
+                $msg = count($ids) > 1
+                    ? ($statusLunas === 'lunas' ? count($ids) . ' item dikonfirmasi sudah lunas' : 'Status lunas ' . count($ids) . ' item dibatalkan')
+                    : ($statusLunas === 'lunas' ? 'Item dikonfirmasi sudah lunas' : 'Status lunas dibatalkan');
                 echo json_encode([
                     'success' => true,
-                    'message' => $statusLunas === 'lunas'
-                        ? 'Item dikonfirmasi sudah lunas'
-                        : 'Status lunas dibatalkan'
+                    'message' => $msg,
+                    'updated_ids' => $ids,
+                    'status_lunas' => $statusLunas
                 ]);
             } else {
                 throw new Exception('Gagal update status lunas: ' . $stmtLunas->error);
@@ -1153,14 +1171,29 @@ try {
             if ($method !== 'POST') {
                 throw new Exception('Method not allowed');
             }
-            $itemId      = $_POST['item_id'] ?? null;
-            $pengajuanId = $_POST['pengajuan_id'] ?? null;
+            $rawItemIds = $_POST['item_ids'] ?? $_POST['item_id'] ?? null;
+            $itemIds = [];
+            if (is_array($rawItemIds)) {
+                $itemIds = array_values(array_filter(array_map('intval', $rawItemIds)));
+            } elseif (is_string($rawItemIds)) {
+                $itemIds = array_values(array_filter(array_map('intval', explode(',', $rawItemIds))));
+            }
+            $pengajuanId = intval($_POST['pengajuan_id'] ?? 0);
 
-            if (!$itemId || !$pengajuanId) {
-                throw new Exception('Item ID dan Pengajuan ID wajib diisi');
+            if (empty($itemIds)) {
+                throw new Exception('Item ID wajib diisi');
             }
             if (!isset($_FILES['files']) || empty($_FILES['files']['name'][0])) {
                 throw new Exception('Tidak ada file yang diupload');
+            }
+
+            $itemPengajuanMap = [];
+            $idStr = implode(',', $itemIds);
+            $resItems = $koneksi->query("SELECT id, pengajuan_id FROM detail_item_belanja WHERE id IN ($idStr)");
+            if ($resItems) {
+                while ($r = $resItems->fetch_assoc()) {
+                    $itemPengajuanMap[intval($r['id'])] = intval($r['pengajuan_id']);
+                }
             }
 
             $uploadDir = '../uploads/nota/';
@@ -1190,19 +1223,20 @@ try {
                 if (move_uploaded_file($files['tmp_name'][$i], $targetPath)) {
                     compressImage($targetPath);
                     $filePath = $uploadDir . $fileName;
-                    $stmt = $koneksi->prepare("
-                        INSERT INTO upload_nota
-                        (pengajuan_id, item_id, file_path, uploaded_at)
-                        VALUES (?, ?, ?, NOW())
-                    ");
-                    if (!$stmt) {
-                        throw new Exception('Prepare INSERT error: ' . $koneksi->error);
+
+                    foreach ($itemIds as $curItemId) {
+                        $pId = $itemPengajuanMap[$curItemId] ?? $pengajuanId;
+                        $stmt = $koneksi->prepare("
+                            INSERT INTO upload_nota
+                            (pengajuan_id, item_id, file_path, uploaded_at)
+                            VALUES (?, ?, ?, NOW())
+                        ");
+                        if ($stmt) {
+                            $stmt->bind_param("iis", $pId, $curItemId, $filePath);
+                            $stmt->execute();
+                            $stmt->close();
+                        }
                     }
-                    $stmt->bind_param("iis", $pengajuanId, $itemId, $filePath);
-                    if (!$stmt->execute()) {
-                        throw new Exception('Execute INSERT error: ' . $stmt->error);
-                    }
-                    $stmt->close();
 
                     $uploadedFiles[] = [
                         'file_path' => $filePath,
@@ -1213,10 +1247,15 @@ try {
                 }
             }
 
+            $msg = count($itemIds) > 1
+                ? count($uploadedFiles) . ' nota berhasil diunggah untuk ' . count($itemIds) . ' barang'
+                : count($uploadedFiles) . ' nota berhasil diunggah';
+
             echo json_encode([
                 'success' => true,
-                'message' => count($uploadedFiles) . ' nota berhasil diunggah',
-                'files'   => $uploadedFiles
+                'message' => $msg,
+                'files'   => $uploadedFiles,
+                'item_ids' => $itemIds
             ]);
             exit;
 

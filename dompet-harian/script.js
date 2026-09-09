@@ -18,6 +18,439 @@ const IS_PURCHASE_ROLE = USER_ROLE === 'purchase' || USER_ROLE === 'purchase_sto
 // ─── Accordion State ─────────────────────────────────────────────────────────
 const expandedMenuCards = new Set();
 
+// ─── Selection State for Items ──────────────────────────────────────────────
+const selectedItemMap = new Map(); // key: itemId, value: { id, pengajuanId, namaBarang, statusLunas }
+
+function onItemCheckboxChange(cb, itemId, pengajuanId) {
+  if (USER_ROLE !== 'admin') return;
+  itemId = parseInt(itemId, 10);
+  pengajuanId = parseInt(pengajuanId, 10);
+
+  if (cb.checked) {
+    let itemObj = null;
+    for (const menu of allData) {
+      if (menu.id == pengajuanId || menu.id_pengajuan == pengajuanId) {
+        const dItems = menu.items || menu.detail_items || [];
+        const found = dItems.find(b => (b.id || b.id_detail) == itemId);
+        if (found) {
+          itemObj = {
+            id: itemId,
+            pengajuanId: pengajuanId,
+            namaBarang: found.nama_barang,
+            statusLunas: found.status_lunas || 'belum'
+          };
+          break;
+        }
+      }
+    }
+    if (itemObj) {
+      selectedItemMap.set(itemId, itemObj);
+      const tr = document.getElementById(`item-row-${itemId}`);
+      if (tr) tr.classList.add('row-selected');
+    }
+  } else {
+    selectedItemMap.delete(itemId);
+    const tr = document.getElementById(`item-row-${itemId}`);
+    if (tr) tr.classList.remove('row-selected');
+  }
+
+  updateFloatingActionBar();
+  syncSelectAllHeader(pengajuanId);
+}
+
+function onItemRowClick(e, itemId, pengajuanId) {
+  if (USER_ROLE !== 'admin') return;
+  if (e.target.closest('button, a, input, .btn-nota-icon, .btn-item-action, .btn-item-lunas, .btn-item-bought, .nota-count-badge')) {
+    return;
+  }
+  const cb = document.querySelector(`.item-row-cb[data-item-id="${itemId}"]`);
+  if (cb) {
+    cb.checked = !cb.checked;
+    onItemCheckboxChange(cb, itemId, pengajuanId);
+  }
+}
+
+function toggleSelectAllItemsInMenu(headerCb, pengajuanId) {
+  if (USER_ROLE !== 'admin') return;
+  pengajuanId = parseInt(pengajuanId, 10);
+  const card = document.getElementById(`menu-card-${pengajuanId}`);
+  if (!card) return;
+
+  const checkboxes = card.querySelectorAll('.item-row-cb');
+  const checked = headerCb.checked;
+
+  const menu = allData.find(m => m.id == pengajuanId || m.id_pengajuan == pengajuanId);
+  const dItems = menu ? (menu.items || menu.detail_items || []) : [];
+
+  checkboxes.forEach(cb => {
+    const itId = parseInt(cb.dataset.itemId, 10);
+    cb.checked = checked;
+    const tr = document.getElementById(`item-row-${itId}`);
+    if (checked) {
+      if (tr) tr.classList.add('row-selected');
+      const found = dItems.find(b => (b.id || b.id_detail) == itId);
+      if (found) {
+        selectedItemMap.set(itId, {
+          id: itId,
+          pengajuanId: pengajuanId,
+          namaBarang: found.nama_barang,
+          statusLunas: found.status_lunas || 'belum'
+        });
+      }
+    } else {
+      if (tr) tr.classList.remove('row-selected');
+      selectedItemMap.delete(itId);
+    }
+  });
+
+  updateFloatingActionBar();
+}
+
+function syncSelectAllHeader(pengajuanId) {
+  const card = document.getElementById(`menu-card-${pengajuanId}`);
+  if (!card) return;
+  const headerCb = card.querySelector('.col-checkbox .select-all-header-cb');
+  if (!headerCb) return;
+
+  const rowCbs = card.querySelectorAll('.item-row-cb');
+  if (rowCbs.length === 0) {
+    headerCb.checked = false;
+    headerCb.indeterminate = false;
+    return;
+  }
+
+  let checkedCount = 0;
+  rowCbs.forEach(cb => {
+    if (cb.checked) checkedCount++;
+  });
+
+  if (checkedCount === 0) {
+    headerCb.checked = false;
+    headerCb.indeterminate = false;
+  } else if (checkedCount === rowCbs.length) {
+    headerCb.checked = true;
+    headerCb.indeterminate = false;
+  } else {
+    headerCb.checked = false;
+    headerCb.indeterminate = true;
+  }
+}
+
+function syncAllSelectAllHeaders() {
+  document.querySelectorAll('.select-all-header-cb').forEach(headerCb => {
+    const card = headerCb.closest('.menu-card');
+    if (!card) return;
+    const pengajuanId = card.id.replace('menu-card-', '');
+    if (pengajuanId) syncSelectAllHeader(pengajuanId);
+  });
+}
+
+function clearSelection() {
+  selectedItemMap.clear();
+  document.querySelectorAll('.item-select-checkbox').forEach(cb => {
+    cb.checked = false;
+    cb.indeterminate = false;
+  });
+  document.querySelectorAll('.rincian-table tbody tr.row-selected').forEach(tr => {
+    tr.classList.remove('row-selected');
+  });
+  updateFloatingActionBar();
+}
+
+function updateFloatingActionBar() {
+  if (USER_ROLE !== 'admin') return;
+  const bar = document.getElementById('floatingActionBar');
+  if (!bar) return;
+
+  const count = selectedItemMap.size;
+  if (count === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'block';
+  const badge = document.getElementById('selectedItemsCount');
+  if (badge) badge.textContent = count;
+  const text = document.getElementById('selectedItemsText');
+  if (text) text.textContent = `${count} Barang Dipilih`;
+
+  // Status button
+  const btnStatus = document.getElementById('btnFloatingStatus');
+  const btnStatusLabel = document.getElementById('btnFloatingStatusLabel');
+  if (btnStatus && btnStatusLabel) {
+    if (count === 1) {
+      const single = Array.from(selectedItemMap.values())[0];
+      if (single.statusLunas === 'lunas') {
+        btnStatusLabel.textContent = 'Jadikan Belum Dibayar';
+        btnStatus.style.background = '#d97706';
+      } else {
+        btnStatusLabel.textContent = 'Jadikan Sudah Dibayar';
+        btnStatus.style.background = '#0284c7';
+      }
+    } else {
+      btnStatusLabel.textContent = 'Ubah Status Bayar';
+      btnStatus.style.background = '#0284c7';
+    }
+  }
+
+  // Upload Nota button
+  const btnNota = document.getElementById('btnFloatingUploadNota');
+  if (btnNota) {
+    btnNota.style.opacity = '1';
+    btnNota.style.cursor = 'pointer';
+    btnNota.title = count > 1
+      ? `Upload nota untuk ${count} barang terpilih sekaligus`
+      : 'Upload nota untuk barang terpilih';
+  }
+}
+
+async function actionToggleStatusSelected() {
+  if (USER_ROLE !== 'admin') return;
+  const count = selectedItemMap.size;
+  if (count === 0) return;
+
+  const items = Array.from(selectedItemMap.values());
+  const itemNames = items.map(it => it.namaBarang).slice(0, 3).join(', ') + (count > 3 ? ` (+${count - 3} lainnya)` : '');
+
+  let chosenStatus = null;
+
+  await Swal.fire({
+    title: 'Ubah Status Pembayaran',
+    html: `
+      <div class="swal-status-modal-content">
+        <div class="swal-status-info">
+          <span class="swal-status-badge">${count} Barang Terpilih</span>
+          <div class="swal-status-names" title="${escHtml(items.map(it => it.namaBarang).join(', '))}">${escHtml(itemNames)}</div>
+        </div>
+
+        <div class="swal-status-options">
+          <button type="button" class="swal-status-card card-lunas" id="btnSwalSetLunas">
+            <div class="swal-status-icon icon-lunas">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="swal-status-text">
+              <div class="swal-status-title">Sudah Dibayar (Lunas)</div>
+              <div class="swal-status-desc">Tandai barang telah lunas dibayarkan</div>
+            </div>
+            <div class="swal-status-arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </div>
+          </button>
+
+          <button type="button" class="swal-status-card card-belum" id="btnSwalSetBelum">
+            <div class="swal-status-icon icon-belum">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div class="swal-status-text">
+              <div class="swal-status-title">Belum Dibayar</div>
+              <div class="swal-status-desc">Tandai barang belum dibayarkan</div>
+            </div>
+            <div class="swal-status-arrow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </div>
+          </button>
+        </div>
+      </div>
+    `,
+    showConfirmButton: false,
+    showCancelButton: true,
+    cancelButtonText: 'Batal',
+    cancelButtonColor: '#94a3b8',
+    customClass: { popup: 'swal-kopdes swal-modal-status-choice' },
+    didOpen: () => {
+      const popup = Swal.getPopup();
+      const btnLunas = popup.querySelector('#btnSwalSetLunas');
+      const btnBelum = popup.querySelector('#btnSwalSetBelum');
+      if (btnLunas) {
+        btnLunas.onclick = () => {
+          chosenStatus = 'lunas';
+          Swal.close();
+        };
+      }
+      if (btnBelum) {
+        btnBelum.onclick = () => {
+          chosenStatus = 'belum';
+          Swal.close();
+        };
+      }
+    }
+  });
+
+  if (!chosenStatus) return;
+
+  const targetStatus = chosenStatus;
+  const ids = items.map(it => it.id);
+  try {
+    const res = await fetch('../database/api-belanja.php?action=confirm_lunas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: ids, status_lunas: targetStatus })
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast(result.message || 'Status pembayaran berhasil diperbarui', 'success');
+      items.forEach(it => {
+        it.statusLunas = targetStatus;
+        updateItemStatusInMemoryAndDOM(it.id, it.pengajuanId, targetStatus);
+      });
+      updateFloatingActionBar();
+    } else {
+      showToast(result.message || 'Gagal update status', 'error');
+    }
+  } catch (err) {
+    console.error('Confirm_lunas error:', err);
+    showToast('Terjadi kesalahan saat update status', 'error');
+  }
+}
+
+function actionUploadNotaSelected() {
+  if (USER_ROLE !== 'admin') return;
+  const count = selectedItemMap.size;
+  if (count === 0) return;
+
+  const items = Array.from(selectedItemMap.values());
+  const ids = items.map(it => it.id);
+  const pId = items[0].pengajuanId;
+  openUploadNotaForItem(ids, pId);
+}
+
+async function actionDeleteSelected() {
+  if (USER_ROLE !== 'admin') return;
+  const count = selectedItemMap.size;
+  if (count === 0) return;
+
+  const items = Array.from(selectedItemMap.values());
+
+  if (count === 1) {
+    const single = items[0];
+    await deleteSingleItem(single.id, single.pengajuanId);
+    return;
+  }
+
+  const swalResult = await Swal.fire({
+    title: `Hapus ${count} Barang?`,
+    text: `${count} barang terpilih akan dihapus dari daftar belanja. Tindakan ini tidak dapat dibatalkan.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: `Ya, Hapus ${count} Barang`,
+    cancelButtonText: 'Batal',
+    customClass: { popup: 'swal-kopdes' }
+  });
+  if (!swalResult.isConfirmed) return;
+
+  const byPengajuan = {};
+  items.forEach(it => {
+    if (!byPengajuan[it.pengajuanId]) byPengajuan[it.pengajuanId] = [];
+    byPengajuan[it.pengajuanId].push(it.id);
+  });
+
+  try {
+    let anySuccess = false;
+    for (const [pId, detailIds] of Object.entries(byPengajuan)) {
+      const res = await fetch('../database/api-belanja.php?action=delete_single_item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_details: detailIds, pengajuan_id: parseInt(pId, 10) })
+      });
+      const data = await res.json();
+      if (data.success) {
+        anySuccess = true;
+        const targetPengajuan = allData.find(d => d.id == pId || d.id_pengajuan == pId);
+        if (targetPengajuan) {
+          const dItems = targetPengajuan.items || targetPengajuan.detail_items || [];
+          targetPengajuan.items = dItems.filter(b => !detailIds.includes(b.id || b.id_detail));
+          targetPengajuan.detail_items = targetPengajuan.items;
+        }
+      }
+    }
+
+    if (anySuccess) {
+      showToast(`${count} barang berhasil dihapus`, 'success');
+      clearSelection();
+      renderTable();
+    } else {
+      showToast('Gagal menghapus barang terpilih', 'error');
+    }
+  } catch (err) {
+    console.error('Bulk delete error:', err);
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+function updateItemStatusInMemoryAndDOM(detailId, pengajuanId, statusLunas) {
+  const isLunas = statusLunas === 'lunas';
+  let targetPengajuan = null;
+  for (const item of allData) {
+    if (item.id == pengajuanId || item.id_pengajuan == pengajuanId) {
+      const dItems = item.items || item.detail_items || [];
+      const found = dItems.find(b => (b.id || b.id_detail) == detailId);
+      if (found) {
+        found.status_lunas = statusLunas;
+        targetPengajuan = item;
+        break;
+      }
+    }
+  }
+
+  // Update button in table row
+  const btn = document.querySelector(`button[onclick*="confirmLunas(${detailId}"]`);
+  if (btn) {
+    if (isLunas) {
+      btn.className = 'btn-item-lunas btn-item-lunas-done';
+      btn.setAttribute('onclick', `confirmLunas(${detailId}, 'belum')`);
+      btn.textContent = 'Sudah Dibayar';
+      btn.title = 'Klik untuk ubah ke belum dibayar';
+    } else {
+      btn.className = 'btn-item-lunas btn-item-lunas-pending';
+      btn.setAttribute('onclick', `confirmLunas(${detailId}, 'lunas')`);
+      btn.textContent = 'Belum Dibayar';
+      btn.title = 'Klik untuk konfirmasi pembayaran';
+    }
+  }
+
+  // Update card subinfo badges
+  if (targetPengajuan) {
+    const detailItems = targetPengajuan.items || targetPengajuan.detail_items || [];
+    const unpaid = detailItems.filter(b => b.status_lunas !== 'lunas');
+    const unpaidCount = unpaid.length;
+    const totalUnpaid = unpaid.reduce((sum, b) =>
+      sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
+
+    const card = document.getElementById(`menu-card-${targetPengajuan.id}`);
+    if (card) {
+      const badges = card.querySelectorAll('.menu-card-subinfo .menu-stat-badge');
+      if (badges.length >= 2) {
+        badges[0].className = `menu-stat-badge ${unpaidCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+        badges[0].innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          Item Belum Dibayar: <strong>${unpaidCount} item</strong>`;
+
+        badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+        badges[1].innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          Total Belum Dibayar: <strong>${formatRupiah(totalUnpaid)}</strong>`;
+      }
+    }
+  }
+}
+
 function toggleMenuAccordion(event, itemId) {
   if (event && event.target && event.target.closest('.menu-actions, .btn-action, .btn-bukti-tf, .menu-saldo-masuk, input, button, a')) {
     return;
@@ -440,7 +873,7 @@ function renderTable() {
               } else if (selisih < 0) {
                 selisihHtml = `<span class="menu-selisih menu-selisih-kurang">Kurang <strong>${formatRupiah(Math.abs(selisih))}</strong></span>`;
               } else {
-                selisihHtml = `<span class="menu-selisih menu-selisih-lunas">✓ Pas</span>`;
+                selisihHtml = `<span class="menu-selisih menu-selisih-lunas">Pas</span>`;
               }
               const safeBuktiTFBadge = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
               if (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') {
@@ -514,6 +947,11 @@ function renderTable() {
                       <table class="rincian-table">
                         <thead>
                           <tr>
+                            ${USER_ROLE === 'admin' ? `
+                              <th class="col-checkbox">
+                                <input type="checkbox" class="item-select-checkbox select-all-header-cb" title="Pilih Semua Item" onchange="toggleSelectAllItemsInMenu(this, ${item.id})">
+                              </th>
+                            ` : ''}
                             <th style="width:4%">No</th>
                             <th style="width:${isPurchase ? '22%' : (USER_ROLE === 'admin' ? '18%' : '30%')}">Nama Barang</th>
                             <th style="width:7%">Qty</th>
@@ -530,6 +968,7 @@ function renderTable() {
                         <tbody>
                           ${detailItems.map((b, i) => {
             const itemId = b.id || b.id_detail;
+            const isSelected = selectedItemMap.has(itemId);
             const statusBeli = b.status_beli || 'belum';
             const isBought = statusBeli === 'sudah';
             const statusLunas = b.status_lunas || 'belum';
@@ -598,7 +1037,12 @@ function renderTable() {
                             ` : '';
 
             return `
-                              <tr>
+                              <tr class="${isSelected ? 'row-selected' : ''}" id="item-row-${itemId}" onclick="onItemRowClick(event, ${itemId}, ${item.id})" style="${USER_ROLE === 'admin' ? 'cursor:pointer;' : ''}">
+                                ${USER_ROLE === 'admin' ? `
+                                  <td class="col-checkbox" onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="item-select-checkbox item-row-cb" data-item-id="${itemId}" data-pengajuan-id="${item.id}" ${isSelected ? 'checked' : ''} onchange="onItemCheckboxChange(this, ${itemId}, ${item.id})">
+                                  </td>
+                                ` : ''}
                                 <td>${i + 1}</td>
                                 <td>${escHtml(b.nama_barang)}</td>
                                 <td>${formatQty(b.qty || b.quantity || 0)}</td>
@@ -618,7 +1062,7 @@ function renderTable() {
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colspan="${isPurchase ? 6 : 6}" class="tfoot-label">Total Estimasi</td>
+                            <td colspan="${isPurchase ? 6 : (USER_ROLE === 'admin' ? 7 : 6)}" class="tfoot-label">Total Estimasi</td>
                             <td class="tfoot-total" colspan="${isPurchase ? 2 : (USER_ROLE === 'admin' ? 3 : 1)}">${formatRupiah(totalItem)}</td>
                           </tr>
                         </tfoot>
@@ -647,6 +1091,10 @@ function renderTable() {
     });
 
   container.innerHTML = html;
+  if (USER_ROLE === 'admin') {
+    syncAllSelectAllHeaders();
+    updateFloatingActionBar();
+  }
 }
 
 // ─── Mark Item as Bought (per item detail) ───────────────────────────────────
@@ -715,7 +1163,7 @@ async function confirmLunas(detailId, statusLunas) {
     showCancelButton: true,
     confirmButtonColor: isLunas ? '#16a34a' : '#dc2626',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: isLunas ? '✓ Ya, Sudah Dibayar' : '✗ Ya, Belum Dibayar',
+    confirmButtonText: isLunas ? 'Ya, Sudah Dibayar' : 'Ya, Belum Dibayar',
     cancelButtonText: 'Batal',
     customClass: { popup: 'swal-kopdes' }
   });
@@ -788,6 +1236,11 @@ async function confirmLunas(detailId, statusLunas) {
           }
         }
       }
+
+      if (selectedItemMap.has(detailId)) {
+        selectedItemMap.get(detailId).statusLunas = statusLunas;
+        updateFloatingActionBar();
+      }
     } else {
       showToast(result.message || 'Gagal update status pembayaran', 'error');
     }
@@ -808,7 +1261,7 @@ async function approveItem(id) {
     showCancelButton: true,
     confirmButtonColor: '#16a34a',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: '✓ Ya, Setujui',
+    confirmButtonText: 'Ya, Setujui',
     cancelButtonText: 'Batal',
     customClass: { popup: 'swal-kopdes' }
   });
@@ -1521,7 +1974,7 @@ async function deleteSingleItem(detailId, pengajuanId) {
     showCancelButton: true,
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: '🗑 Ya, Hapus',
+    confirmButtonText: 'Ya, Hapus',
     cancelButtonText: 'Batal',
     customClass: { popup: 'swal-kopdes' }
   });
@@ -1538,6 +1991,10 @@ async function deleteSingleItem(detailId, pengajuanId) {
     if (data.success) {
       showToast(data.message || 'Barang berhasil dihapus', 'success');
       
+      selectedItemMap.delete(detailId);
+      updateFloatingActionBar();
+      syncSelectAllHeader(pengajuanId);
+
       // Update in-memory allData
       let targetPengajuan = null;
       for (const item of allData) {
@@ -1568,8 +2025,8 @@ async function deleteSingleItem(detailId, pengajuanId) {
           if (card) {
             const rows = card.querySelectorAll('tbody tr');
             rows.forEach((r, idx) => {
-              const firstTd = r.querySelector('td:first-child');
-              if (firstTd) firstTd.textContent = idx + 1;
+              const noTd = USER_ROLE === 'admin' ? r.querySelector('td:nth-child(2)') : r.querySelector('td:first-child');
+              if (noTd) noTd.textContent = idx + 1;
             });
 
             const dItems = targetPengajuan.items || targetPengajuan.detail_items || [];
@@ -1720,7 +2177,7 @@ async function deleteNota(filePath) {
     showCancelButton: true,
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: '🗑 Ya, Hapus Permanen',
+    confirmButtonText: 'Ya, Hapus Permanen',
     cancelButtonText: 'Batal',
     customClass: { popup: 'swal-kopdes' },
     didOpen: () => {
@@ -1870,34 +2327,48 @@ function openBuktiTF(urls) {
   overlay.classList.add('active');
 }
 
-// ─── Modal Upload Nota PER ITEM ──────────────────────────────────────────────
+// ─── Modal Upload Nota PER ITEM (Single / Multiple) ──────────────────────────
 let uploadNotaFiles = []; // queue file yang dipilih
+let uploadNotaCurrentDetails = [];
 let uploadNotaCurrentDetail = null;
 let uploadNotaCurrentPengajuan = null;
 
-function openUploadNotaForItem(detailId, pengajuanId) {
+function openUploadNotaForItem(detailIdOrIds, pengajuanId) {
   if (USER_ROLE === 'purchase_stok') return;
   uploadNotaFiles = [];
-  uploadNotaCurrentDetail = detailId;
+  uploadNotaCurrentDetails = Array.isArray(detailIdOrIds)
+    ? detailIdOrIds.map(id => parseInt(id, 10))
+    : [parseInt(detailIdOrIds, 10)];
+  uploadNotaCurrentDetail = uploadNotaCurrentDetails[0];
   uploadNotaCurrentPengajuan = pengajuanId;
   if (pengajuanId) {
     expandedMenuCards.add(pengajuanId);
   }
 
   // Cari nama barang dari data
-  let namaBarang = 'Barang';
-  for (const pengajuan of allData) {
-    if (pengajuan.id == pengajuanId || pengajuan.id_pengajuan == pengajuanId) {
+  const names = [];
+  for (const itId of uploadNotaCurrentDetails) {
+    for (const pengajuan of allData) {
       const items = pengajuan.items || pengajuan.detail_items || [];
-      const found = items.find(b => (b.id || b.id_detail) == detailId);
-      if (found) { namaBarang = found.nama_barang; break; }
+      const found = items.find(b => (b.id || b.id_detail) == itId);
+      if (found) {
+        names.push(found.nama_barang);
+        break;
+      }
     }
+  }
+
+  let labelBarang = 'Barang';
+  if (names.length === 1) {
+    labelBarang = names[0];
+  } else if (names.length > 1) {
+    labelBarang = `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` (+${names.length - 3} lainnya)` : ''} (${names.length} barang terpilih)`;
   }
 
   const overlay = document.getElementById('uploadNotaModalOverlay');
   const title = document.getElementById('uploadNotaModalTitle');
   const body = document.getElementById('uploadNotaModalBody');
-  title.textContent = 'Upload Nota';
+  title.textContent = names.length > 1 ? `Upload Nota (${names.length} Barang)` : 'Upload Nota';
 
   body.innerHTML = `
     <div class="upload-nota-info-bar">
@@ -1908,8 +2379,8 @@ function openUploadNotaForItem(detailId, pengajuanId) {
         </svg>
       </div>
       <div>
-        <div class="upload-nota-info-label">Nota untuk</div>
-        <div class="upload-nota-info-name">${escHtml(namaBarang)}</div>
+        <div class="upload-nota-info-label">${names.length > 1 ? 'Nota untuk barang-barang berikut:' : 'Nota untuk'}</div>
+        <div class="upload-nota-info-name">${escHtml(labelBarang)}</div>
       </div>
     </div>
 
@@ -1998,7 +2469,7 @@ function openUploadNotaForItem(detailId, pengajuanId) {
   // Wire submit button
   const submitBtn = document.getElementById('btnSubmitUploadNota');
   if (submitBtn) {
-    submitBtn.onclick = () => doUploadNota(detailId, pengajuanId);
+    submitBtn.onclick = () => doUploadNota(uploadNotaCurrentDetails, uploadNotaCurrentPengajuan);
   }
 
   overlay.classList.add('active');
@@ -2035,52 +2506,38 @@ function syncUploadNotaQueue() {
     return;
   }
 
-  if (submitBtn) submitBtn.disabled = false;
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = `
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+      <path d="M7.5 11V3M4.5 6l3-3 3 3" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M2 13h11" stroke="#fff" stroke-width="1.7" stroke-linecap="round" />
+    </svg>
+    Upload ${uploadNotaFiles.length} Nota
+  `;
 
-  queue.innerHTML = uploadNotaFiles.map((f, i) => {
-    const isImg = f.type.startsWith('image/');
+  queue.innerHTML = uploadNotaFiles.map((f, idx) => {
     const isPdf = f.type === 'application/pdf';
-    const sizeTxt = f.size > 1024 * 1024
-      ? (f.size / 1024 / 1024).toFixed(1) + ' MB'
-      : Math.round(f.size / 1024) + ' KB';
-
-    const thumbHtml = isImg
-      ? `<img class="upload-nota-queue-thumb" id="thumb_${i}" alt="${escHtml(f.name)}"/>`
-      : `<div class="upload-nota-queue-thumb-pdf">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M4 1h7.5L15 4.5V17H3V1h1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-            <path d="M11 1v4.5h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-            <text x="5" y="13.5" font-size="4" fill="currentColor" font-family="sans-serif" font-weight="700">PDF</text>
-          </svg>
-        </div>`;
+    const sizeKb = Math.round(f.size / 1024);
+    const sizeStr = sizeKb > 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+    const iconHtml = isPdf
+      ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2z" stroke="#ef4444" stroke-width="1.4"/><path d="M9 2v4h4" stroke="#ef4444" stroke-width="1.4"/></svg>`
+      : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="#2563a8" stroke-width="1.4"/><circle cx="5.5" cy="6.5" r="1.5" fill="#2563a8"/><path d="M1.5 11l4-4 2 2 3-3 4 4" stroke="#2563a8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
     return `
-      <div class="upload-nota-queue-item" id="qitem_${i}">
-        ${thumbHtml}
-        <div class="upload-nota-queue-meta">
-          <div class="upload-nota-queue-name">${escHtml(f.name)}</div>
-          <div class="upload-nota-queue-size">${sizeTxt}</div>
+      <div class="upload-nota-queue-item" id="nota-queue-item-${idx}">
+        <div class="upload-nota-queue-icon">${iconHtml}</div>
+        <div class="upload-nota-queue-info">
+          <div class="upload-nota-queue-name" title="${escHtml(f.name)}">${escHtml(f.name)}</div>
+          <div class="upload-nota-queue-size">${sizeStr}</div>
         </div>
-        <button class="upload-nota-queue-remove" onclick="removeUploadNotaFile(${i})" title="Hapus">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <button type="button" class="upload-nota-queue-remove" onclick="removeUploadNotaFile(${idx})" title="Hapus file ini">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <path d="M2 2L11 11M11 2L2 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
     `;
   }).join('');
-
-  // Load thumbnail for images
-  uploadNotaFiles.forEach((f, i) => {
-    if (f.type.startsWith('image/')) {
-      const img = document.getElementById('thumb_' + i);
-      if (img) {
-        const reader = new FileReader();
-        reader.onload = e => { img.src = e.target.result; };
-        reader.readAsDataURL(f);
-      }
-    }
-  });
 }
 
 function removeUploadNotaFile(idx) {
@@ -2103,10 +2560,17 @@ async function doUploadNota(detailId, pengajuanId) {
   if (progressLabel) { progressLabel.textContent = `Mengunggah ${uploadNotaFiles.length} file...`; }
   if (statusMsg) { statusMsg.className = 'upload-nota-status'; }
 
+  const targetDetailIds = (uploadNotaCurrentDetails && uploadNotaCurrentDetails.length)
+    ? uploadNotaCurrentDetails
+    : (detailId ? (Array.isArray(detailId) ? detailId : [detailId]) : []);
+
   const formData = new FormData();
   uploadNotaFiles.forEach(f => formData.append('files[]', f));
-  formData.append('item_id', detailId);
-  formData.append('pengajuan_id', pengajuanId);
+  formData.append('item_ids', targetDetailIds.join(','));
+  if (targetDetailIds.length === 1) {
+    formData.append('item_id', targetDetailIds[0]);
+  }
+  formData.append('pengajuan_id', pengajuanId || uploadNotaCurrentPengajuan || 0);
 
   try {
     if (progressFill) progressFill.style.width = '65%';
@@ -2120,63 +2584,46 @@ async function doUploadNota(detailId, pengajuanId) {
 
     if (result.success) {
       if (statusMsg) {
-        statusMsg.textContent = `✓ ${uploadNotaFiles.length} nota berhasil diunggah`;
+        statusMsg.textContent = result.message || 'Nota berhasil diunggah';
         statusMsg.className = 'upload-nota-status visible success';
       }
-      showToast(`${uploadNotaFiles.length} nota berhasil diunggah`, 'success');
+      showToast(result.message || `${uploadNotaFiles.length} nota berhasil diunggah`, 'success');
 
-      // Update in-memory allData
-      const targetPengajuanId = uploadNotaCurrentPengajuan || pengajuanId;
-      const targetDetailId = uploadNotaCurrentDetail || detailId;
+      // Update in-memory allData for all targetDetailIds
       const newFiles = (result.files || []).map(f => f.file_path);
+      const updatedIds = (result.item_ids && result.item_ids.length) ? result.item_ids : targetDetailIds;
 
-      let targetItem = null;
-      let targetPengajuan = null;
-      for (const item of allData) {
-        if (targetPengajuanId && (item.id == targetPengajuanId || item.id_pengajuan == targetPengajuanId)) {
-          const dItems = item.items || item.detail_items || [];
-          const found = dItems.find(b => (b.id || b.id_detail) == targetDetailId);
-          if (found) {
-            targetItem = found;
-            targetPengajuan = item;
-            break;
-          }
-        }
-      }
-
-      // Fallback jika belum ketemu
-      if (!targetItem) {
+      updatedIds.forEach(tDetailId => {
+        let targetItem = null;
+        let targetPengajuan = null;
         for (const item of allData) {
           const dItems = item.items || item.detail_items || [];
-          const found = dItems.find(b => (b.id || b.id_detail) == targetDetailId);
+          const found = dItems.find(b => (b.id || b.id_detail) == tDetailId);
           if (found) {
             targetItem = found;
             targetPengajuan = item;
             break;
           }
         }
-      }
 
-      if (targetItem) {
-        let existingUrls = [];
-        if (targetItem.nota_urls) {
-          existingUrls = Array.isArray(targetItem.nota_urls)
-            ? [...targetItem.nota_urls]
-            : JSON.parse(targetItem.nota_urls || '[]');
-        } else if (targetItem.nota_url) {
-          existingUrls = [targetItem.nota_url];
+        if (targetItem) {
+          let existingUrls = [];
+          if (targetItem.nota_urls) {
+            existingUrls = Array.isArray(targetItem.nota_urls)
+              ? [...targetItem.nota_urls]
+              : JSON.parse(targetItem.nota_urls || '[]');
+          } else if (targetItem.nota_url) {
+            existingUrls = [targetItem.nota_url];
+          }
+          targetItem.nota_urls = [...existingUrls, ...newFiles];
+
+          // Update nota cell in-place di DOM
+          const cell = document.getElementById(`nota-cell-${tDetailId}`);
+          if (cell && targetPengajuan) {
+            cell.innerHTML = renderNotaCellContent(targetItem, tDetailId, targetPengajuan.id);
+          }
         }
-        targetItem.nota_urls = [...existingUrls, ...newFiles];
-      }
-
-      // Update nota cell in-place di DOM
-      const cell = document.getElementById(`nota-cell-${targetDetailId}`);
-      if (cell && targetItem && targetPengajuan) {
-        cell.innerHTML = renderNotaCellContent(targetItem, targetDetailId, targetPengajuan.id);
-      } else if (!cell) {
-        const currentPengajuan = uploadNotaCurrentPengajuan || pengajuanId;
-        fetchData(currentPengajuan, true);
-      }
+      });
 
       uploadNotaFiles = [];
       setTimeout(() => {
@@ -2184,7 +2631,7 @@ async function doUploadNota(detailId, pengajuanId) {
       }, 400);
     } else {
       if (statusMsg) {
-        statusMsg.textContent = `✗ ${result.message || 'Gagal mengunggah nota'}`;
+        statusMsg.textContent = result.message || 'Gagal mengunggah nota';
         statusMsg.className = 'upload-nota-status visible error';
       }
       if (progressWrap) progressWrap.classList.remove('visible');
@@ -2194,7 +2641,7 @@ async function doUploadNota(detailId, pengajuanId) {
   } catch (err) {
     console.error(err);
     if (statusMsg) {
-      statusMsg.textContent = '✗ Terjadi kesalahan saat mengunggah';
+      statusMsg.textContent = 'Terjadi kesalahan saat mengunggah';
       statusMsg.className = 'upload-nota-status visible error';
     }
     if (progressWrap) progressWrap.classList.remove('visible');
@@ -2218,7 +2665,7 @@ async function deleteItem(id) {
     showCancelButton: true,
     confirmButtonColor: '#dc2626',
     cancelButtonColor: '#6b7280',
-    confirmButtonText: '🗑 Ya, Hapus Semua',
+    confirmButtonText: 'Ya, Hapus Semua',
     cancelButtonText: 'Batal',
     customClass: { popup: 'swal-kopdes' }
   });
@@ -2777,7 +3224,7 @@ async function saveSignature() {
           timestamp: new Date().toISOString()
         };
       }
-      showToast('Tanda tangan berhasil disimpan! ✓', 'success');
+      showToast('Tanda tangan berhasil disimpan!', 'success');
       closeSignatureModal();
       fetchData();
     } else {
