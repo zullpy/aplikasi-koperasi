@@ -3,6 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
 include 'koneksi.php';
+require_once __DIR__ . '/ip_helper.php';
 
 // Cek apakah form benar-benar di-submit via POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -31,6 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // PERBAIKAN: Ambil role dari database, JANGAN di-hardcode!
             // Pastikan di tabel database Anda ada kolom bernama 'role' (isi: admin/bendahara/purchase)
             $_SESSION['role']     = $user['role'];
+            $_SESSION['last_activity_time'] = time();
+
+            // Catat aktivitas login pengguna
+            $ipAddress = function_exists('getClientIP') ? getClientIP() : ($_SERVER['REMOTE_ADDR'] ?? '');
+            $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255);
+            $updateTrack = "UPDATE akun SET last_login = NOW(), last_activity = NOW(), is_online = 1, ip_address = ?, user_agent = ? WHERE id = ?";
+            if ($stmtTrack = mysqli_prepare($koneksi, $updateTrack)) {
+                mysqli_stmt_bind_param($stmtTrack, "ssi", $ipAddress, $userAgent, $user['id']);
+                mysqli_stmt_execute($stmtTrack);
+                mysqli_stmt_close($stmtTrack);
+            }
 
             $_SESSION['success'] = 'Login berhasil';
             // Redirect based on role

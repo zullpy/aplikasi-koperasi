@@ -159,7 +159,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                         </li>
                     <?php else: ?>
                         <!-- GROUP: Data Master (dropdown desktop, flat mobile) -->
-                        <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang']) ? 'active' : '' ?>" id="dd-datamaster">
+                        <li class="nav-item <?= in_array($activePage, ['data-pelanggan', 'data-supplier', 'stok-barang', 'data-akun']) ? 'active' : '' ?>" id="dd-datamaster">
                             <a href="#" class="nav-link dd-trigger" aria-haspopup="true" aria-expanded="false" data-target="dd-datamaster">
                                 <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                     <ellipse cx="12" cy="5" rx="9" ry="3" />
@@ -171,9 +171,22 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                             </a>
                             <ul class="dropdown-menu" role="menu">
                                 <li class="dropdown-group-label">Data Master</li>
+                                <?php if ($userRole === 'admin'): ?>
+                                <li>
+                                    <a href="../data-akun/index.php"
+                                        class="dropdown-item <?= $activePage == 'data-akun' ? 'active' : '' ?>"
+                                        role="menuitem">
+                                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                            <circle cx="12" cy="7" r="4" />
+                                        </svg>
+                                        Data Akun
+                                    </a>
+                                </li>
+                                <?php endif; ?>
                                 <li>
                                     <a href="../data-pelanggan/index.php"
-                                        class="dropdown-item <?= $activePage == 'daftar-pelanggan' ? 'active' : '' ?>"
+                                        class="dropdown-item <?= $activePage == 'data-pelanggan' ? 'active' : '' ?>"
                                         role="menuitem">
                                         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -186,7 +199,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                                 </li>
                                 <li>
                                     <a href="../data-supplier/index.php"
-                                        class="dropdown-item <?= $activePage == 'daftar-supplier' ? 'active' : '' ?>"
+                                        class="dropdown-item <?= $activePage == 'data-supplier' ? 'active' : '' ?>"
                                         role="menuitem">
                                         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
                                             <rect x="1" y="3" width="15" height="13" rx="1" />
@@ -207,6 +220,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                                         Stok Barang
                                     </a>
                                 </li>
+                                
                             </ul>
                         </li>
                     <?php endif; ?>
@@ -750,6 +764,11 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
                 }
             }
         }
+
+        /* --- Background Heartbeat (jaga status aktif/online tiap 60 detik) --- */
+        setInterval(function() {
+            fetch('../database/api-heartbeat.php').catch(function(){});
+        }, 60000);
 
     })();
 </script>

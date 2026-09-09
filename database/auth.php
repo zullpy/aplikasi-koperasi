@@ -33,3 +33,24 @@ if (!isset($_SESSION['id'])) {
     header("Location: ../");
     exit;
 }
+
+// Track waktu aktivitas terakhir akun (dithrottle tiap 20 detik agar performa tetap kencang)
+$currentTime = time();
+if (!isset($_SESSION['last_activity_update']) || ($currentTime - $_SESSION['last_activity_update']) >= 20) {
+    $_SESSION['last_activity_update'] = $currentTime;
+    if (!isset($koneksi) || !($koneksi instanceof mysqli)) {
+        require_once __DIR__ . '/koneksi.php';
+    }
+    require_once __DIR__ . '/ip_helper.php';
+    if (isset($koneksi) && $koneksi instanceof mysqli && !$koneksi->connect_error) {
+        $userId = (int)$_SESSION['id'];
+        $ip = function_exists('getClientIP') ? getClientIP() : ($_SERVER['REMOTE_ADDR'] ?? '');
+        $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255);
+        $stmtAct = @$koneksi->prepare("UPDATE akun SET last_activity = NOW(), is_online = 1, ip_address = ?, user_agent = ? WHERE id = ?");
+        if ($stmtAct) {
+            $stmtAct->bind_param("ssi", $ip, $ua, $userId);
+            $stmtAct->execute();
+            $stmtAct->close();
+        }
+    }
+}

@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <?php $activePage = 'data-supplier'; include '../components/navbar.php'; ?>
+    <?php $activePage = 'data-pelanggan'; include '../components/navbar.php'; ?>
     <header class="page-header">
         <div class="page-header-left">
             <div class="header-icon"><i class="ti ti-users"></i></div>
