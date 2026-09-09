@@ -5,6 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 if (isset($_SESSION['id'])) {
     require_once __DIR__ . '/koneksi.php';
+    require_once __DIR__ . '/ip_helper.php';
+    initAppTimezone($koneksi);
     $userId = (int)$_SESSION['id'];
     $stmt = @$koneksi->prepare("UPDATE akun SET is_online = 0, last_activity = NOW() WHERE id = ?");
     if ($stmt) {

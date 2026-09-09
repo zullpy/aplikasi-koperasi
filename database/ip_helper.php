@@ -1,5 +1,20 @@
 <?php
-// ip_helper.php - Helper untuk mendapatkan IP address client secara akurat
+// ip_helper.php - Helper untuk mendapatkan IP address client dan standarisasi Timezone WIB (Asia/Jakarta)
+
+// 1. Set default timezone PHP ke WIB
+date_default_timezone_set('Asia/Jakarta');
+
+// 2. Helper inisialisasi timezone di database MySQL (+07:00 WIB)
+if (!function_exists('initAppTimezone')) {
+    function initAppTimezone($db = null) {
+        date_default_timezone_set('Asia/Jakarta');
+        if ($db instanceof mysqli && !$db->connect_error) {
+            @$db->query("SET time_zone = '+07:00'");
+        }
+    }
+}
+
+// 3. Helper deteksi IP Client asli (mendukung Cloudflare, Reverse Proxy, Browser-Sync, & Localhost)
 if (!function_exists('getClientIP')) {
     function getClientIP() {
         $keys = [

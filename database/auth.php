@@ -43,6 +43,7 @@ if (!isset($_SESSION['last_activity_update']) || ($currentTime - $_SESSION['last
     }
     require_once __DIR__ . '/ip_helper.php';
     if (isset($koneksi) && $koneksi instanceof mysqli && !$koneksi->connect_error) {
+        initAppTimezone($koneksi);
         $userId = (int)$_SESSION['id'];
         $ip = function_exists('getClientIP') ? getClientIP() : ($_SERVER['REMOTE_ADDR'] ?? '');
         $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255);

@@ -13,6 +13,8 @@ if (!isset($_SESSION['id']) || ($_SESSION['role'] ?? '') !== 'admin') {
 }
 
 require_once __DIR__ . '/../database/koneksi.php';
+require_once __DIR__ . '/../database/ip_helper.php';
+initAppTimezone($koneksi);
 
 function formatRelativeTime($datetimeStr, $secDiff) {
     if (empty($datetimeStr)) {

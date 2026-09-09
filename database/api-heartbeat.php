@@ -12,6 +12,7 @@ if (!isset($_SESSION['id'])) {
 
 require_once __DIR__ . '/koneksi.php';
 require_once __DIR__ . '/ip_helper.php';
+initAppTimezone($koneksi);
 
 $userId = (int)$_SESSION['id'];
 $ip = getClientIP();
