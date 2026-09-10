@@ -948,6 +948,9 @@ function renderTable() {
                         <thead>
                           <tr>
                             ${USER_ROLE === 'admin' ? `
+                              <th class="col-drag-header" title="Urutan / Geser"></th>
+                            ` : ''}
+                            ${USER_ROLE === 'admin' ? `
                               <th class="col-checkbox">
                                 <input type="checkbox" class="item-select-checkbox select-all-header-cb" title="Pilih Semua Item" onchange="toggleSelectAllItemsInMenu(this, ${item.id})">
                               </th>
@@ -1037,13 +1040,27 @@ function renderTable() {
                             ` : '';
 
             return `
-                              <tr class="${isSelected ? 'row-selected' : ''}" id="item-row-${itemId}" onclick="onItemRowClick(event, ${itemId}, ${item.id})" style="${USER_ROLE === 'admin' ? 'cursor:pointer;' : ''}">
+                              <tr class="${isSelected ? 'row-selected' : ''} ${USER_ROLE === 'admin' ? 'item-sortable-row' : ''}" id="item-row-${itemId}" data-item-id="${itemId}" data-pengajuan-id="${item.id}" onclick="onItemRowClick(event, ${itemId}, ${item.id})" style="${USER_ROLE === 'admin' ? 'cursor:pointer;' : ''}">
+                                ${USER_ROLE === 'admin' ? `
+                                  <td class="col-drag-handle" onclick="event.stopPropagation()" title="Tahan & geser ke atas/bawah untuk mengubah urutan">
+                                    <div class="row-drag-handle" data-item-id="${itemId}" data-pengajuan-id="${item.id}" title="Tahan dan tarik untuk geser urutan">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="9" cy="5" r="1.8"/>
+                                        <circle cx="15" cy="5" r="1.8"/>
+                                        <circle cx="9" cy="12" r="1.8"/>
+                                        <circle cx="15" cy="12" r="1.8"/>
+                                        <circle cx="9" cy="19" r="1.8"/>
+                                        <circle cx="15" cy="19" r="1.8"/>
+                                      </svg>
+                                    </div>
+                                  </td>
+                                ` : ''}
                                 ${USER_ROLE === 'admin' ? `
                                   <td class="col-checkbox" onclick="event.stopPropagation()">
                                     <input type="checkbox" class="item-select-checkbox item-row-cb" data-item-id="${itemId}" data-pengajuan-id="${item.id}" ${isSelected ? 'checked' : ''} onchange="onItemCheckboxChange(this, ${itemId}, ${item.id})">
                                   </td>
                                 ` : ''}
-                                <td>${i + 1}</td>
+                                <td class="col-row-no">${i + 1}</td>
                                 <td>${escHtml(b.nama_barang)}</td>
                                 <td>${formatQty(b.qty || b.quantity || 0)}</td>
                                 <td>${escHtml(b.satuan || '')}</td>
@@ -1062,8 +1079,8 @@ function renderTable() {
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colspan="${isPurchase ? 6 : (USER_ROLE === 'admin' ? 7 : 6)}" class="tfoot-label">Total Estimasi</td>
-                            <td class="tfoot-total" colspan="${isPurchase ? 2 : (USER_ROLE === 'admin' ? 3 : 1)}">${formatRupiah(totalItem)}</td>
+                            <td colspan="${isPurchase ? 6 : (USER_ROLE === 'admin' ? 8 : 6)}" class="tfoot-label">Total Estimasi</td>
+                            <td class="tfoot-total" colspan="${isPurchase ? 2 : (USER_ROLE === 'admin' ? 4 : 1)}">${formatRupiah(totalItem)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -2764,6 +2781,240 @@ function initSearch() {
   });
 }
 
+// ─── DRAG & DROP REORDER RINCIAN BARANG ───────────────────────────────────────
+let draggedItemRow = null;
+let dragSourceMenuId = null;
+let initialOrderIds = [];
+
+function initTableDragAndDrop() {
+  const container = document.getElementById('tableContainer');
+  if (!container) return;
+
+  // Izinkan draggable hanya saat pointer menekan handle (mencegah konflik klik & seleksi text)
+  container.addEventListener('mousedown', (e) => {
+    const handle = e.target.closest('.row-drag-handle');
+    if (handle) {
+      const row = handle.closest('tr.item-sortable-row');
+      if (row) {
+        row.setAttribute('draggable', 'true');
+      }
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    const allDraggable = container.querySelectorAll('tr.item-sortable-row[draggable="true"]');
+    allDraggable.forEach(r => r.removeAttribute('draggable'));
+  });
+
+  // 1. Drag Start
+  container.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('tr.item-sortable-row');
+    if (!row) return;
+
+    draggedItemRow = row;
+    dragSourceMenuId = row.dataset.pengajuanId;
+
+    const tbody = row.closest('tbody');
+    initialOrderIds = tbody
+      ? Array.from(tbody.querySelectorAll('tr.item-sortable-row')).map(r => r.dataset.itemId)
+      : [];
+
+    row.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', row.dataset.itemId || '');
+    } catch (err) {
+      // fallback for older browsers
+    }
+  });
+
+  // 2. Drag Over
+  container.addEventListener('dragover', (e) => {
+    if (!draggedItemRow) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const targetRow = e.target.closest('tr.item-sortable-row');
+    if (!targetRow || targetRow === draggedItemRow) return;
+
+    // Hanya izinkan reorder di dalam kartu menu / tabel yang sama
+    if (targetRow.dataset.pengajuanId !== dragSourceMenuId) return;
+
+    const tbody = targetRow.parentNode;
+    const rect = targetRow.getBoundingClientRect();
+    const isBelowMiddle = (e.clientY - rect.top) > (rect.height / 2);
+
+    if (isBelowMiddle) {
+      tbody.insertBefore(draggedItemRow, targetRow.nextSibling);
+    } else {
+      tbody.insertBefore(draggedItemRow, targetRow);
+    }
+  });
+
+  // 3. Drag End
+  container.addEventListener('dragend', async () => {
+    if (!draggedItemRow) return;
+
+    const row = draggedItemRow;
+    const pengajuanId = parseInt(dragSourceMenuId, 10);
+    row.classList.remove('is-dragging');
+    row.removeAttribute('draggable');
+
+    const tbody = row.closest('tbody');
+    draggedItemRow = null;
+    dragSourceMenuId = null;
+
+    if (!tbody || !pengajuanId) return;
+
+    // Periksa apakah urutannya benar-benar berubah
+    const rows = Array.from(tbody.querySelectorAll('tr.item-sortable-row'));
+    const currentOrderIds = rows.map(r => r.dataset.itemId);
+    const hasChanged = JSON.stringify(initialOrderIds) !== JSON.stringify(currentOrderIds);
+
+    // Selalu sinkronkan nomor urut visual (No)
+    const newItemIds = [];
+    rows.forEach((r, idx) => {
+      const noCell = r.querySelector('.col-row-no');
+      if (noCell) noCell.textContent = idx + 1;
+      const idInt = parseInt(r.dataset.itemId, 10);
+      if (idInt) newItemIds.push(idInt);
+    });
+
+    if (hasChanged && newItemIds.length > 0) {
+      await saveItemReorder(pengajuanId, newItemIds);
+    }
+  });
+
+  // ── Touch Events untuk Mobile / Layar Sentuh ──────────────────────────────
+  let touchRow = null;
+  let touchMenuId = null;
+  let initialTouchOrderIds = [];
+
+  container.addEventListener('touchstart', (e) => {
+    const handle = e.target.closest('.row-drag-handle');
+    if (!handle) return;
+
+    const row = handle.closest('tr.item-sortable-row');
+    if (!row) return;
+
+    touchRow = row;
+    touchMenuId = row.dataset.pengajuanId;
+    const tbody = row.closest('tbody');
+    initialTouchOrderIds = tbody
+      ? Array.from(tbody.querySelectorAll('tr.item-sortable-row')).map(r => r.dataset.itemId)
+      : [];
+
+    row.classList.add('is-touch-dragging');
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!touchRow) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!el) return;
+
+    const targetRow = el.closest('tr.item-sortable-row');
+    if (!targetRow || targetRow === touchRow) return;
+    if (targetRow.dataset.pengajuanId !== touchMenuId) return;
+
+    const tbody = targetRow.parentNode;
+    const rect = targetRow.getBoundingClientRect();
+    const isBelowMiddle = (touch.clientY - rect.top) > (rect.height / 2);
+
+    if (isBelowMiddle) {
+      tbody.insertBefore(touchRow, targetRow.nextSibling);
+    } else {
+      tbody.insertBefore(touchRow, targetRow);
+    }
+
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  const finishTouch = async () => {
+    if (!touchRow) return;
+    const row = touchRow;
+    const pengajuanId = parseInt(touchMenuId, 10);
+    row.classList.remove('is-touch-dragging');
+
+    const tbody = row.closest('tbody');
+    touchRow = null;
+    touchMenuId = null;
+
+    if (!tbody || !pengajuanId) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr.item-sortable-row'));
+    const currentOrderIds = rows.map(r => r.dataset.itemId);
+    const hasChanged = JSON.stringify(initialTouchOrderIds) !== JSON.stringify(currentOrderIds);
+
+    const newItemIds = [];
+    rows.forEach((r, idx) => {
+      const noCell = r.querySelector('.col-row-no');
+      if (noCell) noCell.textContent = idx + 1;
+      const idInt = parseInt(r.dataset.itemId, 10);
+      if (idInt) newItemIds.push(idInt);
+    });
+
+    if (hasChanged && newItemIds.length > 0) {
+      await saveItemReorder(pengajuanId, newItemIds);
+    }
+  };
+
+  container.addEventListener('touchend', finishTouch);
+  container.addEventListener('touchcancel', finishTouch);
+}
+
+async function saveItemReorder(pengajuanId, newItemIds) {
+  try {
+    // 1. Update cache allData lokal terlebih dahulu agar UI tidak mental saat render ulang
+    const targetMenu = allData.find(item => item.id === pengajuanId);
+    if (targetMenu) {
+      const currentItems = targetMenu.items || targetMenu.detail_items || [];
+      const itemMap = new Map();
+      currentItems.forEach(it => {
+        const id = it.id || it.id_detail;
+        itemMap.set(id, it);
+      });
+
+      const reorderedItems = [];
+      newItemIds.forEach((id, idx) => {
+        if (itemMap.has(id)) {
+          const itemObj = itemMap.get(id);
+          itemObj.urutan = idx + 1;
+          reorderedItems.push(itemObj);
+          itemMap.delete(id);
+        }
+      });
+      // Sisanya yang mungkin tidak terkirim tetap ditambahkan di belakang
+      itemMap.forEach(it => reorderedItems.push(it));
+
+      targetMenu.items = reorderedItems;
+      targetMenu.detail_items = reorderedItems;
+    }
+
+    // 2. Simpan ke database via API
+    const res = await fetch('../database/api-belanja.php?action=reorder_items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pengajuan_id: pengajuanId,
+        item_ids: newItemIds
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      showToast('Urutan barang berhasil disimpan', 'success');
+    } else {
+      showToast(result.message || 'Gagal menyimpan urutan barang', 'error');
+    }
+  } catch (err) {
+    console.error('Error saving item order:', err);
+    showToast('Terjadi kesalahan saat menyimpan urutan barang', 'error');
+  }
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 // Helper: bind event listener hanya kalau elemennya ada di DOM.
 // Penting untuk role 'purchase', karena beberapa tombol (btnOpenModal, dll)
@@ -2775,6 +3026,7 @@ function bindIfExists(id, event, handler) {
 
 document.addEventListener('DOMContentLoaded', () => {
   fetchData();
+  initTableDragAndDrop();
 
   // Tombol-tombol ini hanya ada untuk role selain 'purchase'
   bindIfExists('btnOpenModal', 'click', openModal);

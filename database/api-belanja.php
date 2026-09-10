@@ -174,8 +174,18 @@ function ensureStatusLunasColumnExists($koneksi)
     }
 }
 
+function ensureUrutanColumnExists($koneksi)
+{
+    $checkCol = $koneksi->query("SHOW COLUMNS FROM detail_item_belanja LIKE 'urutan'");
+    if (!$checkCol || $checkCol->num_rows === 0) {
+        @$koneksi->query("ALTER TABLE detail_item_belanja ADD COLUMN urutan INT(11) NOT NULL DEFAULT 0 AFTER id");
+        @$koneksi->query("UPDATE detail_item_belanja SET urutan = id WHERE urutan = 0");
+    }
+}
+
 try {
     ensureStatusLunasColumnExists($koneksi);
+    ensureUrutanColumnExists($koneksi);
     switch ($action) {
         // ─── LIST: Ambil semua data belanja dengan detailnya ────────────────
         case 'list':
@@ -201,7 +211,7 @@ try {
                     LEFT JOIN upload_nota n ON n.item_id = d.id AND n.pengajuan_id = d.pengajuan_id
                     WHERE d.pengajuan_id = ?
                     GROUP BY d.id
-                    ORDER BY d.id ASC
+                    ORDER BY COALESCE(NULLIF(d.urutan, 0), d.id) ASC, d.id ASC
                 ");
                 if (!$stmtD) {
                     throw new Exception('Prepare error: ' . $koneksi->error);
@@ -411,7 +421,8 @@ try {
                 }
 
                 // ── Upsert detail items: UPDATE baris lama (id_detail ada), INSERT baris baru ──
-                foreach ($items as $it) {
+                foreach ($items as $idx => $it) {
+                    $urutanItem = $idx + 1;
                     $qty = floatval($it['qty'] ?? 0);
                     $biayaAdminItem = floatval($it['biaya_admin'] ?? 0);
                     $subtotal = (floatval($it['harga']) * $qty) + $biayaAdminItem;
@@ -425,14 +436,14 @@ try {
                         // Baris lama → UPDATE di tempat (id tetap sama, link nota tetap utuh)
                         $stmtD = $koneksi->prepare("
                             UPDATE detail_item_belanja
-                            SET id_barang = ?, nama_barang = ?, qty = ?, satuan = ?, harga = ?, subtotal = ?, biaya_admin = ?
+                            SET id_barang = ?, nama_barang = ?, qty = ?, satuan = ?, harga = ?, subtotal = ?, biaya_admin = ?, urutan = ?
                             WHERE id = ? AND pengajuan_id = ?
                         ");
                         if (!$stmtD) {
                             throw new Exception('Prepare UPDATE detail error: ' . $koneksi->error);
                         }
                         $stmtD->bind_param(
-                            "isdsddiii",
+                            "isdsddiiii",
                             $idBarang,
                             $namaBarang,
                             $qty,
@@ -440,6 +451,7 @@ try {
                             $harga,
                             $subtotal,
                             $biayaAdminItem,
+                            $urutanItem,
                             $idDetail,
                             $idPengajuan
                         );
@@ -454,14 +466,14 @@ try {
 
                         $stmtD = $koneksi->prepare("
                             INSERT INTO detail_item_belanja
-                            (pengajuan_id, id_barang, nama_barang, qty, satuan, harga, subtotal, biaya_admin, status_bendahara, status_beli)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (pengajuan_id, id_barang, nama_barang, qty, satuan, harga, subtotal, biaya_admin, status_bendahara, status_beli, urutan)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ");
                         if (!$stmtD) {
                             throw new Exception('Prepare INSERT detail error: ' . $koneksi->error);
                         }
                         $stmtD->bind_param(
-                            "iisdsidsss",
+                            "iisdsidsssi",
                             $idPengajuan,
                             $idBarang,
                             $namaBarang,
@@ -471,7 +483,8 @@ try {
                             $subtotal,
                             $biayaAdminItem,
                             $statusBendahara,
-                            $statusBeli
+                            $statusBeli,
+                            $urutanItem
                         );
                         if (!$stmtD->execute()) {
                             throw new Exception('Execute INSERT detail error: ' . $stmtD->error);
@@ -627,15 +640,17 @@ try {
                     if (!$stmt->execute()) throw new Exception('Execute UPDATE detail error: ' . $stmt->error);
                     $stmt->close();
                 } else {
+                    $resMax = $koneksi->query("SELECT COALESCE(MAX(urutan), 0) AS max_u FROM detail_item_belanja WHERE pengajuan_id = " . intval($idPengajuan));
+                    $maxU = ($resMax && $rowM = $resMax->fetch_assoc()) ? intval($rowM['max_u']) + 1 : 1;
                     $statusBendahara = 'pending';
                     $statusBeli = 'belum';
                     $stmt = $koneksi->prepare("
                         INSERT INTO detail_item_belanja
-                        (pengajuan_id, id_barang, nama_barang, qty, satuan, harga, subtotal, biaya_admin, status_bendahara, status_beli)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (pengajuan_id, id_barang, nama_barang, qty, satuan, harga, subtotal, biaya_admin, status_bendahara, status_beli, urutan)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ");
                     if (!$stmt) throw new Exception('Prepare INSERT detail error: ' . $koneksi->error);
-                    $stmt->bind_param("iisdsidsss", $idPengajuan, $idBarang, $namaBarang, $qty, $satuan, $harga, $subtotal, $biayaAdminItem, $statusBendahara, $statusBeli);
+                    $stmt->bind_param("iisdsidsssi", $idPengajuan, $idBarang, $namaBarang, $qty, $satuan, $harga, $subtotal, $biayaAdminItem, $statusBendahara, $statusBeli, $maxU);
                     if (!$stmt->execute()) throw new Exception('Execute INSERT detail error: ' . $stmt->error);
                     $stmt->close();
                 }
@@ -1071,6 +1086,63 @@ try {
                 throw new Exception('Gagal update status lunas: ' . $stmtLunas->error);
             }
             $stmtLunas->close();
+            exit;
+
+        // ─── REORDER ITEMS: Ubah urutan detail_item_belanja (drag and drop) ──
+        case 'reorder_items':
+            if ($userRole !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Hanya admin yang dapat mengubah urutan barang']);
+                exit;
+            }
+            if ($method !== 'POST') throw new Exception('Method not allowed');
+
+            $raw = file_get_contents('php://input');
+            $input = json_decode($raw, true) ?: [];
+
+            $pengajuanId = intval($input['pengajuan_id'] ?? ($_POST['pengajuan_id'] ?? 0));
+            $itemIds = $input['item_ids'] ?? ($_POST['item_ids'] ?? []);
+
+            if (is_string($itemIds)) {
+                $decoded = json_decode($itemIds, true);
+                if (is_array($decoded)) {
+                    $itemIds = $decoded;
+                }
+            }
+
+            if (!$pengajuanId || !is_array($itemIds) || empty($itemIds)) {
+                throw new Exception('Data pengajuan_id atau item_ids tidak valid');
+            }
+
+            $stmtReorder = $koneksi->prepare("UPDATE detail_item_belanja SET urutan = ? WHERE id = ? AND pengajuan_id = ?");
+            if (!$stmtReorder) {
+                throw new Exception('Prepare error: ' . $koneksi->error);
+            }
+
+            $koneksi->begin_transaction();
+            try {
+                $orderIndex = 1;
+                foreach ($itemIds as $idItem) {
+                    $idInt = intval($idItem);
+                    if ($idInt > 0) {
+                        $stmtReorder->bind_param("iii", $orderIndex, $idInt, $pengajuanId);
+                        $stmtReorder->execute();
+                        $orderIndex++;
+                    }
+                }
+                $koneksi->commit();
+            } catch (Throwable $ex) {
+                $koneksi->rollback();
+                throw $ex;
+            }
+            $stmtReorder->close();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Urutan barang berhasil diperbarui',
+                'pengajuan_id' => $pengajuanId,
+                'total_items' => count($itemIds)
+            ]);
             exit;
 
             // ─── UPDATE SALDO: Simpan/update saldo masuk per pengajuan ──────

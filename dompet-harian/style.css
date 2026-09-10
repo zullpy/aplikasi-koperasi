@@ -2366,6 +2366,75 @@ body:has(.modal-overlay.active) {
     background: #f0f6fc;
 }
 
+/* ── Drag & Drop Reorder Baris Barang ── */
+.rincian-table .col-drag-header {
+    width: 32px !important;
+    min-width: 32px;
+    max-width: 32px;
+    padding: 0.6rem 0.2rem !important;
+    text-align: center;
+}
+
+.rincian-table .col-drag-handle {
+    width: 32px !important;
+    min-width: 32px;
+    max-width: 32px;
+    padding: 0.4rem 0.2rem !important;
+    text-align: center;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.rincian-table .col-drag-handle:active {
+    cursor: grabbing;
+}
+
+.row-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    color: #94a3b8;
+    transition: all 0.15s ease;
+    cursor: grab;
+    touch-action: none;
+}
+
+.row-drag-handle:hover {
+    color: var(--primary, #2563eb);
+    background: #e0ecff;
+}
+
+.row-drag-handle:active {
+    cursor: grabbing;
+    background: #c7d9f8;
+    color: #1d4ed8;
+}
+
+/* Efek saat baris sedang ditarik / digeser */
+.rincian-table tbody tr.is-dragging {
+    opacity: 0.45;
+    background: #e0ecff !important;
+    outline: 2px dashed #3b82f6;
+    outline-offset: -2px;
+}
+
+.rincian-table tbody tr.is-touch-dragging {
+    background: #f0f7ff !important;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2);
+    position: relative;
+    z-index: 10;
+}
+
+.rincian-table .col-row-no {
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+}
+
 .rincian-table .subtotal-cell {
     font-weight: 600;
     color: var(--primary-dark);

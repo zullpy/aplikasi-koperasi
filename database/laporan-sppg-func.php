@@ -47,7 +47,7 @@ function getDetailItem($koneksi, $id_pengajuan)
             FROM detail_item_belanja d
             LEFT JOIN upload_nota u ON u.item_id = d.id AND u.pengajuan_id = d.pengajuan_id
             WHERE d.pengajuan_id = ?
-            ORDER BY d.id ASC, u.id ASC";
+            ORDER BY COALESCE(NULLIF(d.urutan, 0), d.id) ASC, d.id ASC, u.id ASC";
     $stmt = mysqli_prepare($koneksi, $sql);
     mysqli_stmt_bind_param($stmt, 'i', $id_pengajuan);
     mysqli_stmt_execute($stmt);
