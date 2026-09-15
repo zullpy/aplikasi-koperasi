@@ -4,7 +4,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 require_once '../database/auth.php';
-include '../database/koneksi.php';
+require_once '../database/koneksi.php';
 
 if (($_SESSION['role'] ?? '') !== 'admin') {
     die("Akses ditolak: Hanya admin yang dapat mencetak faktur.");

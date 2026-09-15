@@ -12,10 +12,13 @@
 // ==========================================================
 
 require_once '../database/auth.php';
-include '../database/koneksi.php';
+require_once '../database/koneksi.php';
 
 // Jenis transaksi yang ditangani oleh file ini.
 // Harus sama persis dengan nilai pbd.jenis di query utama ('foodcost').
+if (!defined('JENIS_TRANSAKSI_FOODCOST')) {
+    define('JENIS_TRANSAKSI_FOODCOST', 'foodcost');
+}
 const JENIS_TRANSAKSI = 'foodcost';
 
 // ----------------------------------------------------------
@@ -25,27 +28,33 @@ const JENIS_TRANSAKSI = 'foodcost';
 // Membersihkan harga_beli (varchar) jadi angka murni,
 // karena di tabel barang kolomnya bertipe varchar(30)
 // (bisa jadi ada "Rp", titik, koma, spasi, dll)
-function bersihkanHarga($str)
-{
-    if ($str === null) return 0;
-    $bersih = preg_replace('/[^0-9]/', '', $str);
-    return $bersih === '' ? 0 : (float) $bersih;
+if (!function_exists('bersihkanHarga')) {
+    function bersihkanHarga($str)
+    {
+        if ($str === null) return 0;
+        $bersih = preg_replace('/[^0-9]/', '', $str);
+        return $bersih === '' ? 0 : (float) $bersih;
+    }
 }
 
-function formatRupiah($angka)
-{
-    return 'Rp ' . number_format((float) $angka, 0, ',', '.');
+if (!function_exists('formatRupiah')) {
+    function formatRupiah($angka)
+    {
+        return 'Rp ' . number_format((float) $angka, 0, ',', '.');
+    }
 }
 
 // Format qty: tampilkan tanpa desimal jika bilangan bulat,
 // tapi tetap tampilkan desimal (maks 2 digit) jika ada pecahan
-function formatQty($angka)
-{
-    $angka = (float) $angka;
-    if ($angka == floor($angka)) {
-        return number_format($angka, 0, ',', '.');
+if (!function_exists('formatQty')) {
+    function formatQty($angka)
+    {
+        $angka = (float) $angka;
+        if ($angka == floor($angka)) {
+            return number_format($angka, 0, ',', '.');
+        }
+        return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
     }
-    return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
 }
 
 // Cari harga yang BERLAKU pada tanggal (& jam) transaksi tertentu,
@@ -53,31 +62,33 @@ function formatQty($angka)
 // Ambil entri riwayat TERAKHIR yang tanggalnya <= tanggal transaksi.
 // Kalau transaksi terjadi sebelum riwayat harga pertama tercatat,
 // pakai harga pertama yang ada sebagai pendekatan terbaik.
-function cariHargaBerlaku($riwayatList, $tglTransaksi)
-{
-    $hargaTerpilih = null;
-    $waktuTransaksi = strtotime($tglTransaksi);
+if (!function_exists('cariHargaBerlaku')) {
+    function cariHargaBerlaku($riwayatList, $tglTransaksi)
+    {
+        $hargaTerpilih = null;
+        $waktuTransaksi = strtotime($tglTransaksi);
 
-    foreach ($riwayatList as $r) {
-        $waktuRiwayat = strtotime($r['tanggal']);
-        if ($waktuRiwayat !== false && $waktuTransaksi !== false) {
-            if ($waktuRiwayat <= $waktuTransaksi) {
+        foreach ($riwayatList as $r) {
+            $waktuRiwayat = strtotime($r['tanggal']);
+            if ($waktuRiwayat !== false && $waktuTransaksi !== false) {
+                if ($waktuRiwayat <= $waktuTransaksi) {
+                    $hargaTerpilih = $r['harga_beli'];
+                } else {
+                    break;
+                }
+            } elseif ($r['tanggal'] <= $tglTransaksi) {
                 $hargaTerpilih = $r['harga_beli'];
             } else {
                 break;
             }
-        } elseif ($r['tanggal'] <= $tglTransaksi) {
-            $hargaTerpilih = $r['harga_beli'];
-        } else {
-            break;
         }
-    }
 
-    if ($hargaTerpilih === null && !empty($riwayatList)) {
-        $hargaTerpilih = $riwayatList[0]['harga_beli'];
-    }
+        if ($hargaTerpilih === null && !empty($riwayatList)) {
+            $hargaTerpilih = $riwayatList[0]['harga_beli'];
+        }
 
-    return $hargaTerpilih;
+        return $hargaTerpilih;
+    }
 }
 
 // ----------------------------------------------------------

@@ -10,10 +10,13 @@
 // ==========================================================
 
 require_once '../database/auth.php';
-include '../database/koneksi.php';
+require_once '../database/koneksi.php';
 
 // Jenis transaksi yang ditangani oleh file ini.
 // File "food cost" yang mirip cukup ganti nilai ini jadi 'food'.
+if (!defined('JENIS_TRANSAKSI_ADDCOST')) {
+    define('JENIS_TRANSAKSI_ADDCOST', 'addcost');
+}
 const JENIS_TRANSAKSI = 'addcost';
 
 // ----------------------------------------------------------
@@ -23,45 +26,53 @@ const JENIS_TRANSAKSI = 'addcost';
 // Membersihkan harga_beli (varchar) jadi angka murni,
 // karena di tabel barang kolomnya bertipe varchar(30)
 // (bisa jadi ada "Rp", titik, koma, spasi, dll)
-function bersihkanHarga($str)
-{
-    if ($str === null) return 0;
-    $bersih = preg_replace('/[^0-9]/', '', $str);
-    return $bersih === '' ? 0 : (float) $bersih;
+if (!function_exists('bersihkanHarga')) {
+    function bersihkanHarga($str)
+    {
+        if ($str === null) return 0;
+        $bersih = preg_replace('/[^0-9]/', '', $str);
+        return $bersih === '' ? 0 : (float) $bersih;
+    }
 }
 
-function formatRupiah($angka)
-{
-    return 'Rp ' . number_format((float) $angka, 0, ',', '.');
+if (!function_exists('formatRupiah')) {
+    function formatRupiah($angka)
+    {
+        return 'Rp ' . number_format((float) $angka, 0, ',', '.');
+    }
 }
 
 // Format qty: tampilkan tanpa desimal jika bilangan bulat,
 // tapi tetap tampilkan desimal (maks 2 digit) jika ada pecahan
-function formatQty($angka)
-{
-    $angka = (float) $angka;
-    if ($angka == floor($angka)) {
-        return number_format($angka, 0, ',', '.');
+if (!function_exists('formatQty')) {
+    function formatQty($angka)
+    {
+        $angka = (float) $angka;
+        if ($angka == floor($angka)) {
+            return number_format($angka, 0, ',', '.');
+        }
+        return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
     }
-    return rtrim(rtrim(number_format($angka, 2, ',', '.'), '0'), ',');
 }
 
 // Cari harga yang BERLAKU pada tanggal (& jam) transaksi tertentu,
 // berdasarkan riwayat harga barang yang sudah terurut naik (ASC) per tanggal.
-function cariHargaBerlaku($riwayatList, $tglTransaksi)
-{
-    $hargaTerpilih = null;
-    foreach ($riwayatList as $r) {
-        if ($r['tanggal'] <= $tglTransaksi) {
-            $hargaTerpilih = (float) $r['harga_beli'];
-        } else {
-            break;
+if (!function_exists('cariHargaBerlaku')) {
+    function cariHargaBerlaku($riwayatList, $tglTransaksi)
+    {
+        $hargaTerpilih = null;
+        foreach ($riwayatList as $r) {
+            if ($r['tanggal'] <= $tglTransaksi) {
+                $hargaTerpilih = (float) $r['harga_beli'];
+            } else {
+                break;
+            }
         }
+        if ($hargaTerpilih === null && !empty($riwayatList)) {
+            $hargaTerpilih = (float) $riwayatList[0]['harga_beli'];
+        }
+        return $hargaTerpilih;
     }
-    if ($hargaTerpilih === null && !empty($riwayatList)) {
-        $hargaTerpilih = (float) $riwayatList[0]['harga_beli'];
-    }
-    return $hargaTerpilih;
 }
 
 // ----------------------------------------------------------
