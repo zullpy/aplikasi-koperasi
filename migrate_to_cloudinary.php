@@ -1320,7 +1320,10 @@ $diskStats = getDiskStats($DISK_SYNC_TARGETS);
                     </select>
                 </label>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button id="btnStartAll" class="btn" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35); font-weight: 700;" onclick="startAllInOneMigration()">
+                    🚀 Mulai Migrasi Semua Sekaligus
+                </button>
                 <button id="btnStartDb" class="btn btn-primary" onclick="startDbMigration()">
                     ▶️ Mulai Migrasi Database
                 </button>
@@ -1456,16 +1459,37 @@ function stopMigration() {
 }
 
 function toggleButtons(running) {
+    if (document.getElementById('btnStartAll')) document.getElementById('btnStartAll').style.display = running ? 'none' : 'inline-flex';
     document.getElementById('btnStartDb').style.display = running ? 'none' : 'inline-flex';
     document.getElementById('btnStartDisk').style.display = running ? 'none' : 'inline-flex';
     document.getElementById('btnStop').style.display = running ? 'inline-flex' : 'none';
 }
 
 // -------------------------------------------------------------
+// 0. MIGRASI SEMUA SEKALIGUS (DATABASE + FILE DISK)
+// -------------------------------------------------------------
+async function startAllInOneMigration() {
+    if (isRunning) return;
+    logTerminal("==================================================", "info");
+    logTerminal("MEMULAI MIGRASI SEMUA SEKALIGUS (DATABASE + DISK)", "ok");
+    logTerminal("==================================================", "info");
+
+    await startDbMigration(true);
+    if (isRunning) {
+        logTerminal(">>> Lanjut otomatis ke sinkronisasi sisa file disk...", "info");
+        await startDiskMigration(true);
+    }
+    isRunning = false;
+    toggleButtons(false);
+    logTerminal("🎉 SELURUH DATA DATABASE & FILE DISK TELAH SUKSES DIMIGRASI!", "ok");
+    document.getElementById('progressStatusText').textContent = "Status: Semua Data Sukses Termigrasi 100%";
+}
+
+// -------------------------------------------------------------
 // 1. MIGRASI DATABASE (BATCH PER TABEL)
 // -------------------------------------------------------------
-async function startDbMigration() {
-    if (isRunning) return;
+async function startDbMigration(fromAllInOne = false) {
+    if (isRunning && !fromAllInOne) return;
     isRunning = true;
     currentMode = 'db';
     toggleButtons(true);
@@ -1534,8 +1558,10 @@ async function startDbMigration() {
         }
     }
 
-    isRunning = false;
-    toggleButtons(false);
+    if (!fromAllInOne) {
+        isRunning = false;
+        toggleButtons(false);
+    }
     logTerminal("=== Selesai seluruh antrian migrasi database ===", "ok");
     document.getElementById('progressStatusText').textContent = "Status: Selesai migrasi database";
 }
@@ -1543,8 +1569,8 @@ async function startDbMigration() {
 // -------------------------------------------------------------
 // 2. SINKRONISASI FILE DISK LANGSUNG
 // -------------------------------------------------------------
-async function startDiskMigration() {
-    if (isRunning) return;
+async function startDiskMigration(fromAllInOne = false) {
+    if (isRunning && !fromAllInOne) return;
     isRunning = true;
     currentMode = 'disk';
     toggleButtons(true);
