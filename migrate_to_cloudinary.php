@@ -1520,7 +1520,15 @@ async function startDbMigration(fromAllInOne = false) {
                     method: 'POST',
                     body: formData
                 });
-                const data = await resp.json();
+                const text = await resp.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (parseErr) {
+                    logTerminal(`[NETWORK/RETRY] Respons server sesaat: ${text.substring(0, 60)}... Mencoba ulang dalam 1.5 detik`, "warn");
+                    await new Promise(r => setTimeout(r, 1500));
+                    continue;
+                }
 
                 if (!data.success) {
                     logTerminal(`[ERROR] ${data.message}`, "err");
@@ -1605,7 +1613,15 @@ async function startDiskMigration(fromAllInOne = false) {
                     method: 'POST',
                     body: formData
                 });
-                const data = await resp.json();
+                const text = await resp.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (parseErr) {
+                    logTerminal(`[NETWORK/RETRY] Respons server sesaat: ${text.substring(0, 60)}... Mencoba ulang dalam 1.5 detik`, "warn");
+                    await new Promise(r => setTimeout(r, 1500));
+                    continue;
+                }
 
                 if (!data.success) {
                     logTerminal(`[ERROR] ${data.message}`, "err");
