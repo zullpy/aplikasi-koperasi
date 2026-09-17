@@ -32,11 +32,12 @@ if (isset($_FILES['bukti_bayar']) && $_FILES['bukti_bayar']['error'] === UPLOAD_
     if (!in_array($ext, $allowed)) {
         respond(false, 'error', 'Gagal', 'Format file tidak didukung', $isAjax);
     }
+    require_once __DIR__ . '/cloudinary_helper.php';
     $upload_dir = __DIR__ . '/../uploads/bukti-bayar/';
-    if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-    $bukti_filename = 'bukti_' . $id_transaksi . '_' . time() . '.' . $ext;
-    if (move_uploaded_file($_FILES['bukti_bayar']['tmp_name'], $upload_dir . $bukti_filename)) {
-        compressImage($upload_dir . $bukti_filename);
+    try {
+        $bukti_filename = smart_upload_foto($_FILES['bukti_bayar'], 'bukti_bayar', $upload_dir, 'bukti_' . $id_transaksi);
+    } catch (Exception $e) {
+        $bukti_filename = null;
     }
 }
 

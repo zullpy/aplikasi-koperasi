@@ -406,11 +406,14 @@ function buildCard(item) {
 
     // 📎 Bukti transfer: bisa lebih dari 1 file
     const buktiList = getBuktiList(item);
-    const buktiLinksHtml = buktiList.map((f, i) => `
-        <a href="../uploads/bukti_transfer/${f}" target="_blank"
+    const buktiLinksHtml = buktiList.map((f, i) => {
+        const href = (f && f.startsWith('http')) ? f : ('../uploads/bukti_transfer/' + f);
+        return `
+        <a href="${href}" target="_blank"
             class="btn btn-outline-primary btn-sm" title="Lihat bukti transfer ${i + 1}">
             <i class="ph ph-image"></i> Bukti ${i + 1}
-        </a>`).join('');
+        </a>`;
+    }).join('');
 
     const uploadBuktiBtn = canApprove ? `
         <label class="btn ${buktiList.length ? 'btn-ghost' : 'btn-outline-secondary'} btn-sm"

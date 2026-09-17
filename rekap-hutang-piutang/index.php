@@ -318,11 +318,13 @@ usort($dataPiutang, fn($a, $b) => strcmp($b['tanggal_pengambilan'], $a['tanggal_
                                         <?php 
                                         $notas = !empty($h['nota']) ? explode(',', $h['nota']) : [];
                                         if (!empty($notas)):
+                                            require_once __DIR__ . '/../database/cloudinary_helper.php';
                                             foreach ($notas as $index => $nota):
                                                 $notaTrim = trim($nota);
                                                 if ($notaTrim !== ''):
+                                                    $urlNota = resolve_photo_url($notaTrim, '../uploads/nota/');
                                         ?>
-                                                    <a href="../uploads/nota/<?= htmlspecialchars($notaTrim); ?>" target="_blank" class="nota-link">
+                                                    <a href="<?= htmlspecialchars($urlNota); ?>" target="_blank" class="nota-link">
                                                         <i class="ph ph-file-image"></i> Nota <?= ($index + 1); ?>
                                                     </a>
                                         <?php 

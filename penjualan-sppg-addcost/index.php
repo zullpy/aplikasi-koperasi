@@ -103,16 +103,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
                 if (!in_array($ext, $allowedExt, true)) {
                     $errorBayar = 'Format bukti transfer tidak didukung. Gunakan JPG, PNG, atau PDF.';
                 } else {
+                    require_once __DIR__ . '/../database/cloudinary_helper.php';
                     $folderUpload = __DIR__ . '/uploads/bukti-transfer/';
-                    if (!is_dir($folderUpload)) {
-                        mkdir($folderUpload, 0755, true);
-                    }
-                    $namaFile = 'bukti_' . $idPengambilanBayar . '_' . time() . '_' . mt_rand(1000, 9999) . '.' . $ext;
-                    if (move_uploaded_file($_FILES['bukti_transfer']['tmp_name'], $folderUpload . $namaFile)) {
-                        compressImage($folderUpload . $namaFile);
-                        $buktiPath = 'uploads/bukti-transfer/' . $namaFile;
-                    } else {
-                        $errorBayar = 'Gagal mengunggah bukti transfer. Silakan coba lagi.';
+                    try {
+                        $savedPath = smart_upload_foto($_FILES['bukti_transfer'], 'tf_penjualan_addcost', $folderUpload, 'bukti_' . $idPengambilanBayar);
+                        if (str_starts_with($savedPath, 'http://') || str_starts_with($savedPath, 'https://')) {
+                            $buktiPath = $savedPath;
+                        } else {
+                            $buktiPath = 'uploads/bukti-transfer/' . $savedPath;
+                        }
+                    } catch (Exception $e) {
+                        $errorBayar = 'Gagal mengunggah bukti transfer: ' . $e->getMessage();
                     }
                 }
             } else {
@@ -678,8 +679,11 @@ foreach ($transaksi as $t) {
                                                     <span class="fc-pay-item-date"><?= htmlspecialchars(date('d M Y, H:i', strtotime($p['tanggal_bayar']))) ?></span>
                                                 </div>
                                                 <div class="fc-pay-item-right">
-                                                    <?php if (!empty($p['bukti_transfer'])): ?>
-                                                        <a href="../<?= htmlspecialchars($p['bukti_transfer']) ?>" target="_blank" class="fc-pay-bukti-link" title="Lihat Bukti Transfer">
+                                                    <?php if (!empty($p['bukti_transfer'])): 
+                                                        require_once __DIR__ . '/../database/cloudinary_helper.php';
+                                                        $urlBukti = resolve_photo_url($p['bukti_transfer'], '../');
+                                                    ?>
+                                                        <a href="<?= htmlspecialchars($urlBukti) ?>" target="_blank" class="fc-pay-bukti-link" title="Lihat Bukti Transfer">
                                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                                                 <path d="M7 10l5 5 5-5M12 15V3" />

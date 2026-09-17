@@ -102,14 +102,13 @@ foreach ($all_files as $file) {
     }
 }
 
+require_once __DIR__ . '/cloudinary_helper.php';
 $uploaded_files = [];
 foreach ($all_files as $file) {
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    $nota_name = uniqid() . '.' . $ext;
-    if (move_uploaded_file($file['tmp_name'], '../uploads/nota/' . $nota_name)) {
-        compressImage('../uploads/nota/' . $nota_name);
-        $uploaded_files[] = $nota_name;
-    }
+    try {
+        $saved = smart_upload_foto($file, 'nota', '../uploads/nota/', 'nota_' . $kode_transaksi);
+        $uploaded_files[] = $saved;
+    } catch (Exception $e) {}
 }
 
 if (!empty($uploaded_files)) {
@@ -136,10 +135,7 @@ if ($has_new_nota) {
             foreach ($old_notas as $old_nota) {
                 $old_nota = trim($old_nota);
                 if (!empty($old_nota)) {
-                    $file_path = "../uploads/nota/" . $old_nota;
-                    if (file_exists($file_path)) {
-                        unlink($file_path);
-                    }
+                    delete_photo_asset($old_nota, '../uploads/nota/');
                 }
             }
         }

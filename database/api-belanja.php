@@ -119,6 +119,7 @@ function normalizeUploadedFiles($filesField)
 
 function uploadOneBuktiFile($file, $id, $index, $uploadDir)
 {
+    require_once __DIR__ . '/cloudinary_helper.php';
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         throw new Exception('Gagal upload file "' . ($file['name'] ?? '') . '" (kode error: ' . ($file['error'] ?? '?') . ')');
     }
@@ -131,13 +132,7 @@ function uploadOneBuktiFile($file, $id, $index, $uploadDir)
         throw new Exception('Ukuran file melebihi 5 MB: ' . $file['name']);
     }
 
-    $fileName   = 'bukti_' . $id . '_' . time() . '_' . $index . '_' . mt_rand(1000, 9999) . '.' . $ext;
-    $targetPath = $uploadDir . $fileName;
-    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-        throw new Exception('Gagal menyimpan file bukti transfer: ' . $file['name']);
-    }
-    compressImage($targetPath);
-    return $fileName;
+    return smart_upload_foto($file, 'bukti_transfer', $uploadDir, 'bukti_' . $id . '_' . $index);
 }
 
 function ensureBuktiTransferColumnIsText($koneksi)
@@ -1292,31 +1287,39 @@ try {
                     throw new Exception('Ukuran file melebihi 5MB');
                 }
 
-                if (move_uploaded_file($files['tmp_name'][$i], $targetPath)) {
-                    compressImage($targetPath);
-                    $filePath = $uploadDir . $fileName;
-
-                    foreach ($itemIds as $curItemId) {
-                        $pId = $itemPengajuanMap[$curItemId] ?? $pengajuanId;
-                        $stmt = $koneksi->prepare("
-                            INSERT INTO upload_nota
-                            (pengajuan_id, item_id, file_path, uploaded_at)
-                            VALUES (?, ?, ?, NOW())
-                        ");
-                        if ($stmt) {
-                            $stmt->bind_param("iis", $pId, $curItemId, $filePath);
-                            $stmt->execute();
-                            $stmt->close();
-                        }
-                    }
-
-                    $uploadedFiles[] = [
-                        'file_path' => $filePath,
-                        'file_name' => $files['name'][$i]
-                    ];
+                require_once __DIR__ . '/cloudinary_helper.php';
+                $singleFile = [
+                    'name'     => $files['name'][$i],
+                    'type'     => $files['type'][$i],
+                    'tmp_name' => $files['tmp_name'][$i],
+                    'error'    => $files['error'][$i],
+                    'size'     => $files['size'][$i],
+                ];
+                $uploadedResult = smart_upload_foto($singleFile, 'nota', $uploadDir, 'nota_' . $pengajuanId);
+                if (str_starts_with($uploadedResult, 'http://') || str_starts_with($uploadedResult, 'https://')) {
+                    $filePath = $uploadedResult;
                 } else {
-                    throw new Exception('Gagal mengupload file');
+                    $filePath = $uploadDir . $uploadedResult;
                 }
+
+                foreach ($itemIds as $curItemId) {
+                    $pId = $itemPengajuanMap[$curItemId] ?? $pengajuanId;
+                    $stmt = $koneksi->prepare("
+                        INSERT INTO upload_nota
+                        (pengajuan_id, item_id, file_path, uploaded_at)
+                        VALUES (?, ?, ?, NOW())
+                    ");
+                    if ($stmt) {
+                        $stmt->bind_param("iis", $pId, $curItemId, $filePath);
+                        $stmt->execute();
+                        $stmt->close();
+                    }
+                }
+
+                $uploadedFiles[] = [
+                    'file_path' => $filePath,
+                    'file_name' => $files['name'][$i]
+                ];
             }
 
             $msg = count($itemIds) > 1

@@ -110,7 +110,8 @@ function openPreviewBukti(files, titleText) {
     if (gallery) {
         gallery.innerHTML = '';
         files.forEach((file, idx) => {
-            const ext = file.split('.').pop().toLowerCase();
+            const fileUrl = (file.startsWith('http://') || file.startsWith('https://')) ? file : `../uploads/bukti_profit/${file}`;
+            const ext = file.split('?')[0].split('.').pop().toLowerCase();
             const item = document.createElement('div');
             item.className = 'preview-gallery-item';
 
@@ -119,16 +120,16 @@ function openPreviewBukti(files, titleText) {
                     <div class="preview-pdf-box">
                         <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         <span>Dokumen PDF ${files.length > 1 ? '#' + (idx + 1) : ''}</span>
-                        <a href="../uploads/bukti_profit/${file}" target="_blank" class="btn-lihat-bukti">Buka PDF ↗</a>
+                        <a href="${fileUrl}" target="_blank" class="btn-lihat-bukti">Buka PDF ↗</a>
                     </div>
                 `;
             } else {
                 item.innerHTML = `
                     <div class="preview-img-wrap">
-                        <img src="../uploads/bukti_profit/${file}" alt="Bukti ${idx + 1}" loading="lazy">
+                        <img src="${fileUrl}" alt="Bukti ${idx + 1}" loading="lazy">
                         <div class="preview-img-bar">
                             <span>Bukti #${idx + 1}</span>
-                            <a href="../uploads/bukti_profit/${file}" target="_blank" class="btn-link-sm">Buka Ukuran Penuh ↗</a>
+                            <a href="${fileUrl}" target="_blank" class="btn-link-sm">Buka Ukuran Penuh ↗</a>
                         </div>
                     </div>
                 `;

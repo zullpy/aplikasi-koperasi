@@ -69,41 +69,39 @@ if (isset($_FILES['bukti_transfer']) && $_FILES['bukti_transfer']['error'] == 0 
         exit;
     }
 
+    require_once __DIR__ . '/cloudinary_helper.php';
     $targetDir = '../uploads/bukti_transfer/';
-    if (!is_dir($targetDir)) {
-        @mkdir($targetDir, 0777, true);
+    try {
+        $bp_name = smart_upload_foto($_FILES['bukti_transfer'], 'bukti_transfer', $targetDir, 'bayar_' . $kode_transaksi);
+    } catch (Exception $e) {
+        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Gagal upload bukti: ' . $e->getMessage()];
+        header("Location: ../transaksi-pembelian-food/index.php");
+        exit;
     }
 
-    $bp_name = uniqid('bayar_') . '.' . $ext;
-    if (move_uploaded_file($_FILES['bukti_transfer']['tmp_name'], $targetDir . $bp_name)) {
-        compressImage($targetDir . $bp_name);
+    @mysqli_query($koneksi, "CREATE TABLE IF NOT EXISTS riwayat_pembayaran_pembelian (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        kode_transaksi VARCHAR(50) NOT NULL,
+        jumlah_bayar INT DEFAULT 0,
+        tanggal_bayar DATE NOT NULL,
+        bukti_pembayaran VARCHAR(255) DEFAULT NULL,
+        keterangan TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-        @mysqli_query($koneksi, "CREATE TABLE IF NOT EXISTS riwayat_pembayaran_pembelian (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            kode_transaksi VARCHAR(50) NOT NULL,
-            jumlah_bayar INT DEFAULT 0,
-            tanggal_bayar DATE NOT NULL,
-            bukti_pembayaran VARCHAR(255) DEFAULT NULL,
-            keterangan TEXT DEFAULT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $bp_esc = mysqli_real_escape_string($koneksi, $bp_name);
+    $tgl_esc = !empty($tanggal_pembelian) ? mysqli_real_escape_string($koneksi, $tanggal_pembelian) : date('Y-m-d');
+    $ket_esc = mysqli_real_escape_string($koneksi, 'Bukti Transfer');
 
-        $bp_esc = mysqli_real_escape_string($koneksi, $bp_name);
-        $tgl_esc = !empty($tanggal_pembelian) ? mysqli_real_escape_string($koneksi, $tanggal_pembelian) : date('Y-m-d');
-        $ket_esc = mysqli_real_escape_string($koneksi, 'Bukti Transfer');
+    mysqli_query($koneksi, "
+        INSERT INTO riwayat_pembayaran_pembelian(
+            kode_transaksi, jumlah_bayar, tanggal_bayar, bukti_pembayaran, keterangan
+        ) VALUES(
+            '$kode_transaksi', 0, '$tgl_esc', '$bp_esc', '$ket_esc'
+        )
+    ") or die('INSERT riwayat_pembayaran Error: ' . mysqli_error($koneksi));
 
-        mysqli_query($koneksi, "
-            INSERT INTO riwayat_pembayaran_pembelian(
-                kode_transaksi, jumlah_bayar, tanggal_bayar, bukti_pembayaran, keterangan
-            ) VALUES(
-                '$kode_transaksi', 0, '$tgl_esc', '$bp_esc', '$ket_esc'
-            )
-        ") or die('INSERT riwayat_pembayaran Error: ' . mysqli_error($koneksi));
-
-        $_SESSION['alert'] = ['icon' => 'success', 'title' => 'Berhasil', 'text' => 'Bukti transfer berhasil diunggah.'];
-    } else {
-        $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'Gagal menyimpan file bukti transfer.'];
-    }
+    $_SESSION['alert'] = ['icon' => 'success', 'title' => 'Berhasil', 'text' => 'Bukti transfer berhasil diunggah.'];
 } else {
     $_SESSION['alert'] = ['icon' => 'error', 'title' => 'Gagal', 'text' => 'File bukti transfer belum dipilih.'];
 }

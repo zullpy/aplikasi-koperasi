@@ -71,6 +71,9 @@ if (!function_exists('getBuktiUrl')) {
     {
         $filename = trim($filename);
         if (empty($filename)) return '';
+        if (str_starts_with($filename, 'http://') || str_starts_with($filename, 'https://')) {
+            return $filename;
+        }
         $baseName = basename($filename);
         $path1 = __DIR__ . '/../uploads/bukti_transfer/' . $baseName;
         if (file_exists($path1)) {
@@ -547,8 +550,10 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                          foreach ($notas as $index => $singleNota):
                                                              $singleNota = trim($singleNota);
                                                              if (empty($singleNota)) continue;
-                                                             $notaUrl = '../uploads/nota/' . rawurlencode($singleNota) . '?v=' . time();
-                                                             $isPdf = str_ends_with(strtolower($singleNota), '.pdf');
+                                                             $notaUrl = (str_starts_with($singleNota, 'http://') || str_starts_with($singleNota, 'https://'))
+                                                                 ? $singleNota
+                                                                 : ('../uploads/nota/' . rawurlencode($singleNota) . '?v=' . time());
+                                                             $isPdf = str_ends_with(strtolower(explode('?', $singleNota)[0]), '.pdf');
                                                              $notaNum = count($notas) > 1 ? ' ' . ($index + 1) : '';
                                                          ?>
                                                              <button type="button" class="nota-thumb-btn lihat-nota-btn" data-nota="<?= htmlspecialchars($notaUrl) ?>">
@@ -578,8 +583,10 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                          <?php foreach ($buktiPembayaranList as $index => $bp):
                                                              $bpFile = trim($bp['bukti_pembayaran']);
                                                              if (empty($bpFile)) continue;
-                                                             $bpUrl = getBuktiUrl($bpFile) . '?v=' . time();
-                                                             $isPdf = str_ends_with(strtolower($bpFile), '.pdf');
+                                                             $bpUrl = (str_starts_with($bpFile, 'http://') || str_starts_with($bpFile, 'https://'))
+                                                                 ? $bpFile
+                                                                 : (getBuktiUrl($bpFile) . '?v=' . time());
+                                                             $isPdf = str_ends_with(strtolower(explode('?', $bpFile)[0]), '.pdf');
                                                              $bpNum = count($buktiPembayaranList) > 1 ? ' ' . ($index + 1) : '';
                                                          ?>
                                                              <button type="button" class="nota-thumb-btn lihat-nota-btn transfer-thumb-btn" data-nota="<?= htmlspecialchars($bpUrl) ?>">

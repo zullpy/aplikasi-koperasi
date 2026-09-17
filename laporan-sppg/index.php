@@ -49,12 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi'])) {
             $maxSize  = 5 * 1024 * 1024;
 
             if (in_array($ekstensi, $allowed) && $file['size'] <= $maxSize) {
+                require_once __DIR__ . '/../database/cloudinary_helper.php';
                 $folderUpload = '../uploads/bukti_transfer/';
-                if (!is_dir($folderUpload)) mkdir($folderUpload, 0755, true);
-                $nama_file = 'kembali_' . $id_kembali . '_' . time() . '_' . uniqid() . '.' . $ekstensi;
-                if (move_uploaded_file($file['tmp_name'], $folderUpload . $nama_file)) {
-                    compressImage($folderUpload . $nama_file);
-                    $bukti_kembali = $nama_file;
+                try {
+                    $bukti_kembali = smart_upload_foto($file, 'bukti_transfer', $folderUpload, 'kembali_' . $id_kembali);
+                } catch (Exception $e) {
+                    $bukti_kembali = null;
                 }
             }
         }
@@ -947,7 +947,7 @@ $bisaTtd       = in_array($role_login_saat_ini, ['admin', 'purchase', 'purchase_
             if (list.length === 1) {
                 const file = list[0];
                 const ext = file.split('.').pop().toLowerCase();
-                const path = '../uploads/bukti_transfer/' + encodeURIComponent(file);
+                const path = file.startsWith('http') ? file : ('../uploads/bukti_transfer/' + encodeURIComponent(file));
                 bukaGambar(path, 'Bukti Transfer', ext === 'pdf');
                 return;
             }
@@ -958,7 +958,7 @@ $bisaTtd       = in_array($role_login_saat_ini, ['admin', 'purchase', 'purchase_
             if (grid) {
                 grid.innerHTML = list.map(function(file) {
                     const ext = file.split('.').pop().toLowerCase();
-                    const path = '../uploads/bukti_transfer/' + encodeURIComponent(file);
+                    const path = file.startsWith('http') ? file : ('../uploads/bukti_transfer/' + encodeURIComponent(file));
                     if (ext === 'pdf') {
                         return '<div class="nota-card-item" onclick="bukaGambar(\'' + path + '\', \'Bukti Transfer (PDF)\', true)" style="cursor:pointer;">' +
                                '<iframe src="' + path + '" style="width:100%;height:140px;border:none;pointer-events:none;"></iframe>' +

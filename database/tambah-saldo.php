@@ -19,17 +19,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['aksi']) && $_POST['ak
             $maxSize  = 5 * 1024 * 1024; // 5 MB
 
             if (in_array($ekstensi, $allowed) && $file['size'] <= $maxSize) {
+                require_once __DIR__ . '/cloudinary_helper.php';
                 $folderUpload = '../uploads/bukti_transfer/';
-                if (!is_dir($folderUpload)) {
-                    mkdir($folderUpload, 0755, true);
-                }
-
-                $nama_file_baru = 'bukti_' . $id_pengajuan . '_' . time() . '_' . uniqid() . '.' . $ekstensi;
-
-                if (move_uploaded_file($file['tmp_name'], $folderUpload . $nama_file_baru)) {
-                    compressImage($folderUpload . $nama_file_baru);
-                } else {
-                    $nama_file_baru = null; // gagal pindah file, jangan simpan nama filenya
+                try {
+                    $nama_file_baru = smart_upload_foto($file, 'bukti_transfer', $folderUpload, 'bukti_' . $id_pengajuan);
+                } catch (Exception $e) {
+                    $nama_file_baru = null;
                 }
             }
         }

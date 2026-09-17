@@ -73,14 +73,12 @@ if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] =
         exit;
     }
 
+    require_once __DIR__ . '/cloudinary_helper.php';
     $bp_target_dir = '../uploads/bukti_transfer/';
-    if (!is_dir($bp_target_dir)) {
-        @mkdir($bp_target_dir, 0777, true);
-    }
-    $bp_name = uniqid('bayar_') . '.' . $ext;
-    if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], $bp_target_dir . $bp_name)) {
-        compressImage($bp_target_dir . $bp_name);
-        $bukti_pembayaran = $bp_name;
+    try {
+        $bukti_pembayaran = smart_upload_foto($_FILES['bukti_pembayaran'], 'bukti_transfer', $bp_target_dir, 'bayar_' . $kode_transaksi);
+    } catch (Exception $e) {
+        $bukti_pembayaran = null;
     }
 }
 

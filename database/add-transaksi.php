@@ -94,20 +94,19 @@ if (!in_array($status_pembayaran, ['lunas', 'sebagian'])) {
 $jumlah_dibayar_raw = preg_replace('/[^0-9]/', '', $_POST['jumlah_dibayar'] ?? '');
 $jumlah_dibayar_awal = ($jumlah_dibayar_raw === '') ? 0 : (int) $jumlah_dibayar_raw;
 
+require_once __DIR__ . '/cloudinary_helper.php';
+
 // Upload bukti pembayaran awal (opsional, dipakai saat status lunas/sebagian dengan bayar awal)
 $bukti_pembayaran_awal = null;
 if (isset($_FILES['bukti_pembayaran']) && $_FILES['bukti_pembayaran']['error'] == 0 && $_FILES['bukti_pembayaran']['size'] > 0) {
     $bp_ext = strtolower(pathinfo($_FILES['bukti_pembayaran']['name'], PATHINFO_EXTENSION));
     $bp_allowed = ['jpg', 'jpeg', 'png', 'pdf'];
-    if (in_array($bp_ext, $bp_allowed) && $_FILES['bukti_pembayaran']['size'] <= (2 * 1024 * 1024)) {
+    if (in_array($bp_ext, $bp_allowed) && $_FILES['bukti_pembayaran']['size'] <= (5 * 1024 * 1024)) {
         $bp_target_dir = '../uploads/bukti_transfer/';
-        if (!is_dir($bp_target_dir)) {
-            @mkdir($bp_target_dir, 0777, true);
-        }
-        $bp_name = uniqid('bayar_') . '.' . $bp_ext;
-        if (move_uploaded_file($_FILES['bukti_pembayaran']['tmp_name'], $bp_target_dir . $bp_name)) {
-            compressImage($bp_target_dir . $bp_name);
-            $bukti_pembayaran_awal = $bp_name;
+        try {
+            $bukti_pembayaran_awal = smart_upload_foto($_FILES['bukti_pembayaran'], 'bukti_transfer', $bp_target_dir, 'bayar_' . $kode_transaksi);
+        } catch (Exception $e) {
+            $bukti_pembayaran_awal = null;
         }
     }
 }
@@ -165,12 +164,10 @@ foreach ($all_files as $file) {
 
 $uploaded_files = [];
 foreach ($all_files as $file) {
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-    $nota_name = uniqid() . '.' . $ext;
-    if (move_uploaded_file($file['tmp_name'], '../uploads/nota/' . $nota_name)) {
-        compressImage('../uploads/nota/' . $nota_name);
-        $uploaded_files[] = $nota_name;
-    }
+    try {
+        $saved = smart_upload_foto($file, 'nota', '../uploads/nota/', 'nota_' . $kode_transaksi);
+        $uploaded_files[] = $saved;
+    } catch (Exception $e) {}
 }
 
 $nota = null;

@@ -424,19 +424,17 @@ function uploadFileKoperasi($file, $subfolder, $prefix)
     finfo_close($finfo);
     if (!in_array($mime, $allowedMime, true)) return false;
 
+    require_once __DIR__ . '/cloudinary_helper.php';
     $targetDir = __DIR__ . '/../uploads/' . $subfolder . '/';
-    if (!is_dir($targetDir)) {
-        mkdir($targetDir, 0755, true);
+    try {
+        $saved = smart_upload_foto($file, 'approval', $targetDir, $prefix);
+        if (str_starts_with($saved, 'http://') || str_starts_with($saved, 'https://')) {
+            return $saved;
+        }
+        return $subfolder . '/' . $saved;
+    } catch (Exception $e) {
+        return false;
     }
-
-    $namaFile = $prefix . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $target   = $targetDir . $namaFile;
-
-    if (!move_uploaded_file($file['tmp_name'], $target)) return false;
-    compressImage($target);
-
-    // Path relatif ini yang disimpan di DB & dipakai untuk menampilkan gambar
-    return $subfolder . '/' . $namaFile;
 }
 
 // ===== HELPER UPLOAD MULTI-FILE NOTA (bisa lebih dari 1 file sekaligus) =====
@@ -632,29 +630,17 @@ function simpanFileTtdKoperasi($base64Image)
     if (empty($base64Image) || strpos($base64Image, 'base64,') === false) {
         return false;
     }
-
-    [, $data] = explode('base64,', $base64Image, 2);
-    $data = base64_decode(str_replace(' ', '+', $data));
-
-    // Tanda tangan kosong biasanya menghasilkan PNG blank yang tetap punya
-    // ukuran, jadi validasi minimal ukuran byte saja untuk menolak data rusak.
-    if ($data === false || strlen($data) < 100) {
-        return false;
-    }
-
+    require_once __DIR__ . '/cloudinary_helper.php';
     $targetDir = __DIR__ . '/../uploads/ttd_koperasi/';
-    if (!is_dir($targetDir)) {
-        mkdir($targetDir, 0755, true);
-    }
-
-    $namaFile = 'ttd_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.png';
-    $target   = $targetDir . $namaFile;
-
-    if (file_put_contents($target, $data) === false) {
+    try {
+        $saved = smart_upload_base64($base64Image, 'approval', $targetDir, 'ttd');
+        if (str_starts_with($saved, 'http://') || str_starts_with($saved, 'https://')) {
+            return $saved;
+        }
+        return 'ttd_koperasi/' . $saved;
+    } catch (Exception $e) {
         return false;
     }
-
-    return 'ttd_koperasi/' . $namaFile;
 }
 
 /**
@@ -667,39 +653,15 @@ function simpanBuktiTransferApprovalKoperasi($base64Image)
     if (empty($base64Image) || strpos($base64Image, 'base64,') === false) {
         return false;
     }
-
-    // Ambil mime type dari header data URL, misal "data:image/jpeg;base64,...."
-    $ext = 'png';
-    if (preg_match('/^data:image\/(png|jpe?g);base64,/i', $base64Image, $m)) {
-        $ext = strtolower($m[1]) === 'jpg' ? 'jpg' : strtolower($m[1]);
-    } else {
-        return false; // bukan gambar yang didukung
-    }
-
-    [, $data] = explode('base64,', $base64Image, 2);
-    $data = base64_decode(str_replace(' ', '+', $data));
-
-    if ($data === false || strlen($data) < 100) {
-        return false;
-    }
-
-    $maxSize = 5 * 1024 * 1024; // 5MB
-    if (strlen($data) > $maxSize) {
-        return false;
-    }
-
+    require_once __DIR__ . '/cloudinary_helper.php';
     $targetDir = __DIR__ . '/../uploads/bukti_approval_koperasi/';
-    if (!is_dir($targetDir)) {
-        mkdir($targetDir, 0755, true);
-    }
-
-    $namaFile = 'bukti_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-    $target   = $targetDir . $namaFile;
-
-    if (file_put_contents($target, $data) === false) {
+    try {
+        $saved = smart_upload_base64($base64Image, 'approval', $targetDir, 'bukti');
+        if (str_starts_with($saved, 'http://') || str_starts_with($saved, 'https://')) {
+            return $saved;
+        }
+        return 'bukti_approval_koperasi/' . $saved;
+    } catch (Exception $e) {
         return false;
     }
-    compressImage($target);
-
-    return 'bukti_approval_koperasi/' . $namaFile;
 }

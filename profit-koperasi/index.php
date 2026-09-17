@@ -76,49 +76,17 @@ function uploadBuktiMultiple($fileKey, $uploadDir) {
     $uploaded = [];
     $allowed  = ['jpg','jpeg','png','webp','pdf'];
 
+    require_once __DIR__ . '/../database/cloudinary_helper.php';
+
     foreach ($filesToProcess as $f) {
         $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
         if (!in_array($ext, $allowed)) continue;
         if ($f['size'] > 5 * 1024 * 1024) continue;
 
-        $newName  = uniqid('bukti_', true) . '.' . $ext;
-        $fullPath = $uploadDir . $newName;
-
-        if (move_uploaded_file($f['tmp_name'], $fullPath)) {
-            // Kompresi gambar jika GD terinstall
-            if (in_array($ext, ['jpg','jpeg','png','webp']) && extension_loaded('gd')) {
-                $info = @getimagesize($fullPath);
-                if ($info) {
-                    [$w, $h, $type] = $info;
-                    $maxW    = 1000;
-                    $quality = 60;
-                    $img     = null;
-                    if ($type === IMAGETYPE_JPEG)  $img = @imagecreatefromjpeg($fullPath);
-                    elseif ($type === IMAGETYPE_PNG) $img = @imagecreatefrompng($fullPath);
-                    elseif (defined('IMAGETYPE_WEBP') && $type === IMAGETYPE_WEBP && function_exists('imagecreatefromwebp'))
-                        $img = @imagecreatefromwebp($fullPath);
-                    if ($img) {
-                        if ($w > $maxW) {
-                            $newH    = (int) round($h * ($maxW / $w));
-                            $resized = imagecreatetruecolor($maxW, $newH);
-                            if ($type === IMAGETYPE_PNG) {
-                                imagealphablending($resized, false);
-                                imagesavealpha($resized, true);
-                            }
-                            imagecopyresampled($resized, $img, 0, 0, 0, 0, $maxW, $newH, $w, $h);
-                            imagedestroy($img);
-                            $img = $resized;
-                        }
-                        if ($type === IMAGETYPE_JPEG)  imagejpeg($img, $fullPath, $quality);
-                        elseif ($type === IMAGETYPE_PNG)  imagepng($img, $fullPath, (int) round(9 - ($quality / 100 * 9)));
-                        elseif (defined('IMAGETYPE_WEBP') && $type === IMAGETYPE_WEBP && function_exists('imagewebp'))
-                            imagewebp($img, $fullPath, $quality);
-                        imagedestroy($img);
-                    }
-                }
-            }
-            $uploaded[] = $newName;
-        }
+        try {
+            $saved = smart_upload_foto($f, 'profit', $uploadDir, 'bukti_profit');
+            $uploaded[] = $saved;
+        } catch (Exception $e) {}
     }
     return $uploaded;
 }
