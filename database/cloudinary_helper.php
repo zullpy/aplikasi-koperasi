@@ -602,8 +602,9 @@ function delete_photo_asset(?string $photo, string $localDir = ''): bool
         $timestamp = time();
 
         $paramsToSign = [
-            'public_id' => $publicId,
-            'timestamp' => $timestamp,
+            'invalidate' => 'true',
+            'public_id'  => $publicId,
+            'timestamp'  => $timestamp,
         ];
         ksort($paramsToSign);
 
@@ -614,10 +615,11 @@ function delete_photo_asset(?string $photo, string $localDir = ''): bool
         $signature = sha1(implode('&', $signParts) . $apiSecret);
 
         $postFields = [
-            'public_id' => $publicId,
-            'api_key'   => $apiKey,
-            'timestamp' => $timestamp,
-            'signature' => $signature,
+            'invalidate' => 'true',
+            'public_id'  => $publicId,
+            'api_key'    => $apiKey,
+            'timestamp'  => $timestamp,
+            'signature'  => $signature,
         ];
 
         $ch = curl_init("https://api.cloudinary.com/v1_1/{$cloudName}/image/destroy");
