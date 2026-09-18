@@ -126,7 +126,8 @@ if ($has_new_nota) {
     if ($get_old_nota && mysqli_num_rows($get_old_nota) > 0) {
         $row = mysqli_fetch_assoc($get_old_nota);
         if (!empty($row['nota'])) {
-            $old_notas = explode(',', $row['nota']);
+            $rawOldNotas = trim($row['nota']);
+            $old_notas = preg_split('/,(?=\s*https?:\/\/|\s*[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|pdf))/i', $rawOldNotas);
             foreach ($old_notas as $old_nota) {
                 $old_nota = trim($old_nota);
                 if (!empty($old_nota)) {

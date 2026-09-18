@@ -42,7 +42,10 @@ try {
     }
 
     $kodeTransaksi = $row['kode_transaksi'];
-    $currentNotas = explode(',', $row['nota'] ?? '');
+    $rawNotas = trim($row['nota'] ?? '');
+    $currentNotas = !empty($rawNotas) 
+        ? preg_split('/,(?=\s*https?:\/\/|\s*[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|pdf))/i', $rawNotas)
+        : [];
     $updatedNotas = [];
     $fileToDelete = '';
 

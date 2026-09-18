@@ -87,6 +87,19 @@ if (!function_exists('getBuktiUrl')) {
     }
 }
 
+if (!function_exists('parseNotaList')) {
+    function parseNotaList($rawNota)
+    {
+        $rawNota = trim((string)$rawNota);
+        if (empty($rawNota)) return [];
+        if (!str_contains($rawNota, ',')) {
+            return [$rawNota];
+        }
+        $parts = preg_split('/,(?=\s*https?:\/\/|\s*[a-zA-Z0-9_.-]+\.(?:jpe?g|png|webp|pdf))/i', $rawNota);
+        return array_values(array_filter(array_map('trim', $parts)));
+    }
+}
+
 $buktiPembayaranMap = [];
 $supplierBuktiMap = [];
 $supplierIdBuktiMap = [];
@@ -546,7 +559,7 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                      </span>
                                                      <?php if ($hasNota): ?>
                                                          <?php
-                                                         $notas = explode(',', $supplierData['nota']);
+                                                          $notas = parseNotaList($supplierData['nota']);
                                                          foreach ($notas as $index => $singleNota):
                                                              $singleNota = trim($singleNota);
                                                              if (empty($singleNota)) continue;
