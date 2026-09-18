@@ -1,8 +1,9 @@
 <?php
-// Anti bocor
-if (ob_get_level()) ob_clean();
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Anti bocor output non-JSON
+while (ob_get_level()) { ob_end_clean(); }
+ob_start();
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_USER_DEPRECATED);
+ini_set('display_errors', 0);
 header('Content-Type: application/json; charset=utf-8');
 
 // ─── Session Guard (API-safe versi dari auth.php) ──────────────────────────
@@ -133,6 +134,30 @@ function uploadOneBuktiFile($file, $id, $index, $uploadDir)
     }
 
     return smart_upload_foto($file, 'bukti_transfer', $uploadDir, 'bukti_' . $id . '_' . $index);
+}
+
+function uploadBuktiFilesBatch($filesToUpload, $id, $uploadDir): array
+{
+    require_once __DIR__ . '/cloudinary_helper.php';
+    $validFiles = [];
+    $allowed = ['jpg', 'jpeg', 'png', 'pdf', 'webp'];
+    foreach ($filesToUpload as $idx => $file) {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new Exception('Gagal upload file "' . ($file['name'] ?? '') . '" (kode error: ' . ($file['error'] ?? '?') . ')');
+        }
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowed)) {
+            throw new Exception('Tipe file bukti transfer tidak diizinkan: ' . $file['name']);
+        }
+        if ($file['size'] > 5 * 1024 * 1024) {
+            throw new Exception('Ukuran file melebihi 5 MB: ' . $file['name']);
+        }
+        $validFiles[$idx] = $file;
+    }
+    if (empty($validFiles)) return [];
+
+    $results = smart_upload_foto_batch($validFiles, 'bukti_transfer', $uploadDir, 'bukti_' . $id);
+    return array_values(array_filter($results));
 }
 
 function ensureBuktiTransferColumnIsText($koneksi)
@@ -373,13 +398,11 @@ try {
                     if (!empty($idsToDelete)) {
                         $idsToDeleteStr = implode(',', array_map('intval', $idsToDelete));
 
+                        require_once __DIR__ . '/cloudinary_helper.php';
                         $resNotaHapus = $koneksi->query("SELECT file_path FROM upload_nota WHERE item_id IN ($idsToDeleteStr)");
                         if ($resNotaHapus) {
                             while ($n = $resNotaHapus->fetch_assoc()) {
-                                $fp = $n['file_path'];
-                                $abs = __DIR__ . '/' . ltrim($fp, './');
-                                if (file_exists($abs)) @unlink($abs);
-                                if (file_exists($fp)) @unlink($fp);
+                                delete_photo_asset($n['file_path'], __DIR__ . '/../uploads/nota/');
                             }
                         }
                         $koneksi->query("DELETE FROM upload_nota WHERE item_id IN ($idsToDeleteStr)");
@@ -738,13 +761,11 @@ try {
 
             $koneksi->begin_transaction();
             try {
+                require_once __DIR__ . '/cloudinary_helper.php';
                 $resNota = $koneksi->query("SELECT file_path FROM upload_nota WHERE item_id IN ($idListStr)");
                 if ($resNota) {
                     while ($nota = $resNota->fetch_assoc()) {
-                        $filePath = $nota['file_path'];
-                        $absPath = __DIR__ . '/' . ltrim($filePath, './');
-                        if (file_exists($absPath)) @unlink($absPath);
-                        if (file_exists($filePath)) @unlink($filePath);
+                        delete_photo_asset($nota['file_path'], __DIR__ . '/../uploads/nota/');
                     }
                 }
                 $koneksi->query("DELETE FROM upload_nota WHERE item_id IN ($idListStr)");
@@ -798,29 +819,20 @@ try {
                 throw new Exception('ID tidak valid');
             }
 
+            require_once __DIR__ . '/cloudinary_helper.php';
             $resPb = $koneksi->query("SELECT bukti_transfer FROM pengajuan_belanja WHERE id = $id");
             if ($resPb && $resPb->num_rows > 0) {
                 $pbRow = $resPb->fetch_assoc();
                 $bList = decodeBuktiList($pbRow['bukti_transfer'] ?? null);
                 foreach ($bList as $bFile) {
-                    $bPath = __DIR__ . '/../uploads/bukti_transfer/' . basename($bFile);
-                    if (file_exists($bPath) && is_file($bPath)) {
-                        @unlink($bPath);
-                    }
+                    delete_photo_asset($bFile, __DIR__ . '/../uploads/bukti_transfer/');
                 }
             }
 
             $resNota = $koneksi->query("SELECT file_path FROM upload_nota WHERE pengajuan_id = $id");
             if ($resNota) {
                 while ($nota = $resNota->fetch_assoc()) {
-                    $filePath = $nota['file_path'];
-                    $absPath = __DIR__ . '/' . ltrim($filePath, './');
-                    if (file_exists($absPath)) {
-                        unlink($absPath);
-                    }
-                    if (file_exists($filePath)) {
-                        unlink($filePath);
-                    }
+                    delete_photo_asset($nota['file_path'], __DIR__ . '/../uploads/nota/');
                 }
             }
 
@@ -1182,12 +1194,9 @@ try {
 
             // Hapus file fisik dari disk jika foto dihapus dari daftar
             $uploadDir = '../uploads/bukti_transfer/';
-            $removedFiles = array_diff($oldBuktiList, $existingList);
+            require_once __DIR__ . '/cloudinary_helper.php';
             foreach ($removedFiles as $fileToRemove) {
-                $filePath = $uploadDir . basename($fileToRemove);
-                if (file_exists($filePath) && is_file($filePath)) {
-                    @unlink($filePath);
-                }
+                delete_photo_asset($fileToRemove, $uploadDir);
             }
 
             $filesToUpload = normalizeUploadedFiles($_FILES['bukti_transfer'] ?? null);
@@ -1195,9 +1204,7 @@ try {
             if (!empty($filesToUpload)) {
                 $uploadDir = '../uploads/bukti_transfer/';
                 if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
-                foreach ($filesToUpload as $idx => $file) {
-                    $newFileNames[] = uploadOneBuktiFile($file, $id, $idx, $uploadDir);
-                }
+                $newFileNames = uploadBuktiFilesBatch($filesToUpload, $id, $uploadDir);
             }
 
             $finalList = array_merge($existingList, $newFileNames);
@@ -1268,34 +1275,36 @@ try {
                 mkdir($uploadDir, 0777, true);
             }
 
-            $uploadedFiles = [];
             $files = $_FILES['files'];
+            $fileItems = [];
+            $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
             for ($i = 0; $i < count($files['name']); $i++) {
                 if ($files['error'][$i] !== UPLOAD_ERR_OK) {
                     throw new Exception('Error upload file: ' . $files['error'][$i]);
                 }
-
-                $fileName   = time() . '_' . $i . '_' . basename($files['name'][$i]);
-                $targetPath = $uploadDir . $fileName;
-                $fileType   = strtolower(pathinfo($targetPath, PATHINFO_EXTENSION));
-                $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf'];
-
+                $fileType = strtolower(pathinfo($files['name'][$i], PATHINFO_EXTENSION));
                 if (!in_array($fileType, $allowedTypes)) {
                     throw new Exception('Tipe file tidak diizinkan. Hanya JPG, PNG, dan PDF');
                 }
                 if ($files['size'][$i] > 5 * 1024 * 1024) {
-                    throw new Exception('Ukuran file melebihi 5MB');
+                    throw new Exception('Ukuran file melebihi 5MB: ' . $files['name'][$i]);
                 }
-
-                require_once __DIR__ . '/cloudinary_helper.php';
-                $singleFile = [
+                $fileItems[] = [
                     'name'     => $files['name'][$i],
                     'type'     => $files['type'][$i],
                     'tmp_name' => $files['tmp_name'][$i],
                     'error'    => $files['error'][$i],
                     'size'     => $files['size'][$i],
                 ];
-                $uploadedResult = smart_upload_foto($singleFile, 'nota', $uploadDir, 'nota_' . $pengajuanId);
+            }
+
+            require_once __DIR__ . '/cloudinary_helper.php';
+            // Upload paralel simultan (3-5 file selesai sekaligus dalam ~1.5 detik)
+            $uploadedResults = smart_upload_foto_batch($fileItems, 'nota', $uploadDir, 'nota_' . $pengajuanId);
+
+            $uploadedFiles = [];
+            foreach ($uploadedResults as $i => $uploadedResult) {
+                if (empty($uploadedResult)) continue;
                 if (str_starts_with($uploadedResult, 'http://') || str_starts_with($uploadedResult, 'https://')) {
                     $filePath = $uploadedResult;
                 } else {
@@ -1347,16 +1356,9 @@ try {
                 throw new Exception('File path nota tidak boleh kosong');
             }
 
-            // Normalisasi & hapus file fisik dari filesystem
-            $absPath1 = __DIR__ . '/' . ltrim($filePath, './');
-            $absPath2 = $_SERVER['DOCUMENT_ROOT'] . '/' . ltrim($filePath, './');
-            $absPath3 = $filePath;
-            $realPath = realpath(__DIR__ . '/' . $filePath);
-
-            if (file_exists($absPath1)) @unlink($absPath1);
-            if (file_exists($absPath2)) @unlink($absPath2);
-            if (file_exists($absPath3)) @unlink($absPath3);
-            if ($realPath && file_exists($realPath)) @unlink($realPath);
+            require_once __DIR__ . '/cloudinary_helper.php';
+            // Hapus file fisik secara permanen dari Cloudinary atau disk lokal
+            delete_photo_asset($filePath, __DIR__ . '/../uploads/nota/');
 
             // Hapus dari tabel upload_nota
             $stmt = $koneksi->prepare("DELETE FROM upload_nota WHERE file_path = ?");
@@ -1526,10 +1528,7 @@ try {
             $pbRow = $rowPb->fetch_assoc();
             $existingList = decodeBuktiList($pbRow['bukti_transfer'] ?? null);
 
-            $newFileNames = [];
-            foreach ($filesToUpload as $idx => $file) {
-                $newFileNames[] = uploadOneBuktiFile($file, $id, $idx, $uploadDir);
-            }
+            $newFileNames = uploadBuktiFilesBatch($filesToUpload, $id, $uploadDir);
 
             $finalList = array_merge($existingList, $newFileNames);
             $buktiJson = encodeBuktiList($finalList);
@@ -1569,9 +1568,7 @@ try {
             if (!empty($filesToUpload)) {
                 $uploadDir = '../uploads/bukti_transfer/';
                 if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
-                foreach ($filesToUpload as $idx => $file) {
-                    $newFileNames[] = uploadOneBuktiFile($file, $id, $idx, $uploadDir);
-                }
+                $newFileNames = uploadBuktiFilesBatch($filesToUpload, $id, $uploadDir);
             }
 
             $finalList = array_merge($existingList, $newFileNames);
@@ -1618,6 +1615,7 @@ try {
             throw new Exception('Action tidak dikenali: ' . $action);
     }
 } catch (Exception $e) {
+    while (ob_get_level()) { ob_end_clean(); }
     http_response_code(400);
     echo json_encode([
         'success' => false,

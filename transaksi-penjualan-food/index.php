@@ -349,6 +349,31 @@ $total_faktur = mysqli_fetch_assoc($q_faktur)['total'];
                 </div>
             </form>
         </div>
+    <!-- MODAL PREVIEW BUKTI PEMBAYARAN PERSIS SEPERTI DOMPET HARIAN -->
+    <div id="buktiPreviewModal" class="modal-overlay-dompet" style="display:none;">
+        <div class="modal-dompet">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <rect x="1" y="2.5" width="16" height="13" rx="1.5" stroke="#fff" stroke-width="1.5" />
+                            <circle cx="5.5" cy="8" r="1.5" fill="#fff" />
+                            <path d="M1 15l5-5 3 3 2.5-2.5L17 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="modal-title" id="buktiPreviewTitle">Bukti Pembayaran</div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeBuktiPreview()" aria-label="Tutup">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="nota-modal-body" id="buktiPreviewBody"></div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeBuktiPreview()" class="btn-cancel">Tutup</button>
+            </div>
+        </div>
     </div>
 
     <?php include '../components/made-by.php'; ?>

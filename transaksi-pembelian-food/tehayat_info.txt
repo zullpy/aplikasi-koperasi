@@ -15,7 +15,7 @@
             "volume": "5.000",
             "satuan": "KARTON",
             "tanggal_pembelian": "2026-07-26",
-            "nota": "6a7237908f07d.jpeg",
+            "nota": null,
             "harga_jual_eceran": "500",
             "harga_jual_dus": "212000",
             "nama_supplier": "PRIBUMI TASIK JAYA"
@@ -35,7 +35,7 @@
             "volume": "5.000",
             "satuan": "KARTON",
             "tanggal_pembelian": "2026-07-26",
-            "nota": "6a7237908f07d.jpeg",
+            "nota": null,
             "harga_jual_eceran": "500",
             "harga_jual_dus": "234000",
             "nama_supplier": "PRIBUMI TASIK JAYA"

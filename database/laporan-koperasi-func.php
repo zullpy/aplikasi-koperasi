@@ -332,9 +332,9 @@ function hapusBarangItemKoperasi($koneksi, $itemId)
     $stmt->close();
 
     if ($row && !empty($row['nota_path'])) {
+        require_once __DIR__ . '/cloudinary_helper.php';
         foreach (decodeNotaPathKoperasi($row['nota_path']) as $notaFile) {
-            $filePath = __DIR__ . '/../uploads/' . $notaFile;
-            if (is_file($filePath)) @unlink($filePath);
+            delete_photo_asset($notaFile, __DIR__ . '/../uploads/');
         }
     }
 
@@ -571,8 +571,8 @@ function simpanTtdKoperasi($koneksi, $pengajuanId, $role, $signedBy, $base64Imag
     $stmt->close();
 
     if ($lama && !empty($lama['signature_path'])) {
-        $fileLama = __DIR__ . '/../uploads/' . $lama['signature_path'];
-        if (is_file($fileLama)) @unlink($fileLama);
+        require_once __DIR__ . '/cloudinary_helper.php';
+        delete_photo_asset($lama['signature_path'], __DIR__ . '/../uploads/');
     }
 
     $stmt = $koneksi->prepare("
@@ -608,8 +608,8 @@ function hapusTtdKoperasi($koneksi, $pengajuanId, $role)
     if (!$row) return true; // memang belum ada, anggap sukses (idempotent)
 
     if (!empty($row['signature_path'])) {
-        $file = __DIR__ . '/../uploads/' . $row['signature_path'];
-        if (is_file($file)) @unlink($file);
+        require_once __DIR__ . '/cloudinary_helper.php';
+        delete_photo_asset($row['signature_path'], __DIR__ . '/../uploads/');
     }
 
     $stmt = $koneksi->prepare("DELETE FROM ttd_laporan_koperasi WHERE pengajuan_id = ? AND role = ?");

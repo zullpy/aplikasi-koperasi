@@ -28,10 +28,8 @@ if(isset($_GET['id'])){
                     // Check if any other row in transaksi_pembelian uses this specific file name
                     $check_other = mysqli_query($koneksi, "SELECT id_pembelian FROM transaksi_pembelian WHERE nota LIKE '%" . mysqli_real_escape_string($koneksi, $old_nota) . "%' AND id_pembelian != '$id'");
                     if ($check_other && mysqli_num_rows($check_other) == 0) {
-                        $file_path = "../uploads/nota/" . $old_nota;
-                        if(file_exists($file_path)) {
-                            unlink($file_path);
-                        }
+                        require_once __DIR__ . '/cloudinary_helper.php';
+                        delete_photo_asset($old_nota, '../uploads/nota/');
                     }
                 }
             }

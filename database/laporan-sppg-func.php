@@ -174,7 +174,15 @@ function hapusBarangItem($koneksi, $item_id)
         return false; // item tidak ditemukan, batal
     }
 
-    // Hapus baris nota terkait item ini (jika ada)
+    // Hapus file fisik nota terkait item ini (Cloudinary / lokal)
+    require_once __DIR__ . '/cloudinary_helper.php';
+    $resNota = mysqli_query($koneksi, "SELECT file_path FROM upload_nota WHERE item_id = " . intval($item_id));
+    if ($resNota) {
+        while ($n = mysqli_fetch_assoc($resNota)) {
+            delete_photo_asset($n['file_path'], __DIR__ . '/../uploads/nota/');
+        }
+    }
+
     $sqlNota  = "DELETE FROM upload_nota WHERE item_id = ?";
     $stmtNota = mysqli_prepare($koneksi, $sqlNota);
     mysqli_stmt_bind_param($stmtNota, 'i', $item_id);

@@ -118,12 +118,13 @@ async function openDetail(id) {
     if (data.pembayaran && data.pembayaran.length > 0) {
         payHtml = `<div class="riwayat-section"><h4><i class="ph ph-receipt"></i> Riwayat Pembayaran</h4>`;
         data.pembayaran.forEach(p => {
+            const bUrl = (p.bukti_bayar && p.bukti_bayar.startsWith('http')) ? p.bukti_bayar : ('../uploads/bukti-bayar/' + p.bukti_bayar);
             payHtml += `
                 <div class="riwayat-item">
                     <div class="riwayat-info">
                         <strong>${new Date(p.tanggal_bayar).toLocaleString('id-ID')}</strong>
                         <small>${p.keterangan || '-'}</small>
-                        ${p.bukti_bayar ? `<a href="../uploads/bukti-bayar/${p.bukti_bayar}" target="_blank" class="bukti-link"><i class="ph ph-image"></i> Lihat Bukti</a>` : ''}
+                        ${p.bukti_bayar ? `<button type="button" class="bukti-link" onclick="openPreviewBuktiBayar('${bUrl}', '${p.bukti_bayar}', ${p.id}, '${data.no_faktur || data.nama_pelanggan || 'Pelanggan'}')"><i class="ph ph-image"></i> Lihat Bukti</button>` : ''}
                     </div>
                     <div class="riwayat-amount">Rp ${Number(p.jumlah_bayar).toLocaleString('id-ID')}</div>
                 </div>`;
@@ -135,6 +136,145 @@ async function openDetail(id) {
     document.getElementById('modalDetail').classList.add('active');
 }
 function closeDetail() { document.getElementById('modalDetail').classList.remove('active'); }
+
+function closeBuktiPreview() {
+    const modal = document.getElementById('buktiPreviewModal');
+    if (modal) modal.style.display = 'none';
+    const body = document.getElementById('buktiPreviewBody');
+    if (body) body.innerHTML = '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('buktiPreviewModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeBuktiPreview();
+        });
+    }
+});
+
+function openPreviewBuktiBayar(url, rawFile, idPembayaran, titleInfo) {
+    const modal = document.getElementById('buktiPreviewModal');
+    const title = document.getElementById('buktiPreviewTitle');
+    const body = document.getElementById('buktiPreviewBody');
+    if (!modal || !body) return;
+
+    if (title) title.textContent = 'Bukti Pembayaran — ' + (titleInfo || 'Pelanggan');
+
+    const isPdf = url.toLowerCase().split('?')[0].endsWith('.pdf');
+    body.innerHTML = `
+        <div class="nota-preview-item">
+            <div class="nota-preview-label">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <rect x="1" y="2" width="12" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+                    <circle cx="4.5" cy="6" r="1.2" fill="currentColor"/>
+                    <path d="M1 12l4-4 2.5 2.5 2-2L13 12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Bukti Pembayaran
+            </div>
+            ${isPdf
+                ? `<div class="nota-preview-pdf-wrap"><embed src="${url}" type="application/pdf" class="nota-preview-pdf"></div>`
+                : `<img src="${url}" alt="Bukti Bayar" class="nota-preview-img" onclick="window.open('${url}', '_blank')">`
+            }
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+                <button type="button" class="btn-delete-nota" onclick="hapusBuktiDariPreview('${url}', '${rawFile || url}', ${idPembayaran})">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                        <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Hapus Bukti
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+async function hapusBuktiDariPreview(url, rawFile, idPembayaran) {
+    const result = await Swal.fire({
+        title: 'Hapus Bukti Pembayaran?',
+        text: 'File bukti pembayaran fisik akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Hapus Permanen',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'swal-kopdes' },
+        didOpen: () => {
+            const container = document.querySelector('.swal2-container');
+            if (container) container.style.zIndex = '99999999';
+        }
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Menghapus...',
+        text: 'Sedang menghapus file fisik...',
+        allowOutsideClick: false,
+        customClass: { popup: 'swal-kopdes' },
+        didOpen: () => {
+            const container = document.querySelector('.swal2-container');
+            if (container) container.style.zIndex = '99999999';
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const res = await fetch('../database/delete-bukti-bayar.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: idPembayaran,
+                file: rawFile || url,
+                type: 'penjualan'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeBuktiPreview();
+            await Swal.fire({
+                icon: 'success',
+                title: 'Terhapus!',
+                text: data.message || 'Bukti berhasil dihapus permanen.',
+                timer: 1500,
+                showConfirmButton: false,
+                customClass: { popup: 'swal-kopdes' },
+                didOpen: () => {
+                    const container = document.querySelector('.swal2-container');
+                    if (container) container.style.zIndex = '99999999';
+                }
+            });
+
+            // Update in-place tanpa reload
+            const targetBtn = document.querySelector(`button[onclick*="'${url}'"]`)
+                           || (idPembayaran ? document.querySelector(`button[data-id="${idPembayaran}"]`) : null);
+            if (targetBtn) {
+                const wrap = targetBtn.closest('.detail-bukti-wrap') || targetBtn.parentElement;
+                targetBtn.remove();
+                if (wrap && wrap.children.length === 0) {
+                    wrap.innerHTML = '<span class="empty-val">Tidak ada bukti</span>';
+                }
+            }
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: data.message || 'Gagal menghapus bukti.',
+                customClass: { popup: 'swal-kopdes' }
+            });
+        }
+    } catch (err) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Terjadi kesalahan: ' + err.message,
+            customClass: { popup: 'swal-kopdes' }
+        });
+    }
+}
 
 // ===== MODAL BAYAR =====
 let currentSisaBayar = 0;

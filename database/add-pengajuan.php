@@ -87,22 +87,9 @@ if (($input['action'] ?? '') === 'delete') {
 
         // Baru hapus file fisik SETELAH transaksi DB berhasil commit, biar kalau
         // proses DB-nya gagal file bukti transfer tidak ikut kehapus sia-sia.
-        $buktiDebug = null;
         if (!empty($buktiPathLama)) {
-            $filePath = __DIR__ . '/../uploads/' . $buktiPathLama;
-            if (is_file($filePath)) {
-                $unlinkOk  = unlink($filePath);
-                $buktiDebug = [
-                    'path'   => $filePath,
-                    'exists' => true,
-                    'unlink' => $unlinkOk,
-                ];
-            } else {
-                $buktiDebug = [
-                    'path'   => $filePath,
-                    'exists' => false,
-                ];
-            }
+            require_once __DIR__ . '/cloudinary_helper.php';
+            delete_photo_asset($buktiPathLama, __DIR__ . '/../uploads/');
         }
 
         echo json_encode(['success' => true, 'debugBukti' => $buktiDebug]);

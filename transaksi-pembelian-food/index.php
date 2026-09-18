@@ -92,7 +92,7 @@ $supplierBuktiMap = [];
 $supplierIdBuktiMap = [];
 try {
     $resBukti = @mysqli_query($koneksi, "
-        SELECT r.kode_transaksi, r.bukti_pembayaran, r.tanggal_bayar, r.keterangan,
+        SELECT r.id_riwayat AS id, r.id_riwayat, r.kode_transaksi, r.bukti_pembayaran, r.tanggal_bayar, r.keterangan,
                COALESCE(p.id_supplier, tp.id_supplier) AS id_supplier,
                COALESCE(p.tanggal_transaksi, tp.tanggal_pembelian) AS tanggal_transaksi
         FROM riwayat_pembayaran_pembelian r
@@ -556,7 +556,12 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                              $isPdf = str_ends_with(strtolower(explode('?', $singleNota)[0]), '.pdf');
                                                              $notaNum = count($notas) > 1 ? ' ' . ($index + 1) : '';
                                                          ?>
-                                                             <button type="button" class="nota-thumb-btn lihat-nota-btn" data-nota="<?= htmlspecialchars($notaUrl) ?>">
+                                                             <button type="button" class="nota-thumb-btn lihat-nota-btn" 
+                                                                 data-nota="<?= htmlspecialchars($notaUrl) ?>"
+                                                                 data-raw="<?= htmlspecialchars($singleNota) ?>"
+                                                                 data-id="<?= (int) $supplierData['sample_id'] ?>"
+                                                                 data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>"
+                                                                 data-type="nota">
                                                                  <i class="ph <?= $isPdf ? 'ph-file-pdf' : 'ph-image' ?>"></i>
                                                                  <span>Lihat Nota<?= $notaNum ?></span>
                                                              </button>
@@ -589,7 +594,12 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
                                                              $isPdf = str_ends_with(strtolower(explode('?', $bpFile)[0]), '.pdf');
                                                              $bpNum = count($buktiPembayaranList) > 1 ? ' ' . ($index + 1) : '';
                                                          ?>
-                                                             <button type="button" class="nota-thumb-btn lihat-nota-btn transfer-thumb-btn" data-nota="<?= htmlspecialchars($bpUrl) ?>">
+                                                             <button type="button" class="nota-thumb-btn lihat-nota-btn transfer-thumb-btn" 
+                                                                 data-nota="<?= htmlspecialchars($bpUrl) ?>"
+                                                                 data-raw="<?= htmlspecialchars($bpFile) ?>"
+                                                                 data-id="<?= (int) ($bp['id'] ?? $bp['id_pembayaran'] ?? 0) ?>"
+                                                                 data-supplier="<?= htmlspecialchars($supplierData['nama_supplier']) ?>"
+                                                                 data-type="bukti_transfer">
                                                                  <i class="ph <?= $isPdf ? 'ph-file-pdf' : 'ph-bank' ?>"></i>
                                                                  <span>Lihat Bukti Transfer<?= $bpNum ?></span>
                                                              </button>
@@ -921,16 +931,30 @@ $supplierResult = mysqli_query($koneksi, "SELECT * FROM suplier ORDER BY nama_su
         </div>
     </div>
 
-    <!-- MODAL NOTA PREVIEW -->
-    <div class="modal" id="notaPreviewModal">
-        <div class="modal-content nota-preview-content">
+    <!-- MODAL NOTA PREVIEW PERSIS SEPERTI DOMPET HARIAN -->
+    <div class="modal-overlay-dompet" id="notaPreviewModal" style="display:none;">
+        <div class="modal-dompet">
             <div class="modal-header">
-                <h2><i class="ph ph-file-text"></i> Bukti Nota</h2>
+                <div class="modal-header-left">
+                    <div class="modal-header-icon">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <rect x="1" y="2.5" width="16" height="13" rx="1.5" stroke="#fff" stroke-width="1.5" />
+                            <circle cx="5.5" cy="8" r="1.5" fill="#fff" />
+                            <path d="M1 15l5-5 3 3 2.5-2.5L17 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="modal-title" id="notaPreviewTitle">Preview Nota</div>
+                </div>
                 <button type="button" class="modal-close" onclick="closeNotaPreview()" aria-label="Tutup">
-                    <i class="ph ph-x"></i>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                    </svg>
                 </button>
             </div>
-            <div class="nota-preview-body" id="nota-preview-body"></div>
+            <div class="nota-modal-body" id="nota-preview-body"></div>
+            <div class="modal-footer">
+                <button type="button" onclick="closeNotaPreview()" class="btn-cancel">Tutup</button>
+            </div>
         </div>
     </div>
     <?php include '../components/made-by.php'; ?>

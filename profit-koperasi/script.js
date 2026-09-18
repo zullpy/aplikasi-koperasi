@@ -9,7 +9,11 @@ function openModal(id) {
 }
 function closeModal(id) {
     const el = document.getElementById(id);
-    if (el) { el.classList.remove('open'); document.body.style.overflow = ''; }
+    if (el) { 
+        el.classList.remove('open'); 
+        if (el.classList.contains('modal-overlay-custom')) el.style.display = 'none';
+        document.body.style.overflow = ''; 
+    }
 }
 
 /* Close on overlay click */
@@ -93,8 +97,8 @@ function openUploadBukti(recordId, jenis, isGanti = false) {
     openModal('modalUploadBukti');
 }
 
-/* ── Modal: Pratinjau Bukti (Gallery Multi-foto) ── */
-function openPreviewBukti(files, titleText) {
+/* ── Modal: Pratinjau Bukti (Persis Dompet Harian) ── */
+function openPreviewBukti(files, titleText, recordId, jenis = 'profit') {
     if (!files) files = [];
     if (typeof files === 'string') {
         try { files = JSON.parse(files); } catch (e) { files = [files]; }
@@ -103,42 +107,157 @@ function openPreviewBukti(files, titleText) {
 
     const titleEl = document.getElementById('modalPreviewTitle');
     if (titleEl) {
-        titleEl.innerHTML = `<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ${titleText || 'Pratinjau Bukti Transfer'} (${files.length} File)`;
+        titleEl.textContent = `${titleText || 'Bukti Transfer'}${files.length > 1 ? ' (' + files.length + ')' : ''}`;
     }
 
     const gallery = document.getElementById('previewBuktiGallery');
     if (gallery) {
         gallery.innerHTML = '';
-        files.forEach((file, idx) => {
-            const fileUrl = (file.startsWith('http://') || file.startsWith('https://')) ? file : `../uploads/bukti_profit/${file}`;
-            const ext = file.split('?')[0].split('.').pop().toLowerCase();
-            const item = document.createElement('div');
-            item.className = 'preview-gallery-item';
+        if (files.length === 0) {
+            gallery.innerHTML = '<p style="text-align:center;color:#64748b;padding:30px;">Tidak ada berkas bukti.</p>';
+        } else {
+            files.forEach((file, idx) => {
+                const fileUrl = (file.startsWith('http://') || file.startsWith('https://')) ? file : `../uploads/bukti_profit/${file}`;
+                const ext = file.split('?')[0].split('.').pop().toLowerCase();
+                const isPdf = ext === 'pdf';
+                const item = document.createElement('div');
+                item.className = 'nota-preview-item';
 
-            if (ext === 'pdf') {
-                item.innerHTML = `
-                    <div class="preview-pdf-box">
-                        <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                        <span>Dokumen PDF ${files.length > 1 ? '#' + (idx + 1) : ''}</span>
-                        <a href="${fileUrl}" target="_blank" class="btn-lihat-bukti">Buka PDF ↗</a>
+                const itemLabel = `Bukti Transfer ${files.length > 1 ? (idx + 1) : ''}`;
+                const labelHtml = `
+                    <div class="nota-preview-label">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <rect x="1" y="2" width="12" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+                            <circle cx="4.5" cy="6" r="1.2" fill="currentColor"/>
+                            <path d="M1 12l4-4 2.5 2.5 2-2L13 12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        ${itemLabel}
                     </div>
                 `;
-            } else {
-                item.innerHTML = `
-                    <div class="preview-img-wrap">
-                        <img src="${fileUrl}" alt="Bukti ${idx + 1}" loading="lazy">
-                        <div class="preview-img-bar">
-                            <span>Bukti #${idx + 1}</span>
-                            <a href="${fileUrl}" target="_blank" class="btn-link-sm">Buka Ukuran Penuh ↗</a>
+
+                const delBtnHtml = recordId ? `
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+                        <button type="button" class="btn-delete-nota" onclick="hapusSingleBuktiProfit(${recordId}, '${jenis}', '${file}', this)">
+                            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                                <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                                <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Hapus Bukti
+                        </button>
+                    </div>
+                ` : '';
+
+                if (isPdf) {
+                    item.innerHTML = `
+                        ${labelHtml}
+                        <div class="nota-preview-pdf-wrap">
+                            <embed src="${fileUrl}" type="application/pdf" class="nota-preview-pdf">
                         </div>
-                    </div>
-                `;
+                        ${delBtnHtml}
+                    `;
+                } else {
+                    item.innerHTML = `
+                        ${labelHtml}
+                        <img src="${fileUrl}" alt="Bukti ${idx + 1}" class="nota-preview-img" onclick="window.open('${fileUrl}', '_blank')">
+                        ${delBtnHtml}
+                    `;
+                }
+                gallery.appendChild(item);
+            });
+        }
+    }
+
+    const modal = document.getElementById('modalPreviewBukti');
+    if (modal) modal.style.display = 'flex';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('modalPreviewBukti');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal('modalPreviewBukti');
+        });
+    }
+});
+
+async function hapusSingleBuktiProfit(recordId, jenis, file, btnEl) {
+    let confirmed = false;
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Hapus Bukti Transfer?',
+            text: 'File bukti transfer fisik akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Ya, Hapus Permanen',
+            cancelButtonText: 'Batal',
+            customClass: { popup: 'swal-kopdes' },
+            didOpen: () => {
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = '99999999';
             }
-            gallery.appendChild(item);
+        });
+        confirmed = result.isConfirmed;
+    } else {
+        confirmed = confirm('Yakin ingin menghapus bukti transfer ini? File fisik di Cloudinary/server akan ikut terhapus permanen.');
+    }
+
+    if (!confirmed) return;
+
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Menghapus...',
+            text: 'Sedang menghapus file fisik...',
+            allowOutsideClick: false,
+            customClass: { popup: 'swal-kopdes' },
+            didOpen: () => {
+                const container = document.querySelector('.swal2-container');
+                if (container) container.style.zIndex = '99999999';
+                Swal.showLoading();
+            }
         });
     }
 
-    openModal('modalPreviewBukti');
+    const itemBox = btnEl ? (btnEl.closest('.nota-preview-item') || btnEl.closest('.preview-box-custom')) : null;
+    if (btnEl) btnEl.disabled = true;
+
+    const fd = new FormData();
+    fd.append('aksi', 'hapus_single_bukti');
+    fd.append('record_id', recordId);
+    fd.append('jenis_bukti', jenis);
+    fd.append('file', file);
+
+    try {
+        const res = await fetch('index.php', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (json.success) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil Dihapus',
+                    text: 'File fisik bukti transfer telah dimusnahkan.',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
+            if (itemBox) itemBox.remove();
+            const gallery = document.getElementById('previewBuktiGallery');
+            if (gallery && gallery.querySelectorAll('.preview-box-custom').length === 0) {
+                gallery.innerHTML = '<p style="text-align:center;color:#64748b;padding:30px;">Tidak ada berkas bukti tersisa.</p>';
+                setTimeout(() => {
+                    closeModal('modalPreviewBukti');
+                    window.location.reload();
+                }, 800);
+            }
+        } else {
+            alert('Gagal menghapus bukti');
+            if (btnEl) btnEl.disabled = false;
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+        if (btnEl) btnEl.disabled = false;
+    }
 }
 
 /* ── Hapus ── */

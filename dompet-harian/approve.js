@@ -38,6 +38,56 @@ const ROLE_DB_MAP = {
     ketua: 'ketua',
 };
 
+/**
+ * Kompresi gambar client-side (Canvas) agar upload bukti transfer kilat
+ */
+function compressImageClient(file, options = {}) {
+    const { maxWidth = 1600, maxHeight = 1600, quality = 0.8 } = options;
+    return new Promise((resolve) => {
+        if (!file || !file.type || !file.type.startsWith('image/') || file.type === 'image/gif' || file.name.endsWith('.pdf')) {
+            resolve(file);
+            return;
+        }
+        if (file.size < 500 * 1024) {
+            resolve(file);
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (!blob) { resolve(file); return; }
+                    const compressedFile = new File(
+                        [blob],
+                        file.name.replace(/\.[^.]+$/, '.jpg'),
+                        { type: 'image/jpeg', lastModified: Date.now() }
+                    );
+                    resolve(compressedFile);
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
 // ─ FORMAT HELPERS ──────────────────────────────
 function formatRupiah(num) {
     return 'Rp ' + Number(num).toLocaleString('id-ID');
@@ -720,8 +770,9 @@ async function submitApprove() {
         const formData = new FormData();
         formData.append('id', approveTargetId);
         formData.append('uang_masuk', uangMasukTotal); // Kirim total yang sudah ditambah sisa
-        // 📎 Kirim semua file bukti transfer (opsional, bisa > 1)
-        selectedBuktiFiles.forEach(file => formData.append('bukti_transfer[]', file));
+        // 📎 Kompresi kilat bukti transfer sebelum dikirim
+        const compressedFiles = await Promise.all(selectedBuktiFiles.map(f => compressImageClient(f)));
+        compressedFiles.forEach(file => formData.append('bukti_transfer[]', file));
 
         const res = await fetch('../database/api-belanja.php?action=approve', {
             method: 'POST',
@@ -955,16 +1006,19 @@ async function uploadBuktiTransfer(event, id) {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
+    showToast(`Mengoptimasi & mengupload ${files.length} bukti transfer...`, 'info');
+
+    // Kompresi gambar client-side (foto HP 6MB -> ~300KB kilat)
+    const compressedFiles = await Promise.all(files.map(f => compressImageClient(f)));
+
     const validFiles = [];
     let ditolak = 0;
-    for (const f of files) {
+    for (const f of compressedFiles) {
         if (f.size > 5 * 1024 * 1024) { ditolak++; continue; }
         validFiles.push(f);
     }
     if (ditolak > 0) showToast(`${ditolak} file dilewati karena ukuran melebihi 5 MB`, 'error');
     if (!validFiles.length) { event.target.value = ''; return; }
-
-    showToast(`Mengupload ${validFiles.length} bukti transfer...`, 'info');
 
     const formData = new FormData();
     formData.append('id', id);

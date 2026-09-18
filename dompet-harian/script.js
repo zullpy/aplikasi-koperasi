@@ -2562,6 +2562,57 @@ function removeUploadNotaFile(idx) {
   syncUploadNotaQueue();
 }
 
+/**
+ * Kompresi gambar di sisi browser (Client-side Canvas) sebelum upload
+ * Mereduksi foto kamera HP (5MB-8MB) menjadi ~300KB sehingga proses upload super kilat
+ */
+function compressImageClient(file, options = {}) {
+  const { maxWidth = 1600, maxHeight = 1600, quality = 0.8 } = options;
+  return new Promise((resolve) => {
+    if (!file || !file.type || !file.type.startsWith('image/') || file.type === 'image/gif' || file.name.endsWith('.pdf')) {
+      resolve(file);
+      return;
+    }
+    if (file.size < 500 * 1024) {
+      resolve(file); // Jika sudah di bawah 500KB, kirim langsung
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(file); return; }
+          const compressedFile = new File(
+            [blob],
+            file.name.replace(/\.[^.]+$/, '.jpg'),
+            { type: 'image/jpeg', lastModified: Date.now() }
+          );
+          resolve(compressedFile);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function doUploadNota(detailId, pengajuanId) {
   if (!uploadNotaFiles.length) return;
 
@@ -2573,16 +2624,19 @@ async function doUploadNota(detailId, pengajuanId) {
 
   submitBtn.disabled = true;
   if (progressWrap) { progressWrap.classList.add('visible'); }
-  if (progressFill) { progressFill.style.width = '30%'; }
-  if (progressLabel) { progressLabel.textContent = `Mengunggah ${uploadNotaFiles.length} file...`; }
+  if (progressFill) { progressFill.style.width = '25%'; }
+  if (progressLabel) { progressLabel.textContent = `Mengoptimasi & mengunggah ${uploadNotaFiles.length} file...`; }
   if (statusMsg) { statusMsg.className = 'upload-nota-status'; }
 
   const targetDetailIds = (uploadNotaCurrentDetails && uploadNotaCurrentDetails.length)
     ? uploadNotaCurrentDetails
     : (detailId ? (Array.isArray(detailId) ? detailId : [detailId]) : []);
 
+  // Kompresi kilat gambar di browser sebelum dikirim
+  const compressedFiles = await Promise.all(uploadNotaFiles.map(f => compressImageClient(f)));
+
   const formData = new FormData();
-  uploadNotaFiles.forEach(f => formData.append('files[]', f));
+  compressedFiles.forEach(f => formData.append('files[]', f));
   formData.append('item_ids', targetDetailIds.join(','));
   if (targetDetailIds.length === 1) {
     formData.append('item_id', targetDetailIds[0]);

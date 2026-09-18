@@ -39,10 +39,11 @@ function parseBuktiList($str) {
 
 // ── Helper: Hapus fisik file ──
 function deletePhysicalFiles($str, $uploadDir) {
+    require_once __DIR__ . '/../database/cloudinary_helper.php';
     $files = parseBuktiList($str);
     foreach ($files as $file) {
-        if (!empty($file) && file_exists($uploadDir . $file)) {
-            @unlink($uploadDir . $file);
+        if (!empty($file)) {
+            delete_photo_asset($file, $uploadDir);
         }
     }
 }
@@ -151,6 +152,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
         }
         header('Location: index.php?status=bukti_uploaded');
+        exit;
+    }
+
+    // Hapus single bukti via AJAX (hapus file fisik & update JSON)
+    if ($aksi === 'hapus_single_bukti' && $userRole === 'admin') {
+        while (ob_get_level()) { ob_end_clean(); }
+        header('Content-Type: application/json; charset=utf-8');
+        $id = (int) ($_POST['record_id'] ?? 0);
+        $jenis = $_POST['jenis_bukti'] ?? 'profit';
+        $kolom = ($jenis === 'pajak') ? 'bukti_pajak' : 'bukti_profit';
+        $fileTarget = trim($_POST['file'] ?? '');
+
+        if ($id > 0 && !empty($fileTarget)) {
+            $row = $koneksi->query("SELECT {$kolom} FROM profit_koperasi WHERE id=$id")->fetch_assoc();
+            if ($row && !empty($row[$kolom])) {
+                $files = parseBuktiList($row[$kolom]);
+                $remaining = [];
+                foreach ($files as $f) {
+                    if ($f === $fileTarget) {
+                        require_once __DIR__ . '/../database/cloudinary_helper.php';
+                        delete_photo_asset($f, $uploadDir);
+                    } else {
+                        $remaining[] = $f;
+                    }
+                }
+                $val = empty($remaining) ? null : json_encode(array_values($remaining));
+                $stmt = $koneksi->prepare("UPDATE profit_koperasi SET {$kolom}=? WHERE id=?");
+                $stmt->bind_param('si', $val, $id);
+                $stmt->execute();
+            }
+        }
+        echo json_encode(['success' => true]);
         exit;
     }
 
@@ -416,7 +449,7 @@ include '../components/navbar.php';
                     <td class="pk-bukti">
                         <?php if (!empty($listProfit)): ?>
                             <div class="bukti-btns">
-                                <button type="button" class="btn-lihat-bukti" onclick='openPreviewBukti(<?= htmlspecialchars(json_encode($listProfit), ENT_QUOTES, "UTF-8") ?>, "Bukti Profit Transfer")'>
+                                <button type="button" class="btn-lihat-bukti" onclick='openPreviewBukti(<?= htmlspecialchars(json_encode($listProfit), ENT_QUOTES, "UTF-8") ?>, "Bukti Profit", <?= $row['id'] ?>, "profit")'>
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                     Lihat <?= count($listProfit) > 1 ? '(' . count($listProfit) . ')' : '' ?>
                                 </button>
@@ -436,7 +469,7 @@ include '../components/navbar.php';
                     <td class="pk-bukti">
                         <?php if (!empty($listPajak)): ?>
                             <div class="bukti-btns">
-                                <button type="button" class="btn-lihat-bukti btn-lihat-bukti-pajak" onclick='openPreviewBukti(<?= htmlspecialchars(json_encode($listPajak), ENT_QUOTES, "UTF-8") ?>, "Bukti Pajak Transfer")'>
+                                <button type="button" class="btn-lihat-bukti btn-lihat-bukti-pajak" onclick='openPreviewBukti(<?= htmlspecialchars(json_encode($listPajak), ENT_QUOTES, "UTF-8") ?>, "Bukti Pajak", <?= $row['id'] ?>, "pajak")'>
                                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                     Lihat <?= count($listPajak) > 1 ? '(' . count($listPajak) . ')' : '' ?>
                                 </button>
@@ -673,20 +706,28 @@ include '../components/navbar.php';
 </div>
 
 <!-- ═══════════════════════════════════════════════
-     MODAL: PRATINJAU BUKTI
+     MODAL: PRATINJAU BUKTI (PERSIS DOMPET HARIAN)
 ══════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="modalPreviewBukti">
-    <div class="modal-box modal-box-wide">
+<div class="modal-overlay-dompet" id="modalPreviewBukti" style="display:none;">
+    <div class="modal-dompet">
         <div class="modal-header">
-            <h2 id="modalPreviewTitle">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                Pratinjau Bukti Transfer
-            </h2>
-            <button class="modal-close" onclick="closeModal('modalPreviewBukti')">&times;</button>
+            <div class="modal-header-left">
+                <div class="modal-header-icon">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <rect x="1" y="2.5" width="16" height="13" rx="1.5" stroke="#fff" stroke-width="1.5" />
+                        <circle cx="5.5" cy="8" r="1.5" fill="#fff" />
+                        <path d="M1 15l5-5 3 3 2.5-2.5L17 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <div class="modal-title" id="modalPreviewTitle">Bukti Transfer</div>
+            </div>
+            <button type="button" class="modal-close" onclick="closeModal('modalPreviewBukti')" aria-label="Tutup">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 2L12 12M12 2L2 12" stroke="#fff" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+            </button>
         </div>
-        <div class="modal-body">
-            <div class="preview-gallery" id="previewBuktiGallery"></div>
-        </div>
+        <div class="nota-modal-body" id="previewBuktiGallery"></div>
         <div class="modal-footer">
             <button type="button" class="btn-cancel" onclick="closeModal('modalPreviewBukti')">Tutup</button>
         </div>
@@ -719,6 +760,7 @@ include '../components/navbar.php';
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="script.js?v=<?= time() ?>"></script>
 </body>
 </html>

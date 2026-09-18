@@ -103,13 +103,8 @@ foreach ($all_files as $file) {
 }
 
 require_once __DIR__ . '/cloudinary_helper.php';
-$uploaded_files = [];
-foreach ($all_files as $file) {
-    try {
-        $saved = smart_upload_foto($file, 'nota', '../uploads/nota/', 'nota_' . $kode_transaksi);
-        $uploaded_files[] = $saved;
-    } catch (Exception $e) {}
-}
+$batchResults = smart_upload_foto_batch($all_files, 'nota', '../uploads/nota/', 'nota_' . $kode_transaksi);
+$uploaded_files = array_values(array_filter($batchResults));
 
 if (!empty($uploaded_files)) {
     $nota = implode(',', $uploaded_files);

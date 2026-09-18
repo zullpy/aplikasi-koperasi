@@ -1152,7 +1152,12 @@ document.addEventListener('click', (e) => {
 
     if (lihatNotaBtn) {
         e.preventDefault();
-        openNotaPreview(lihatNotaBtn.getAttribute('data-nota'));
+        const url = lihatNotaBtn.getAttribute('data-nota');
+        const raw = lihatNotaBtn.getAttribute('data-raw') || url;
+        const id = lihatNotaBtn.getAttribute('data-id') || 0;
+        const supplier = lihatNotaBtn.getAttribute('data-supplier') || '';
+        const type = lihatNotaBtn.getAttribute('data-type') || 'nota';
+        openNotaPreview(url, raw, id, supplier, type);
     }
 });
 
@@ -1362,6 +1367,9 @@ function openDetailModal(btn) {
 /* ============================================================
 NOTA PREVIEW MODAL
 ============================================================ */
+/* ============================================================
+NOTA & BUKTI TRANSFER PREVIEW MODAL (PERSIS DOMPET HARIAN)
+============================================================ */
 function closeNotaPreview() {
     const modal = document.getElementById('notaPreviewModal');
     if (modal) modal.style.display = 'none';
@@ -1369,19 +1377,154 @@ function closeNotaPreview() {
     if (body) body.innerHTML = '';
 }
 
-function openNotaPreview(url) {
-    if (!url) return;
-    const body = document.getElementById('nota-preview-body');
-    const isPdf = url.toLowerCase().split('?')[0].endsWith('.pdf');
-    if (body) {
-        body.innerHTML = isPdf
-            ? `<embed src="${url}" type="application/pdf" class="nota-preview-pdf">`
-            : `<img src="${url}" alt="Bukti Nota" class="nota-preview-image">`;
-    }
-    const openLink = document.getElementById('nota-open-new-tab');
-    if (openLink) openLink.setAttribute('href', url);
+document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('notaPreviewModal');
-    if (modal) modal.style.display = 'block';
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeNotaPreview();
+        });
+    }
+});
+
+function openNotaPreview(url, rawFile, id, supplier, type = 'nota') {
+    if (!url) return;
+    const modal = document.getElementById('notaPreviewModal');
+    const title = document.getElementById('notaPreviewTitle');
+    const body = document.getElementById('nota-preview-body');
+    if (!modal || !body) return;
+
+    const isNota = (type === 'nota');
+    const labelTitle = isNota ? `Nota — ${supplier || 'Pembelian'}` : `Bukti Transfer — ${supplier || 'Pembayaran'}`;
+    if (title) title.textContent = labelTitle;
+
+    const isPdf = url.toLowerCase().split('?')[0].endsWith('.pdf');
+    const labelBtn = isNota ? 'Hapus Nota' : 'Hapus Bukti';
+    const itemLabel = isNota ? 'Nota' : 'Bukti Transfer';
+
+    body.innerHTML = `
+        <div class="nota-preview-item">
+            <div class="nota-preview-label">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <rect x="1" y="2" width="12" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
+                    <circle cx="4.5" cy="6" r="1.2" fill="currentColor"/>
+                    <path d="M1 12l4-4 2.5 2.5 2-2L13 12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                ${itemLabel}
+            </div>
+            ${isPdf 
+                ? `<div class="nota-preview-pdf-wrap"><embed src="${url}" type="application/pdf" class="nota-preview-pdf"></div>`
+                : `<img src="${url}" alt="Preview" class="nota-preview-img" onclick="window.open('${url}', '_blank')">`
+            }
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+                <button type="button" class="btn-delete-nota" onclick="hapusFileDariPreview('${url}', '${rawFile || url}', ${id}, '${type}')">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                        <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    ${labelBtn}
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+async function hapusFileDariPreview(url, rawFile, id, type) {
+    const isNota = (type === 'nota');
+    const labelTitle = isNota ? 'Hapus Nota?' : 'Hapus Bukti Transfer?';
+    const textConfirm = 'File ' + (isNota ? 'nota' : 'bukti transfer') + ' fisik akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan!';
+
+    const result = await Swal.fire({
+        title: labelTitle,
+        text: textConfirm,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Ya, Hapus Permanen',
+        cancelButtonText: 'Batal',
+        customClass: { popup: 'swal-kopdes' },
+        didOpen: () => {
+            const container = document.querySelector('.swal2-container');
+            if (container) container.style.zIndex = '99999999';
+        }
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Menghapus...',
+        text: 'Sedang menghapus file fisik...',
+        allowOutsideClick: false,
+        customClass: { popup: 'swal-kopdes' },
+        didOpen: () => {
+            const container = document.querySelector('.swal2-container');
+            if (container) container.style.zIndex = '99999999';
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const endpoint = isNota ? '../database/delete-nota.php' : '../database/delete-bukti-bayar.php';
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: id,
+                file: rawFile || url,
+                type: 'pembelian'
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            closeNotaPreview();
+            await Swal.fire({
+                icon: 'success',
+                title: 'Terhapus!',
+                text: data.message || 'File berhasil dihapus permanen.',
+                timer: 1500,
+                showConfirmButton: false,
+                customClass: { popup: 'swal-kopdes' },
+                didOpen: () => {
+                    const container = document.querySelector('.swal2-container');
+                    if (container) container.style.zIndex = '99999999';
+                }
+            });
+
+            // Update in-place tanpa reload halaman
+            const targetBtn = document.querySelector(`button[data-raw="${rawFile}"]`) 
+                           || document.querySelector(`button[data-nota="${url}"]`)
+                           || (id ? document.querySelector(`button[data-id="${id}"][data-type="${type}"]`) : null);
+            if (targetBtn) {
+                const container = targetBtn.closest('.supplier-nota-row') || targetBtn.closest('.supplier-nota-list') || targetBtn.parentElement;
+                targetBtn.remove();
+                if (container) {
+                    const remainingBtns = container.querySelectorAll('.lihat-nota-btn');
+                    if (remainingBtns.length === 0) {
+                        const emptyNotice = isNota 
+                            ? '<span class="nota-empty-inline"><i class="ph ph-image-broken"></i> Belum ada nota</span>'
+                            : '<span class="nota-empty-inline"><i class="ph ph-image-broken"></i> Belum ada bukti transfer</span>';
+                        container.insertAdjacentHTML('beforeend', emptyNotice);
+                    }
+                }
+            }
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Gagal',
+                text: data.message || 'Gagal menghapus file.',
+                customClass: { popup: 'swal-kopdes' }
+            });
+        }
+    } catch (err) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Terjadi kesalahan: ' + err.message,
+            customClass: { popup: 'swal-kopdes' }
+        });
+    }
 }
 
 /* ============================================================
