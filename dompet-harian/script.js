@@ -571,11 +571,16 @@ function statusBadge(status) {
 
 let masterBarangPromise = null;
 function loadMasterBarang() {
+  if (masterBarang.length > 0) {
+    return Promise.resolve(masterBarang);
+  }
   if (!masterBarangPromise) {
     masterBarangPromise = fetch('../database/api-belanja.php?action=list_barang&_t=' + Date.now())
       .then(res => res.json())
       .then(data => {
-        if (data.success && Array.isArray(data.data)) masterBarang = data.data;
+        if (data.success && Array.isArray(data.data)) {
+          masterBarang = data.data;
+        }
         return masterBarang;
       })
       .catch(err => {
@@ -1576,6 +1581,13 @@ function addBarangRow(data = null) {
 
   const renderDropdownList = (q) => {
     const query = (q || '').toLowerCase().trim();
+    if (masterBarang.length === 0) {
+      dropdownList.innerHTML = `<div style="padding:8px 12px; color:#64748b; font-size:13px;">Sedang memuat data barang...</div>`;
+      loadMasterBarang().then(() => {
+        renderDropdownList(searchInput.value);
+      });
+      return;
+    }
     const filtered = masterBarang.filter(b => !query || (b.nama_barang && b.nama_barang.toLowerCase().includes(query)));
     if (filtered.length === 0) {
       dropdownList.innerHTML = `<div style="padding:8px 12px; color:#94a3b8; font-size:13px;">Tidak ada hasil (akan disimpan sebagai barang baru)</div>`;
@@ -1924,6 +1936,13 @@ function setupItemModalDropdown() {
 
   const renderList = (q) => {
     const query = (q || '').toLowerCase().trim();
+    if (masterBarang.length === 0) {
+      list.innerHTML = `<div style="padding:8px 12px; color:#64748b; font-size:13px;">Sedang memuat data barang...</div>`;
+      loadMasterBarang().then(() => {
+        renderList(input.value);
+      });
+      return;
+    }
     const filtered = masterBarang.filter(b => !query || (b.nama_barang && b.nama_barang.toLowerCase().includes(query)));
     if (filtered.length === 0) {
       list.innerHTML = `<div style="padding:8px 12px; color:#94a3b8; font-size:13px;">Tidak ada hasil (akan disimpan sebagai barang baru)</div>`;

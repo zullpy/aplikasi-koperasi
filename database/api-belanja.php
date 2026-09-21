@@ -300,46 +300,55 @@ try {
 
             // ─── LIST BARANG: Ambil estimasi harga ────────────────────────────
         case 'list_barang':
-            // Pastikan index idx_nama_barang ada (auto-migrasi di production)
+            // Pastikan index idx_nama_barang ada secara aman (tanpa pernah membuat list_barang error)
             if (empty($_SESSION['db_idx_checked'])) {
-                $chkE = $koneksi->query("SHOW INDEX FROM estimasi_harga WHERE Key_name = 'idx_nama_barang'");
-                if ($chkE && $chkE->num_rows === 0) {
-                    @$koneksi->query("ALTER TABLE estimasi_harga ADD INDEX idx_nama_barang (nama_barang(50))");
-                }
-                $chkB = $koneksi->query("SHOW INDEX FROM barang WHERE Key_name = 'idx_nama_barang'");
-                if ($chkB && $chkB->num_rows === 0) {
-                    @$koneksi->query("ALTER TABLE barang ADD INDEX idx_nama_barang (nama_barang(50))");
-                }
+                try {
+                    $chkE = $koneksi->query("SHOW INDEX FROM estimasi_harga WHERE Key_name = 'idx_nama_barang'");
+                    if ($chkE && $chkE->num_rows === 0) {
+                        $koneksi->query("ALTER TABLE estimasi_harga ADD INDEX idx_nama_barang (nama_barang(50))");
+                    }
+                } catch (Throwable $t) {}
+
+                try {
+                    $chkB = $koneksi->query("SHOW INDEX FROM barang WHERE Key_name = 'idx_nama_barang'");
+                    if ($chkB && $chkB->num_rows === 0) {
+                        // nama_barang di tabel barang adalah varchar(41), jangan pakai prefix > 41
+                        $koneksi->query("ALTER TABLE barang ADD INDEX idx_nama_barang (nama_barang)");
+                    }
+                } catch (Throwable $t) {}
+
                 $_SESSION['db_idx_checked'] = true;
             }
 
             // ✅ Auto-sync cepat: Hanya jalankan jika ada barang baru di `barang` yang belum ada di `estimasi_harga`
-            $checkNew = $koneksi->query("
-                SELECT b.id_barang 
-                FROM barang b 
-                WHERE b.nama_barang IS NOT NULL 
-                  AND TRIM(b.nama_barang) != '' 
-                  AND NOT EXISTS (
-                      SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
-                  )
-                LIMIT 1
-            ");
-            if ($checkNew && $checkNew->num_rows > 0) {
-                @$koneksi->query("
-                    INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate)
-                    SELECT 
-                        TRIM(b.nama_barang),
-                        b.harga_beli,
-                        COALESCE(NULLIF(TRIM(b.satuan), ''), 'Pcs'),
-                        COALESCE(b.tanggal_terupdate_baru, CURDATE())
-                    FROM barang b
+            try {
+                $checkNew = $koneksi->query("
+                    SELECT b.id_barang 
+                    FROM barang b 
                     WHERE b.nama_barang IS NOT NULL 
                       AND TRIM(b.nama_barang) != '' 
                       AND NOT EXISTS (
                           SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
                       )
+                    LIMIT 1
                 ");
-            }
+                if ($checkNew && $checkNew->num_rows > 0) {
+                    $koneksi->query("
+                        INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate)
+                        SELECT 
+                            TRIM(b.nama_barang),
+                            b.harga_beli,
+                            COALESCE(NULLIF(TRIM(b.satuan), ''), 'Pcs'),
+                            COALESCE(b.tanggal_terupdate_baru, CURDATE())
+                        FROM barang b
+                        WHERE b.nama_barang IS NOT NULL 
+                          AND TRIM(b.nama_barang) != '' 
+                          AND NOT EXISTS (
+                              SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
+                          )
+                    ");
+                }
+            } catch (Throwable $t) {}
 
             $res = $koneksi->query("
                 SELECT id AS id_barang, nama_barang, harga_beli, satuan, tanggal_terupdate
@@ -347,8 +356,11 @@ try {
                 ORDER BY nama_barang ASC
             ");
             $data = [];
-            while ($row = $res->fetch_assoc()) {
-                $data[] = $row;
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $data[] = $row;
+                }
+                $res->free();
             }
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
