@@ -261,6 +261,19 @@ try {
 
             // ─── LIST BARANG: Ambil estimasi harga ────────────────────────────
         case 'list_barang':
+            // Pastikan index idx_nama_barang ada (auto-migrasi di production)
+            if (empty($_SESSION['db_idx_checked'])) {
+                $chkE = $koneksi->query("SHOW INDEX FROM estimasi_harga WHERE Key_name = 'idx_nama_barang'");
+                if ($chkE && $chkE->num_rows === 0) {
+                    @$koneksi->query("ALTER TABLE estimasi_harga ADD INDEX idx_nama_barang (nama_barang(50))");
+                }
+                $chkB = $koneksi->query("SHOW INDEX FROM barang WHERE Key_name = 'idx_nama_barang'");
+                if ($chkB && $chkB->num_rows === 0) {
+                    @$koneksi->query("ALTER TABLE barang ADD INDEX idx_nama_barang (nama_barang(50))");
+                }
+                $_SESSION['db_idx_checked'] = true;
+            }
+
             // ✅ Auto-sync cepat: Hanya jalankan jika ada barang baru di `barang` yang belum ada di `estimasi_harga`
             $checkNew = $koneksi->query("
                 SELECT b.id_barang 
