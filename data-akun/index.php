@@ -64,7 +64,10 @@ if (($_SESSION['role'] ?? '') !== 'admin') {
                     <i class="ti ti-users"></i>
                 </div>
                 <div class="stat-info">
-                    <span class="stat-label">Total Akun Terdaftar</span>
+                    <span class="stat-label">
+                        <span class="label-full">Total Akun Terdaftar</span>
+                        <span class="label-short">Total Akun</span>
+                    </span>
                     <span class="stat-value" id="stat-total">-</span>
                 </div>
             </div>
@@ -74,7 +77,10 @@ if (($_SESSION['role'] ?? '') !== 'admin') {
                     <i class="ti ti-wifi"></i>
                 </div>
                 <div class="stat-info">
-                    <span class="stat-label">Sedang Aktif (Online)</span>
+                    <span class="stat-label">
+                        <span class="label-full">Sedang Aktif (Online)</span>
+                        <span class="label-short">Sedang Aktif</span>
+                    </span>
                     <span class="stat-value" id="stat-online" style="color: #10b981;">-</span>
                 </div>
             </div>
@@ -84,7 +90,10 @@ if (($_SESSION['role'] ?? '') !== 'admin') {
                     <i class="ti ti-clock"></i>
                 </div>
                 <div class="stat-info">
-                    <span class="stat-label">Tidak Aktif (Offline)</span>
+                    <span class="stat-label">
+                        <span class="label-full">Tidak Aktif (Offline)</span>
+                        <span class="label-short">Offline</span>
+                    </span>
                     <span class="stat-value" id="stat-offline" style="color: #64748b;">-</span>
                 </div>
             </div>
@@ -97,15 +106,17 @@ if (($_SESSION['role'] ?? '') !== 'admin') {
                 <input type="text" id="search-input" placeholder="Cari akun atau role..." autocomplete="off">
             </div>
 
-            <div class="filter-group">
-                <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">Semua</button>
-                <button class="filter-btn" data-filter="online" onclick="setFilter('online', this)">Sedang Aktif</button>
-                <button class="filter-btn" data-filter="offline" onclick="setFilter('offline', this)">Offline</button>
-            </div>
+            <div class="toolbar-controls">
+                <div class="filter-group">
+                    <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">Semua</button>
+                    <button class="filter-btn" data-filter="online" onclick="setFilter('online', this)">Sedang Aktif</button>
+                    <button class="filter-btn" data-filter="offline" onclick="setFilter('offline', this)">Offline</button>
+                </div>
 
-            <div class="live-badge">
-                <span class="pulse-dot"></span>
-                <span>Live Update</span>
+                <div class="live-badge">
+                    <span class="pulse-dot"></span>
+                    <span>Live Update</span>
+                </div>
             </div>
         </div>
 
