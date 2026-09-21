@@ -278,7 +278,8 @@ function bukaGaleriNota(notas, judul) {
     grid.className = 'nota-galeri-grid';
 
     notas.forEach(function (nota, idx) {
-        const path = '../uploads/' + nota;
+        const isUrl = typeof nota === 'string' && (nota.startsWith('http://') || nota.startsWith('https://'));
+        const path = isUrl ? nota : ('../uploads/' + String(nota).replace(/^\/+/, ''));
         const isPdf = /\.pdf(\?.*)?$/i.test(nota);
         const item = document.createElement('div');
         item.className = 'nota-galeri-item';
@@ -406,7 +407,9 @@ function tampilkanTtdViewMode(ttdExisting) {
     document.getElementById('ttdDrawMode').style.display = 'none';
     document.getElementById('ttdSubmitBtn').style.display = 'none';
 
-    document.getElementById('ttdExistingImg').src = '../uploads/' + ttdExisting.signature_path;
+    const sig = ttdExisting.signature_path || '';
+    const isUrl = sig.startsWith('http://') || sig.startsWith('https://');
+    document.getElementById('ttdExistingImg').src = isUrl ? sig : ('../uploads/' + sig.replace(/^\/+/, ''));
 
     let tglTampil = ttdExisting.signed_at;
     try {

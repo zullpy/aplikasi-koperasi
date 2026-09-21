@@ -6,6 +6,7 @@
 require_once '../database/koneksi.php';
 require_once '../database/auth.php';
 require_once '../database/laporan-koperasi-func.php';
+require_once '../database/cloudinary_helper.php';
 
 // Check jika tidak ada parameter ID
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -123,8 +124,9 @@ function renderTtdBoxKoperasi($roleKey, $roleMapping, $ttdData)
         <div class="ttd-label"><?= $mapping['label'] ?></div>
         <div class="ttd-sig-area">
             <?php if ($ttd): ?>
+                <?php $sigUrl = resolve_photo_url($ttd['signature_path'], '../uploads/'); ?>
                 <div class="ttd-slot">
-                    <img src="../uploads/<?= htmlspecialchars($ttd['signature_path']) ?>" alt="TTD <?= htmlspecialchars($mapping['nama']) ?>">
+                    <img src="<?= htmlspecialchars($sigUrl) ?>" alt="TTD <?= htmlspecialchars($mapping['nama']) ?>">
                 </div>
                 <div class="ttd-line"></div>
                 <?php if (!empty($ttd['signed_at'])): ?>

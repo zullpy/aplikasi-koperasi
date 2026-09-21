@@ -2,6 +2,7 @@
 $activePage = 'laporan-koperasi';
 include '../database/koneksi.php';
 include '../database/laporan-koperasi-func.php';
+require_once '../database/cloudinary_helper.php';
 require_once '../database/auth.php';
 
 // ── Proses aksi dari modal: Edit Harga / Tambah Barang / Hapus Barang / Tambah Saldo ──
@@ -550,7 +551,8 @@ $bisaTtd          = array_key_exists($roleLoginSaatIni, $daftarRoleTtd);
                                                         <div class="ttd-status-item <?= $ttdItem ? 'ttd-status-item--signed' : '' ?>">
                                                             <div class="ttd-status-item__role"><?= htmlspecialchars($roleLabel) ?></div>
                                                             <?php if ($ttdItem): ?>
-                                                                <img src="../uploads/<?= htmlspecialchars($ttdItem['signature_path']) ?>"
+                                                                <?php $sigUrl = resolve_photo_url($ttdItem['signature_path'], '../uploads/'); ?>
+                                                                <img src="<?= htmlspecialchars($sigUrl) ?>"
                                                                     alt="Tanda tangan <?= htmlspecialchars($roleLabel) ?>" class="ttd-status-item__img"
                                                                     onclick="bukaGambar(this.src, 'Tanda Tangan — <?= htmlspecialchars(addslashes($roleLabel)) ?>')">
                                                                 <div class="ttd-status-item__meta">
