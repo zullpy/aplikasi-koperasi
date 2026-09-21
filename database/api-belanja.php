@@ -233,21 +233,42 @@ try {
                 $pengajuanIds[] = (int)$row['id'];
             }
 
+            // Auto-index tanggal_id on pengajuan_belanja
+            if (empty($_SESSION['db_idx_pb_checked'])) {
+                $chkPb = $koneksi->query("SHOW INDEX FROM pengajuan_belanja WHERE Key_name = 'idx_tanggal_id'");
+                if ($chkPb && $chkPb->num_rows === 0) {
+                    @$koneksi->query("ALTER TABLE pengajuan_belanja ADD INDEX idx_tanggal_id (tanggal, id)");
+                }
+                $_SESSION['db_idx_pb_checked'] = true;
+            }
+
             if (!empty($pengajuanIds)) {
                 $inIds = implode(',', $pengajuanIds);
+
+                // 1. Ambil seluruh nota sekaligus dengan index pengajuan_id
+                $notaMap = [];
+                $resN = $koneksi->query("
+                    SELECT item_id, file_path 
+                    FROM upload_nota 
+                    WHERE pengajuan_id IN ($inIds)
+                    ORDER BY id ASC
+                ");
+                if ($resN) {
+                    while ($n = $resN->fetch_assoc()) {
+                        $notaMap[$n['item_id']][] = $n['file_path'];
+                    }
+                    $resN->free();
+                }
+
+                // 2. Ambil seluruh detail item dengan index pengajuan_id murni (tanpa temp table & filesort)
                 $resD = $koneksi->query("
-                    SELECT d.*,
-                    GROUP_CONCAT(n.file_path ORDER BY n.id ASC SEPARATOR '||') AS nota_urls_raw
-                    FROM detail_item_belanja d
-                    LEFT JOIN upload_nota n ON n.item_id = d.id AND n.pengajuan_id = d.pengajuan_id
-                    WHERE d.pengajuan_id IN ($inIds)
-                    GROUP BY d.id
-                    ORDER BY COALESCE(NULLIF(d.urutan, 0), d.id) ASC, d.id ASC
+                    SELECT * 
+                    FROM detail_item_belanja 
+                    WHERE pengajuan_id IN ($inIds)
                 ");
                 if ($resD) {
                     while ($d = $resD->fetch_assoc()) {
-                        $d['nota_urls'] = !empty($d['nota_urls_raw']) ? explode('||', $d['nota_urls_raw']) : [];
-                        unset($d['nota_urls_raw']);
+                        $d['nota_urls'] = $notaMap[$d['id']] ?? [];
                         if (!isset($d['status_beli']) || $d['status_beli'] === null) {
                             $d['status_beli'] = 'belum';
                         }
@@ -259,6 +280,18 @@ try {
                         }
                     }
                     $resD->free();
+
+                    // Urutkan item per menu di memori PHP (instan, 0 ms)
+                    foreach ($pengajuanRows as &$pRow) {
+                        if (!empty($pRow['items'])) {
+                            usort($pRow['items'], function($a, $b) {
+                                $uA = (!empty($a['urutan']) && (int)$a['urutan'] > 0) ? (int)$a['urutan'] : (int)$a['id'];
+                                $uB = (!empty($b['urutan']) && (int)$b['urutan'] > 0) ? (int)$b['urutan'] : (int)$b['id'];
+                                return $uA <=> $uB;
+                            });
+                        }
+                    }
+                    unset($pRow);
                 }
             }
 

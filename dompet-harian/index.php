@@ -64,7 +64,15 @@ $userRole = $_SESSION['role'] ?? '';
         </div>
         <div id="searchInfo" class="search-info"></div>
         <!-- TABLE CONTAINER (grouped by date > menu) -->
-        <div id="tableContainer" class="table-container"></div>
+        <div id="tableContainer" class="table-container">
+            <div class="skeleton-loading" id="tableSkeleton">
+                <div class="skeleton-date-header"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-date-header" style="margin-top: 1rem;"></div>
+                <div class="skeleton-card"></div>
+            </div>
+        </div>
         <!-- EMPTY STATE -->
         <div id="emptyState" class="empty-state" style="display:none;">
             <div class="empty-icon-wrap">
