@@ -218,63 +218,76 @@ try {
             if (!$res) {
                 throw new Exception('Query error: ' . $koneksi->error);
             }
-            $data = [];
+            $pengajuanRows = [];
+            $pengajuanIds = [];
             while ($row = $res->fetch_assoc()) {
-                $id = $row['id'];
-
                 $row['bukti_transfer'] = decodeBuktiList($row['bukti_transfer'] ?? null);
+                $row['items'] = [];
+                $pengajuanRows[$row['id']] = $row;
+                $pengajuanIds[] = (int)$row['id'];
+            }
 
-                $stmtD = $koneksi->prepare("
+            if (!empty($pengajuanIds)) {
+                $inIds = implode(',', $pengajuanIds);
+                $resD = $koneksi->query("
                     SELECT d.*,
                     GROUP_CONCAT(n.file_path ORDER BY n.id ASC SEPARATOR '||') AS nota_urls_raw
                     FROM detail_item_belanja d
                     LEFT JOIN upload_nota n ON n.item_id = d.id AND n.pengajuan_id = d.pengajuan_id
-                    WHERE d.pengajuan_id = ?
+                    WHERE d.pengajuan_id IN ($inIds)
                     GROUP BY d.id
                     ORDER BY COALESCE(NULLIF(d.urutan, 0), d.id) ASC, d.id ASC
                 ");
-                if (!$stmtD) {
-                    throw new Exception('Prepare error: ' . $koneksi->error);
-                }
-                $stmtD->bind_param("i", $id);
-                $stmtD->execute();
-                $det = $stmtD->get_result();
-                $items = [];
-                while ($d = $det->fetch_assoc()) {
-                    $d['nota_urls'] = $d['nota_urls_raw']
-                        ? explode('||', $d['nota_urls_raw'])
-                        : [];
-                    unset($d['nota_urls_raw']);
-
-                    if (!isset($d['status_beli']) || $d['status_beli'] === null) {
-                        $d['status_beli'] = 'belum';
+                if ($resD) {
+                    while ($d = $resD->fetch_assoc()) {
+                        $d['nota_urls'] = !empty($d['nota_urls_raw']) ? explode('||', $d['nota_urls_raw']) : [];
+                        unset($d['nota_urls_raw']);
+                        if (!isset($d['status_beli']) || $d['status_beli'] === null) {
+                            $d['status_beli'] = 'belum';
+                        }
+                        if (!isset($d['status_lunas']) || $d['status_lunas'] === null) {
+                            $d['status_lunas'] = 'belum';
+                        }
+                        if (isset($pengajuanRows[$d['pengajuan_id']])) {
+                            $pengajuanRows[$d['pengajuan_id']]['items'][] = $d;
+                        }
                     }
-                    if (!isset($d['status_lunas']) || $d['status_lunas'] === null) {
-                        $d['status_lunas'] = 'belum';
-                    }
-                    $items[] = $d;
+                    $resD->free();
                 }
-                $stmtD->close();
-                $row['items'] = $items;
-                $data[] = $row;
             }
-            echo json_encode(['success' => true, 'data' => $data]);
+
+            echo json_encode(['success' => true, 'data' => array_values($pengajuanRows)]);
             exit;
 
             // ─── LIST BARANG: Ambil estimasi harga ────────────────────────────
         case 'list_barang':
-            // ✅ Auto-sync: Import barang yang ada di tabel `barang` tetapi belum masuk ke `estimasi_harga`
-            @$koneksi->query("
-                INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate)
-                SELECT 
-                    TRIM(b.nama_barang),
-                    b.harga_beli,
-                    COALESCE(NULLIF(TRIM(b.satuan), ''), 'Pcs'),
-                    COALESCE(b.tanggal_terupdate_baru, CURDATE())
-                FROM barang b
-                LEFT JOIN estimasi_harga e ON LOWER(TRIM(e.nama_barang)) = LOWER(TRIM(b.nama_barang))
-                WHERE e.id IS NULL AND b.nama_barang IS NOT NULL AND TRIM(b.nama_barang) != ''
+            // ✅ Auto-sync cepat: Hanya jalankan jika ada barang baru di `barang` yang belum ada di `estimasi_harga`
+            $checkNew = $koneksi->query("
+                SELECT b.id_barang 
+                FROM barang b 
+                WHERE b.nama_barang IS NOT NULL 
+                  AND TRIM(b.nama_barang) != '' 
+                  AND NOT EXISTS (
+                      SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
+                  )
+                LIMIT 1
             ");
+            if ($checkNew && $checkNew->num_rows > 0) {
+                @$koneksi->query("
+                    INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate)
+                    SELECT 
+                        TRIM(b.nama_barang),
+                        b.harga_beli,
+                        COALESCE(NULLIF(TRIM(b.satuan), ''), 'Pcs'),
+                        COALESCE(b.tanggal_terupdate_baru, CURDATE())
+                    FROM barang b
+                    WHERE b.nama_barang IS NOT NULL 
+                      AND TRIM(b.nama_barang) != '' 
+                      AND NOT EXISTS (
+                          SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
+                      )
+                ");
+            }
 
             $res = $koneksi->query("
                 SELECT id AS id_barang, nama_barang, harga_beli, satuan, tanggal_terupdate
@@ -647,6 +660,7 @@ try {
 
             $koneksi->begin_transaction();
             try {
+                $targetDetailId = $idDetail;
                 if ($idDetail) {
                     $stmt = $koneksi->prepare("
                         UPDATE detail_item_belanja
@@ -670,6 +684,7 @@ try {
                     if (!$stmt) throw new Exception('Prepare INSERT detail error: ' . $koneksi->error);
                     $stmt->bind_param("iisdsidsssi", $idPengajuan, $idBarang, $namaBarang, $qty, $satuan, $harga, $subtotal, $biayaAdminItem, $statusBendahara, $statusBeli, $maxU);
                     if (!$stmt->execute()) throw new Exception('Execute INSERT detail error: ' . $stmt->error);
+                    $targetDetailId = $koneksi->insert_id;
                     $stmt->close();
                 }
 
@@ -727,8 +742,44 @@ try {
                     $stmtH->close();
                 }
 
+                // Ambil data item yang baru disimpan/diupdate beserta nota
+                $itemData = null;
+                if ($targetDetailId) {
+                    $stmtItem = $koneksi->prepare("
+                        SELECT d.*, GROUP_CONCAT(n.file_path ORDER BY n.id ASC SEPARATOR '||') AS nota_urls_raw
+                        FROM detail_item_belanja d
+                        LEFT JOIN upload_nota n ON n.item_id = d.id AND n.pengajuan_id = d.pengajuan_id
+                        WHERE d.id = ?
+                        GROUP BY d.id
+                    ");
+                    if ($stmtItem) {
+                        $stmtItem->bind_param("i", $targetDetailId);
+                        $stmtItem->execute();
+                        $itemData = $stmtItem->get_result()->fetch_assoc();
+                        $stmtItem->close();
+                    }
+                    if ($itemData) {
+                        $itemData['nota_urls'] = !empty($itemData['nota_urls_raw']) ? explode('||', $itemData['nota_urls_raw']) : [];
+                        unset($itemData['nota_urls_raw']);
+                        $itemData['status_beli'] = $itemData['status_beli'] ?? 'belum';
+                        $itemData['status_lunas'] = $itemData['status_lunas'] ?? 'belum';
+                    }
+                }
+
                 $koneksi->commit();
-                echo json_encode(['success' => true, 'message' => $idDetail ? 'Barang berhasil diperbarui' : 'Barang berhasil ditambahkan']);
+                echo json_encode([
+                    'success'   => true,
+                    'message'   => $idDetail ? 'Barang berhasil diperbarui' : 'Barang berhasil ditambahkan',
+                    'item'      => $itemData,
+                    'pengajuan' => [
+                        'id'            => $idPengajuan,
+                        'total_belanja' => $totalBelanja,
+                        'biaya_admin'   => $biayaAdminTotal,
+                        'sisa_uang'     => $sisaUang,
+                        'uang_masuk'    => $uangMasuk
+                    ]
+                ]);
+                exit;
             } catch (Exception $e) {
                 $koneksi->rollback();
                 throw $e;
@@ -1393,43 +1444,42 @@ try {
             }
             $inClause = implode(',', $idsArr);
 
-            $checkTbl = $koneksi->query("SHOW TABLES LIKE 'tanda_tangan_digital'");
-            if (!$checkTbl || $checkTbl->num_rows === 0) {
-                $checkAlt = $koneksi->query("SHOW TABLES LIKE 'ttd_digital_belanja_sppg'");
-                if (!$checkAlt || $checkAlt->num_rows === 0) {
-                    $checkAlt = $koneksi->query("SHOW TABLES LIKE 'ttd_diigital_belanja_sppg'");
-                }
-                if ($checkAlt && $checkAlt->num_rows > 0) {
-                    $koneksi->query("RENAME TABLE " . $checkAlt->fetch_row()[0] . " TO tanda_tangan_digital");
-                } else {
-                    $koneksi->query("
-                        CREATE TABLE tanda_tangan_digital (
-                            id            INT AUTO_INCREMENT PRIMARY KEY,
-                            pengajuan_id  INT NOT NULL,
-                            role_penanda  ENUM('bendahara','purchase','ketua') NOT NULL,
-                            user_id       INT DEFAULT 0,
-                            signature_data LONGTEXT NOT NULL,
-                            nama          VARCHAR(100) DEFAULT NULL,
-                            timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
-                            update_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                            UNIQUE KEY uq_pengajuan_role (pengajuan_id, role_penanda)
-                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-                    ");
-                }
-            }
-
-            $res = $koneksi->query("
+            $res = @$koneksi->query("
                 SELECT pengajuan_id, role_penanda, signature_data,
                 timestamp
                 FROM tanda_tangan_digital
                 WHERE pengajuan_id IN ($inClause)
                 ORDER BY pengajuan_id, timestamp DESC
             ");
-            if (!$res) throw new Exception('Query get_ttd error: ' . $koneksi->error);
+            if (!$res) {
+                // Jika tabel belum ada, buat sekali saja
+                $koneksi->query("
+                    CREATE TABLE IF NOT EXISTS tanda_tangan_digital (
+                        id            INT AUTO_INCREMENT PRIMARY KEY,
+                        pengajuan_id  INT NOT NULL,
+                        role_penanda  ENUM('bendahara','purchase','ketua') NOT NULL,
+                        user_id       INT DEFAULT 0,
+                        signature_data LONGTEXT NOT NULL,
+                        nama          VARCHAR(100) DEFAULT NULL,
+                        timestamp     DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        update_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY uq_pengajuan_role (pengajuan_id, role_penanda)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ");
+                $res = @$koneksi->query("
+                    SELECT pengajuan_id, role_penanda, signature_data, timestamp
+                    FROM tanda_tangan_digital
+                    WHERE pengajuan_id IN ($inClause)
+                    ORDER BY pengajuan_id, timestamp DESC
+                ");
+            }
 
             $data = [];
-            while ($row = $res->fetch_assoc()) {
-                $data[] = $row;
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $data[] = $row;
+                }
+                $res->free();
             }
             echo json_encode(['success' => true, 'data' => $data]);
             exit;
@@ -1614,7 +1664,7 @@ try {
         default:
             throw new Exception('Action tidak dikenali: ' . $action);
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
     while (ob_get_level()) { ob_end_clean(); }
     http_response_code(400);
     echo json_encode([

@@ -633,7 +633,42 @@ async function fetchData(targetCardId = null, preserveScroll = true) {
     }
   } catch (error) {
     console.error('Gagal fetch data:', error);
-    showToast('Gagal memuat data dari server', 'error');
+    showToast('Gagal memuat data dari server: ' + (error.message || ''), 'error');
+    const container = document.getElementById('tableContainer');
+    if (container && allData.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 48px 20px; background: #fff; border-radius: 14px; border: 1px dashed #cbd5e1; margin-top: 16px;">
+          <div style="font-size: 36px; margin-bottom: 8px;">⚠️</div>
+          <div style="font-weight: 700; font-size: 16px; color: #1e293b; margin-bottom: 6px;">Koneksi ke Server Terkendala</div>
+          <div style="font-size: 13.5px; color: #64748b; margin-bottom: 18px; max-width: 420px; margin-left: auto; margin-right: auto;">
+            Tidak dapat memuat data belanja. Periksa koneksi internet atau login akun Anda.
+          </div>
+          <button onclick="fetchData()" class="btn-add" style="margin: 0 auto; display: inline-flex; align-items: center; gap: 8px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 4v6h-6M1 20v-6h6"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Muat Ulang Halaman
+          </button>
+        </div>
+      `;
+    }
+  }
+}
+
+// ─── Safe Base64 Helpers ─────────────────────────────────────────────────────
+function safeBtoa(obj) {
+  try {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj || ''))));
+  } catch (e) {
+    return '';
+  }
+}
+function safeAtob(str, fallback = []) {
+  try {
+    return JSON.parse(decodeURIComponent(escape(atob(str))));
+  } catch (e) {
+    return fallback;
   }
 }
 
@@ -643,7 +678,7 @@ function renderNotaCellContent(b, itemId, pengajuanId) {
   const urls = b.nota_urls
     ? (Array.isArray(b.nota_urls) ? b.nota_urls : JSON.parse(b.nota_urls || '[]'))
     : (b.nota_url ? [b.nota_url] : []);
-  const safeUrls = btoa(unescape(encodeURIComponent(JSON.stringify(urls))));
+  const safeUrls = safeBtoa(urls);
   const viewBtn = urls.length > 0
     ? `<button class="btn-nota-icon btn-nota-view-icon" data-nota-urls="${safeUrls}" data-nota-nama="${escHtml(b.nama_barang)}" onclick="openNotaModalFromBtn(this)" title="Lihat ${urls.length} nota">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -663,6 +698,118 @@ function renderNotaCellContent(b, itemId, pengajuanId) {
       </button>`
     : '';
   return `<div class="nota-action-group">${viewBtn}${uploadBtn}</div>`;
+}
+
+// ─── Helper Render Satu Baris Tabel Barang (Re-usable untuk in-place update) ───
+function renderSingleTableRowHtml(b, i, item) {
+  const isPurchase = IS_PURCHASE_ROLE;
+  const itemId = b.id || b.id_detail;
+  const isSelected = selectedItemMap.has(itemId);
+  const statusBeli = b.status_beli || 'belum';
+  const isBought = statusBeli === 'sudah';
+  const statusLunas = b.status_lunas || 'belum';
+  const isLunas = statusLunas === 'lunas';
+
+  // Kolom status (khusus purchase)
+  const statusCell = isPurchase ? `
+    <td class="item-status-cell">
+      ${isBought
+        ? `<span class="btn-item-bought btn-item-bought-done">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Sudah Dibeli
+          </span>`
+        : (USER_ROLE === 'purchase_stok'
+          ? `<span class="btn-item-bought btn-item-bought-pending" style="cursor: default; display: inline-flex; align-items: center; gap: 0.3rem;">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <circle cx="6" cy="6" r="4.5" />
+                <line x1="6" y1="3.5" x2="6" y2="6.5" />
+                <circle cx="6" cy="8.5" r="0.5" fill="currentColor" />
+              </svg>
+              Belum Dibeli
+            </span>`
+          : `<button class="btn-item-bought btn-item-bought-pending" onclick="markItemAsBought(${itemId})">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Sudah Dibeli
+            </button>`)
+      }
+    </td>
+  ` : '';
+
+  const adminLunasCell = USER_ROLE === 'admin' ? `
+    <td style="text-align:center;">
+      ${isLunas
+        ? `<button class="btn-item-lunas btn-item-lunas-done" onclick="confirmLunas(${itemId}, 'belum')" title="Klik untuk ubah ke belum dibayar">
+              Sudah Dibayar
+            </button>`
+        : `<button class="btn-item-lunas btn-item-lunas-pending" onclick="confirmLunas(${itemId}, 'lunas')" title="Klik untuk konfirmasi pembayaran">
+              Belum Dibayar
+            </button>`
+      }
+    </td>
+  ` : '';
+
+  // Kolom Aksi (khusus admin)
+  const adminItemActionCell = USER_ROLE === 'admin' ? `
+    <td style="text-align:center; white-space:nowrap;">
+      <div style="display:inline-flex; gap:6px; justify-content:center;">
+        <button class="btn-item-action btn-item-edit" onclick="openEditItemModal(${itemId}, ${item.id || item.id_pengajuan})" title="Edit Barang">
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
+            <path d="M2 9.5L8.5 3l1.5 1.5L3.5 11H2V9.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            <path d="M7.5 4l1.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="btn-item-action btn-item-delete" onclick="deleteSingleItem(${itemId}, ${item.id || item.id_pengajuan})" title="Hapus Barang">
+          <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
+            <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </td>
+  ` : '';
+
+  const subtotalVal = ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0);
+
+  return `
+    <tr class="${isSelected ? 'row-selected' : ''} ${USER_ROLE === 'admin' ? 'item-sortable-row' : ''}" id="item-row-${itemId}" data-item-id="${itemId}" data-pengajuan-id="${item.id || item.id_pengajuan}" onclick="onItemRowClick(event, ${itemId}, ${item.id || item.id_pengajuan})" style="${USER_ROLE === 'admin' ? 'cursor:pointer;' : ''}">
+      ${USER_ROLE === 'admin' ? `
+        <td class="col-drag-handle" onclick="event.stopPropagation()" title="Tahan & geser ke atas/bawah untuk mengubah urutan">
+          <div class="row-drag-handle" data-item-id="${itemId}" data-pengajuan-id="${item.id || item.id_pengajuan}" title="Tahan dan tarik untuk geser urutan">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="9" cy="5" r="1.8"/>
+              <circle cx="15" cy="5" r="1.8"/>
+              <circle cx="9" cy="12" r="1.8"/>
+              <circle cx="15" cy="12" r="1.8"/>
+              <circle cx="9" cy="19" r="1.8"/>
+              <circle cx="15" cy="19" r="1.8"/>
+            </svg>
+          </div>
+        </td>
+      ` : ''}
+      ${USER_ROLE === 'admin' ? `
+        <td class="col-checkbox" onclick="event.stopPropagation()">
+          <input type="checkbox" class="item-select-checkbox item-row-cb" data-item-id="${itemId}" data-pengajuan-id="${item.id || item.id_pengajuan}" ${isSelected ? 'checked' : ''} onchange="onItemCheckboxChange(this, ${itemId}, ${item.id || item.id_pengajuan})">
+        </td>
+      ` : ''}
+      <td class="col-row-no">${i + 1}</td>
+      <td>${escHtml(b.nama_barang)}</td>
+      <td>${formatQty(b.qty || b.quantity || 0)}</td>
+      <td>${escHtml(b.satuan || '')}</td>
+      <td>${formatRupiah(b.harga || b.harga_satuan || 0)}</td>
+      <td>${formatRupiah(b.biaya_admin || 0)}</td>
+      <td class="subtotal-cell">${formatRupiah(subtotalVal)}</td>
+      ${statusCell}
+      ${adminLunasCell}
+      <td class="nota-cell" id="nota-cell-${itemId}">
+        ${renderNotaCellContent(b, itemId, item.id || item.id_pengajuan)}
+      </td>
+      ${adminItemActionCell}
+    </tr>
+  `;
 }
 
 // ─── Render Table (Grouped by Date → per Menu) ───────────────────────────────
@@ -736,7 +883,7 @@ function renderTable() {
         const uangMasuk = parseFloat(item.uang_masuk) || 0;
 
         // Tombol aksi di level MENU CARD
-        const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
+        const safeBuktiTF = safeBtoa(item.bukti_transfer || '');
         const saldoBtnHtml = (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') ? `
                   <button class="btn-action btn-action-saldo" data-bukti="${safeBuktiTF}" onclick="event.stopPropagation(); openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Input / Edit Uang Masuk Per Menu" style="background:#f0f9ff; color:#0284c7; border-color:#bae6fd;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -747,6 +894,7 @@ function renderTable() {
                   </button>
         ` : '';
 
+        let menuActionsHtml = '';
         if (USER_ROLE === 'admin') {
           menuActionsHtml = `
                   <button class="btn-action btn-action-edit" onclick="event.stopPropagation(); openEditModal(${item.id})">
@@ -875,7 +1023,7 @@ function renderTable() {
               } else {
                 selisihHtml = `<span class="menu-selisih menu-selisih-lunas">Pas</span>`;
               }
-              const safeBuktiTFBadge = btoa(unescape(encodeURIComponent(JSON.stringify(item.bukti_transfer || ''))));
+              const safeBuktiTFBadge = safeBtoa(item.bukti_transfer || '');
               if (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') {
                 row2 += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="event.stopPropagation(); openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
                                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -906,7 +1054,7 @@ function renderTable() {
             // Baris 3: Bukti TF
             let row3 = '';
             if (buktiTFUrls.length > 0 && !isPurchase) {
-              const safeBuktiTF = btoa(unescape(encodeURIComponent(JSON.stringify(buktiTFUrls))));
+              const safeBuktiTF = safeBtoa(buktiTFUrls);
               row3 = `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="event.stopPropagation(); openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1" y="2" width="11" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
@@ -969,113 +1117,7 @@ function renderTable() {
                           </tr>
                         </thead>
                         <tbody>
-                          ${detailItems.map((b, i) => {
-            const itemId = b.id || b.id_detail;
-            const isSelected = selectedItemMap.has(itemId);
-            const statusBeli = b.status_beli || 'belum';
-            const isBought = statusBeli === 'sudah';
-            const statusLunas = b.status_lunas || 'belum';
-            const isLunas = statusLunas === 'lunas';
-
-            // Kolom status (khusus purchase)
-            const statusCell = isPurchase ? `
-                              <td class="item-status-cell">
-                                ${isBought
-                ? `<span class="btn-item-bought btn-item-bought-done">
-                                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                        <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                      </svg>
-                                      Sudah Dibeli
-                                    </span>`
-                : (USER_ROLE === 'purchase_stok'
-                  ? `<span class="btn-item-bought btn-item-bought-pending" style="cursor: default; display: inline-flex; align-items: center; gap: 0.3rem;">
-                                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-                                        <circle cx="6" cy="6" r="4.5" />
-                                        <line x1="6" y1="3.5" x2="6" y2="6.5" />
-                                        <circle cx="6" cy="8.5" r="0.5" fill="currentColor" />
-                                      </svg>
-                                      Belum Dibeli
-                                    </span>`
-                  : `<button class="btn-item-bought btn-item-bought-pending" onclick="markItemAsBought(${itemId})">
-                                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                        <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                      </svg>
-                                      Sudah Dibeli
-                                    </button>`)
-                }
-                              </td>
-                            ` : '';
-
-            const adminLunasCell = USER_ROLE === 'admin' ? `
-                              <td style="text-align:center;">
-                                ${isLunas
-                  ? `<button class="btn-item-lunas btn-item-lunas-done" onclick="confirmLunas(${itemId}, 'belum')" title="Klik untuk ubah ke belum dibayar">
-                                        Sudah Dibayar
-                                      </button>`
-                  : `<button class="btn-item-lunas btn-item-lunas-pending" onclick="confirmLunas(${itemId}, 'lunas')" title="Klik untuk konfirmasi pembayaran">
-                                        Belum Dibayar
-                                      </button>`
-                }
-                              </td>
-                            ` : '';
-
-            // Kolom Aksi (khusus admin)
-            const adminItemActionCell = USER_ROLE === 'admin' ? `
-                              <td style="text-align:center; white-space:nowrap;">
-                                <div style="display:inline-flex; gap:6px; justify-content:center;">
-                                  <button class="btn-item-action btn-item-edit" onclick="openEditItemModal(${itemId}, ${item.id})" title="Edit Barang">
-                                    <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
-                                      <path d="M2 9.5L8.5 3l1.5 1.5L3.5 11H2V9.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-                                      <path d="M7.5 4l1.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                    </svg>
-                                  </button>
-                                  <button class="btn-item-action btn-item-delete" onclick="deleteSingleItem(${itemId}, ${item.id})" title="Hapus Barang">
-                                    <svg width="14" height="14" viewBox="0 0 13 13" fill="none">
-                                      <path d="M2 3.5h9M5 3.5V2.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v1M5.5 6v3.5M7.5 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                      <path d="M3 3.5l.7 7a.5.5 0 0 0 .5.5h4.6a.5.5 0 0 0 .5-.5l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                  </button>
-                                </div>
-                              </td>
-                            ` : '';
-
-            return `
-                              <tr class="${isSelected ? 'row-selected' : ''} ${USER_ROLE === 'admin' ? 'item-sortable-row' : ''}" id="item-row-${itemId}" data-item-id="${itemId}" data-pengajuan-id="${item.id}" onclick="onItemRowClick(event, ${itemId}, ${item.id})" style="${USER_ROLE === 'admin' ? 'cursor:pointer;' : ''}">
-                                ${USER_ROLE === 'admin' ? `
-                                  <td class="col-drag-handle" onclick="event.stopPropagation()" title="Tahan & geser ke atas/bawah untuk mengubah urutan">
-                                    <div class="row-drag-handle" data-item-id="${itemId}" data-pengajuan-id="${item.id}" title="Tahan dan tarik untuk geser urutan">
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                        <circle cx="9" cy="5" r="1.8"/>
-                                        <circle cx="15" cy="5" r="1.8"/>
-                                        <circle cx="9" cy="12" r="1.8"/>
-                                        <circle cx="15" cy="12" r="1.8"/>
-                                        <circle cx="9" cy="19" r="1.8"/>
-                                        <circle cx="15" cy="19" r="1.8"/>
-                                      </svg>
-                                    </div>
-                                  </td>
-                                ` : ''}
-                                ${USER_ROLE === 'admin' ? `
-                                  <td class="col-checkbox" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="item-select-checkbox item-row-cb" data-item-id="${itemId}" data-pengajuan-id="${item.id}" ${isSelected ? 'checked' : ''} onchange="onItemCheckboxChange(this, ${itemId}, ${item.id})">
-                                  </td>
-                                ` : ''}
-                                <td class="col-row-no">${i + 1}</td>
-                                <td>${escHtml(b.nama_barang)}</td>
-                                <td>${formatQty(b.qty || b.quantity || 0)}</td>
-                                <td>${escHtml(b.satuan || '')}</td>
-                                <td>${formatRupiah(b.harga || b.harga_satuan || 0)}</td>
-                                <td>${formatRupiah(b.biaya_admin || 0)}</td>
-                                <td class="subtotal-cell">${formatRupiah(((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0))}</td>
-                                ${statusCell}
-                                ${adminLunasCell}
-                                <td class="nota-cell" id="nota-cell-${itemId}">
-                                  ${renderNotaCellContent(b, itemId, item.id)}
-                                </td>
-                                ${adminItemActionCell}
-                              </tr>
-                            `;
-          }).join('')}
+                          ${detailItems.map((b, i) => renderSingleTableRowHtml(b, i, item)).join('')}
                         </tbody>
                         <tfoot>
                           <tr>
@@ -1437,21 +1479,7 @@ function createSearchableBarangDropdown(rowId, selectedId = null, selectedName =
         value="${displayName ? escHtml(displayName) : ''}"
         autocomplete="off"
       />
-      <div class="searchable-dropdown-list" data-row="${rowId}">
-        ${masterBarang.map(b => `
-          <div
-            class="dropdown-item"
-            data-id="${b.id_barang}"
-            data-name="${escHtml(b.nama_barang)}"
-            data-harga="${b.harga_beli}"
-            data-satuan="${escHtml(b.satuan)}"
-            data-row="${rowId}"
-          >
-            <div class="dropdown-item-name">${escHtml(b.nama_barang)}</div>
-            <div class="dropdown-item-meta">${formatRupiah(b.harga_beli)} / ${escHtml(b.satuan)}</div>
-          </div>
-        `).join('')}
-      </div>
+      <div class="searchable-dropdown-list" data-row="${rowId}"></div>
     </div>
   `;
 }
@@ -1551,43 +1579,78 @@ function addBarangRow(data = null) {
   const searchInput = row.querySelector('.barang-search-input');
   const dropdownList = row.querySelector('.searchable-dropdown-list');
 
+  const renderDropdownList = (q) => {
+    const query = (q || '').toLowerCase().trim();
+    const filtered = masterBarang.filter(b => !query || (b.nama_barang && b.nama_barang.toLowerCase().includes(query)));
+    if (filtered.length === 0) {
+      dropdownList.innerHTML = `<div style="padding:8px 12px; color:#94a3b8; font-size:13px;">Tidak ada hasil (akan disimpan sebagai barang baru)</div>`;
+    } else {
+      const displayItems = filtered.slice(0, 30);
+      dropdownList.innerHTML = displayItems.map(b => `
+        <div
+          class="dropdown-item"
+          data-id="${b.id_barang}"
+          data-name="${escHtml(b.nama_barang)}"
+          data-harga="${b.harga_beli}"
+          data-satuan="${escHtml(b.satuan)}"
+          data-row="${rowId}"
+        >
+          <div class="dropdown-item-name">${escHtml(b.nama_barang)}</div>
+          <div class="dropdown-item-meta">${formatRupiah(b.harga_beli)} / ${escHtml(b.satuan)}</div>
+        </div>
+      `).join('') + (filtered.length > 30 ? `<div style="padding:6px 12px; font-size:11px; color:#94a3b8; text-align:center;">Ketik lebih spesifik untuk melihat ${filtered.length - 30} barang lainnya...</div>` : '');
+    }
+  };
+
+  let debounceTimer = null;
   searchInput.addEventListener('focus', () => {
-    filterDropdown(rowId, searchInput.value);
+    renderDropdownList(searchInput.value);
     dropdownList.classList.add('active');
   });
 
   searchInput.addEventListener('input', () => {
-    filterDropdown(rowId, searchInput.value);
-    dropdownList.classList.add('active');
-    row.querySelector(`.barang-id[data-row="${rowId}"]`).value = '';
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      renderDropdownList(searchInput.value);
+      dropdownList.classList.add('active');
+      const hiddenId = row.querySelector(`.barang-id[data-row="${rowId}"]`);
+      if (hiddenId) hiddenId.value = '';
+    }, 60);
   });
 
-  document.addEventListener('click', (e) => {
-    if (!row.querySelector(`.searchable-dropdown[data-row="${rowId}"]`).contains(e.target)) {
+  dropdownList.addEventListener('click', (e) => {
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+    const hiddenId = row.querySelector(`.barang-id[data-row="${rowId}"]`);
+    if (hiddenId) hiddenId.value = item.dataset.id;
+    searchInput.value = item.dataset.name;
+    const hargaNum = parseFloat(item.dataset.harga) || 0;
+    const hargaInput = row.querySelector(`.barang-harga[data-row="${rowId}"]`);
+    if (hargaInput) hargaInput.value = hargaNum ? hargaNum.toLocaleString('id-ID') : '';
+    const satuanInput = row.querySelector(`.barang-satuan[data-row="${rowId}"]`);
+    if (satuanInput) satuanInput.value = item.dataset.satuan;
+    dropdownList.classList.remove('active');
+    updateRowSubtotal(rowId);
+  });
+
+  const onDocClick = (e) => {
+    const dropdownWrap = row.querySelector(`.searchable-dropdown[data-row="${rowId}"]`);
+    if (dropdownWrap && !dropdownWrap.contains(e.target)) {
       dropdownList.classList.remove('active');
     }
-  });
-
-  dropdownList.querySelectorAll('.dropdown-item').forEach(item => {
-    item.addEventListener('click', () => {
-      row.querySelector(`.barang-id[data-row="${rowId}"]`).value = item.dataset.id;
-      searchInput.value = item.dataset.name;
-      const hargaNum = parseFloat(item.dataset.harga) || 0;
-      row.querySelector(`.barang-harga[data-row="${rowId}"]`).value = hargaNum ? hargaNum.toLocaleString('id-ID') : '';
-      row.querySelector(`.barang-satuan[data-row="${rowId}"]`).value = item.dataset.satuan;
-      dropdownList.classList.remove('active');
-      updateRowSubtotal(rowId);
-    });
-  });
+  };
+  document.addEventListener('click', onDocClick);
 
   if (data?.harga && data?.quantity) updateRowSubtotal(rowId);
   renumberRows();
 }
 
 function filterDropdown(rowId, query) {
+  // Backwards compatibility if called elsewhere
   const list = document.querySelector(`.searchable-dropdown-list[data-row="${rowId}"]`);
+  if (!list) return;
   const items = list.querySelectorAll('.dropdown-item');
-  const q = query.toLowerCase().trim();
+  const q = (query || '').toLowerCase().trim();
   items.forEach(item => {
     item.style.display = (!q || item.dataset.name.toLowerCase().includes(q)) ? '' : 'none';
   });
@@ -1866,39 +1929,44 @@ function setupItemModalDropdown() {
 
   const renderList = (q) => {
     const query = (q || '').toLowerCase().trim();
-    const filtered = masterBarang.filter(b => !query || b.nama_barang.toLowerCase().includes(query));
+    const filtered = masterBarang.filter(b => !query || (b.nama_barang && b.nama_barang.toLowerCase().includes(query)));
     if (filtered.length === 0) {
       list.innerHTML = `<div style="padding:8px 12px; color:#94a3b8; font-size:13px;">Tidak ada hasil (akan disimpan sebagai barang baru)</div>`;
     } else {
-      list.innerHTML = filtered.map(b => `
+      const displayItems = filtered.slice(0, 30);
+      list.innerHTML = displayItems.map(b => `
         <div class="dropdown-item" data-id="${b.id_barang}" data-name="${escHtml(b.nama_barang)}" data-harga="${b.harga_beli}" data-satuan="${escHtml(b.satuan)}">
           <div class="dropdown-item-name">${escHtml(b.nama_barang)}</div>
           <div class="dropdown-item-meta">${formatRupiah(b.harga_beli)} / ${escHtml(b.satuan)}</div>
         </div>
-      `).join('');
+      `).join('') + (filtered.length > 30 ? `<div style="padding:6px 12px; font-size:11px; color:#94a3b8; text-align:center;">Ketik lebih spesifik untuk melihat ${filtered.length - 30} barang lainnya...</div>` : '');
     }
-
-    list.querySelectorAll('.dropdown-item').forEach(el => {
-      el.addEventListener('click', () => {
-        document.getElementById('itemModalBarangId').value = el.dataset.id;
-        input.value = el.dataset.name;
-        document.getElementById('itemModalHarga').value = el.dataset.harga ? Number(el.dataset.harga).toLocaleString('id-ID') : '';
-        document.getElementById('itemModalSatuan').value = el.dataset.satuan;
-        list.classList.remove('active');
-        calculateItemModalSubtotal();
-      });
-    });
   };
 
+  list.onclick = (e) => {
+    const el = e.target.closest('.dropdown-item');
+    if (!el) return;
+    document.getElementById('itemModalBarangId').value = el.dataset.id;
+    input.value = el.dataset.name;
+    document.getElementById('itemModalHarga').value = el.dataset.harga ? Number(el.dataset.harga).toLocaleString('id-ID') : '';
+    document.getElementById('itemModalSatuan').value = el.dataset.satuan;
+    list.classList.remove('active');
+    calculateItemModalSubtotal();
+  };
+
+  let debounceTimer = null;
   input.onfocus = () => {
     renderList(input.value);
     list.classList.add('active');
   };
   input.oninput = () => {
-    renderList(input.value);
-    list.classList.add('active');
-    document.getElementById('itemModalBarangId').value = '';
-    calculateItemModalSubtotal();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      renderList(input.value);
+      list.classList.add('active');
+      document.getElementById('itemModalBarangId').value = '';
+      calculateItemModalSubtotal();
+    }, 60);
   };
 
   const handleClickOutside = (e) => {
@@ -1972,7 +2040,120 @@ async function saveSingleItem() {
     if (result.success) {
       showToast(result.message || 'Barang berhasil disimpan', 'success');
       closeItemModal();
-      fetchData(pengajuanId, true);
+
+      const savedItem = result.item;
+      const pengajuanSummary = result.pengajuan;
+
+      // In-place UI update agar instan tanpa re-fetch lambat
+      if (savedItem && pengajuanSummary) {
+        let menuObj = allData.find(m => m.id == pengajuanId || m.id_pengajuan == pengajuanId);
+        if (menuObj) {
+          menuObj.total_belanja = pengajuanSummary.total_belanja;
+          menuObj.total_harga = pengajuanSummary.total_belanja;
+          menuObj.biaya_admin = pengajuanSummary.biaya_admin;
+          menuObj.sisa_uang = pengajuanSummary.sisa_uang;
+          menuObj.uang_masuk = pengajuanSummary.uang_masuk;
+
+          const dItems = menuObj.items || menuObj.detail_items || [];
+          if (detailId) {
+            // Edit barang yang sudah ada
+            const idx = dItems.findIndex(b => (b.id || b.id_detail) == detailId);
+            if (idx !== -1) {
+              dItems[idx] = { ...dItems[idx], ...savedItem };
+            }
+            const existingTr = document.getElementById(`item-row-${detailId}`);
+            if (existingTr) {
+              existingTr.outerHTML = renderSingleTableRowHtml(savedItem, idx >= 0 ? idx : 0, menuObj);
+            } else {
+              renderTable();
+              return;
+            }
+          } else {
+            // Tambah barang baru
+            dItems.push(savedItem);
+            menuObj.items = dItems;
+            menuObj.detail_items = dItems;
+
+            const card = document.getElementById(`menu-card-${pengajuanId}`);
+            if (card) {
+              let tbody = card.querySelector('.rincian-table tbody');
+              if (tbody) {
+                const newTrHtml = renderSingleTableRowHtml(savedItem, dItems.length - 1, menuObj);
+                const tempWrap = document.createElement('tbody');
+                tempWrap.innerHTML = newTrHtml;
+                tbody.appendChild(tempWrap.firstElementChild);
+              } else {
+                renderTable();
+                return;
+              }
+            } else {
+              renderTable();
+              return;
+            }
+          }
+
+          // Update Total Estimasi di footer tabel & header menu
+          const card = document.getElementById(`menu-card-${pengajuanId}`);
+          if (card) {
+            const tfootTotal = card.querySelector('.tfoot-total');
+            if (tfootTotal) tfootTotal.textContent = formatRupiah(pengajuanSummary.total_belanja);
+
+            const menuTotalEl = card.querySelector('.menu-total');
+            if (menuTotalEl) menuTotalEl.textContent = formatRupiah(pengajuanSummary.total_belanja);
+
+            const unpaidItems = dItems.filter(b => b.status_lunas !== 'lunas');
+            const unpaidCount = unpaidItems.length;
+            const totalUnpaid = unpaidItems.reduce((sum, b) =>
+              sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
+
+            const badges = card.querySelectorAll('.menu-card-subinfo .menu-stat-badge');
+            if (badges.length >= 2) {
+              badges[0].className = `menu-stat-badge ${unpaidCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+              const str1 = badges[0].querySelector('strong');
+              if (str1) str1.textContent = `${unpaidCount} item`;
+              badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
+              const str2 = badges[1].querySelector('strong');
+              if (str2) str2.textContent = formatRupiah(totalUnpaid);
+            }
+
+            const selisihEl = card.querySelector('.menu-selisih');
+            const uangMasuk = parseFloat(menuObj.uang_masuk) || 0;
+            if (uangMasuk > 0 && selisihEl) {
+              const selisih = uangMasuk - pengajuanSummary.total_belanja;
+              if (selisih > 0) {
+                selisihEl.className = 'menu-selisih menu-selisih-lebih';
+                selisihEl.innerHTML = `Kembalian <strong>${formatRupiah(selisih)}</strong>`;
+              } else if (selisih < 0) {
+                selisihEl.className = 'menu-selisih menu-selisih-kurang';
+                selisihEl.innerHTML = `Kurang <strong>${formatRupiah(Math.abs(selisih))}</strong>`;
+              } else {
+                selisihEl.className = 'menu-selisih menu-selisih-lunas';
+                selisihEl.innerHTML = `Pas`;
+              }
+            }
+
+            // Update Total Hari di header tanggal
+            const dateGroup = card.closest('.date-group');
+            if (dateGroup) {
+              const allCardsInDate = dateGroup.querySelectorAll('.menu-card');
+              let sumDate = 0;
+              allCardsInDate.forEach(c => {
+                const cId = c.id.replace('menu-card-', '');
+                const m = allData.find(x => x.id == cId);
+                if (m) {
+                  const items = m.items || m.detail_items || [];
+                  sumDate += items.reduce((s, b) =>
+                    s + ((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0), 0);
+                }
+              });
+              const dateTotalStrong = dateGroup.querySelector('.date-group-total strong');
+              if (dateTotalStrong) dateTotalStrong.textContent = formatRupiah(sumDate);
+            }
+          }
+        }
+      } else {
+        fetchData(pengajuanId, true);
+      }
     } else {
       showToast(result.message || 'Gagal menyimpan barang', 'error');
     }
@@ -2788,26 +2969,47 @@ async function deleteItem(id) {
   }
 }
 
-// ─── Toast (SweetAlert2 mixin) ────────────────────────────────────────────────
-const Toast = Swal.mixin({
-  toast: true,
-  position: 'top-end',
-  showConfirmButton: false,
-  timer: 2800,
-  timerProgressBar: true,
-  didOpen: (toast) => {
-    toast.onmouseenter = Swal.stopTimer;
-    toast.onmouseleave = Swal.resumeTimer;
+// ─── Toast (SweetAlert2 mixin with Safe Fallback) ────────────────────────────
+let _swalToast = null;
+function getSwalToast() {
+  if (_swalToast) return _swalToast;
+  if (typeof Swal !== 'undefined' && typeof Swal.mixin === 'function') {
+    _swalToast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2800,
+      timerProgressBar: true,
+      didOpen: (toast) => {
+        toast.onmouseenter = Swal.stopTimer;
+        toast.onmouseleave = Swal.resumeTimer;
+      }
+    });
+    return _swalToast;
   }
-});
+  return null;
+}
 
 let toastTimer = null;
 function showToast(msg, type = '') {
-  const iconMap = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
-  Toast.fire({
-    icon: iconMap[type] || 'info',
-    title: msg
-  });
+  const st = getSwalToast();
+  if (st) {
+    const iconMap = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+    st.fire({
+      icon: iconMap[type] || 'info',
+      title: msg
+    });
+    return;
+  }
+  const el = document.getElementById('toast');
+  if (el) {
+    el.textContent = msg;
+    el.className = 'toast show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = 'toast'; }, 3000);
+  } else {
+    console.log('[Toast]', type, msg);
+  }
 }
 
 function exportPDF(id) {

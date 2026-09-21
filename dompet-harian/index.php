@@ -11,7 +11,7 @@ $userRole = $_SESSION['role'] ?? '';
     <title>Dompet Belanja Harian — SPPG</title>
     <link rel="icon" href="../assets/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css?v=<?php echo filemtime('style.css'); ?>">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="../assets/sweetalert2.min.css">
 </head>
 
 <body>
@@ -488,7 +488,7 @@ $userRole = $_SESSION['role'] ?? '';
     <script>
         window.CURRENT_USER_ROLE = '<?php echo htmlspecialchars($userRole); ?>';
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../assets/sweetalert2.all.min.js"></script>
     <script src="script.js?v=<?php echo filemtime('script.js'); ?>"></script>
     <?php include '../components/made-by.php'; ?>
 </body>
