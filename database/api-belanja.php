@@ -180,27 +180,33 @@ function ensureBuktiTransferColumnIsText($koneksi)
  */
 function ensureBiayaAdminColumnExists($koneksi)
 {
+    if (!empty($_SESSION['db_col_biaya_admin_checked'])) return;
     $checkCol = $koneksi->query("SHOW COLUMNS FROM detail_item_belanja LIKE 'biaya_admin'");
     if (!$checkCol || $checkCol->num_rows === 0) {
         @$koneksi->query("ALTER TABLE detail_item_belanja ADD COLUMN biaya_admin DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER harga");
     }
+    $_SESSION['db_col_biaya_admin_checked'] = true;
 }
 
 function ensureStatusLunasColumnExists($koneksi)
 {
+    if (!empty($_SESSION['db_col_status_lunas_checked'])) return;
     $checkCol = $koneksi->query("SHOW COLUMNS FROM detail_item_belanja LIKE 'status_lunas'");
     if (!$checkCol || $checkCol->num_rows === 0) {
         @$koneksi->query("ALTER TABLE detail_item_belanja ADD COLUMN status_lunas ENUM('belum','lunas') DEFAULT 'belum' AFTER status_beli");
     }
+    $_SESSION['db_col_status_lunas_checked'] = true;
 }
 
 function ensureUrutanColumnExists($koneksi)
 {
+    if (!empty($_SESSION['db_col_urutan_checked'])) return;
     $checkCol = $koneksi->query("SHOW COLUMNS FROM detail_item_belanja LIKE 'urutan'");
     if (!$checkCol || $checkCol->num_rows === 0) {
         @$koneksi->query("ALTER TABLE detail_item_belanja ADD COLUMN urutan INT(11) NOT NULL DEFAULT 0 AFTER id");
         @$koneksi->query("UPDATE detail_item_belanja SET urutan = id WHERE urutan = 0");
     }
+    $_SESSION['db_col_urutan_checked'] = true;
 }
 
 try {
@@ -710,7 +716,7 @@ try {
                             $stmtUp->close();
                         }
                     } else {
-                        $chkE = $koneksi->prepare("SELECT id FROM estimasi_harga WHERE LOWER(nama_barang) = LOWER(?) LIMIT 1");
+                        $chkE = $koneksi->prepare("SELECT id FROM estimasi_harga WHERE nama_barang = ? LIMIT 1");
                         if ($chkE) {
                             $chkE->bind_param('s', $namaBarang);
                             $chkE->execute();

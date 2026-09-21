@@ -569,6 +569,24 @@ function statusBadge(status) {
   return `<span class="status-badge ${s.cls}">${s.label}</span>`;
 }
 
+let masterBarangPromise = null;
+function loadMasterBarang() {
+  if (!masterBarangPromise) {
+    masterBarangPromise = fetch('../database/api-belanja.php?action=list_barang&_t=' + Date.now())
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data)) masterBarang = data.data;
+        return masterBarang;
+      })
+      .catch(err => {
+        console.error('Gagal fetch master barang:', err);
+        masterBarangPromise = null;
+        return [];
+      });
+  }
+  return masterBarangPromise;
+}
+
 // ─── Fetch Data dari Database ────────────────────────────────────────────────
 async function fetchData(targetCardId = null, preserveScroll = true) {
   const savedScrollY = (preserveScroll !== false) ? window.scrollY : 0;
@@ -576,12 +594,11 @@ async function fetchData(targetCardId = null, preserveScroll = true) {
     expandedMenuCards.add(targetCardId);
   }
   try {
-    const [resBelanja, resBarang] = await Promise.all([
-      fetch('../database/api-belanja.php?action=list&_t=' + Date.now()),
-      fetch('../database/api-belanja.php?action=list_barang&_t=' + Date.now())
-    ]);
+    // Load master barang di background tanpa mem-block rendering halaman
+    loadMasterBarang();
+
+    const resBelanja = await fetch('../database/api-belanja.php?action=list&_t=' + Date.now());
     const dataBelanja = await resBelanja.json();
-    const dataBarang = await resBarang.json();
     if (dataBelanja.success) {
       allData = dataBelanja.data.map(item => ({
         ...item,
@@ -590,35 +607,13 @@ async function fetchData(targetCardId = null, preserveScroll = true) {
         items: item.items || item.detail_items || [],
         ttd_map: {}
       }));
-
-      const ids = allData.map(d => d.id).filter(Boolean).join(',');
-      if (ids) {
-        try {
-          const resTtd = await fetch(`../database/api-belanja.php?action=get_ttd&ids=${ids}&_t=${Date.now()}`);
-          const dataTtd = await resTtd.json();
-          if (dataTtd.success && Array.isArray(dataTtd.data)) {
-            const ttdMap = {};
-            dataTtd.data.forEach(t => {
-              if (!ttdMap[t.pengajuan_id]) ttdMap[t.pengajuan_id] = {};
-              if (!ttdMap[t.pengajuan_id][t.role_penanda]) {
-                ttdMap[t.pengajuan_id][t.role_penanda] = t;
-              }
-            });
-            allData.forEach(item => {
-              if (ttdMap[item.id]) item.ttd_map = ttdMap[item.id];
-            });
-          }
-        } catch (e) {
-          console.error('Gagal fetch TTD:', e);
-        }
-      }
     }
-    if (dataBarang.success) masterBarang = dataBarang.data;
     
     if (targetCardId) {
       expandedMenuCards.add(targetCardId);
     }
 
+    // Render tabel LANGSUNG secara instan tanpa menunggu TTD atau Master Barang
     renderTable();
 
     // Kembalikan posisi scroll agar pengguna tetap di tanggal yang sama
@@ -3597,7 +3592,7 @@ let _sigCtx         = null;
 let _sigDrawing     = false;
 let _sigHasStroke   = false;
 
-function openSignatureModal(pengajuanId) {
+async function openSignatureModal(pengajuanId) {
   if (!['admin', 'purchase_stok'].includes(window.CURRENT_USER_ROLE || '')) {
     showToast('Anda tidak memiliki akses untuk tanda tangan', 'error');
     return;
@@ -3606,6 +3601,23 @@ function openSignatureModal(pengajuanId) {
   _sigHasStroke   = false;
 
   const targetItem = allData.find(it => (it.id || it.id_pengajuan) == pengajuanId);
+  if (targetItem) {
+    if (!targetItem.ttd_map) targetItem.ttd_map = {};
+    if (Object.keys(targetItem.ttd_map).length === 0) {
+      try {
+        const resTtd = await fetch(`../database/api-belanja.php?action=get_ttd&ids=${pengajuanId}&_t=${Date.now()}`);
+        const dataTtd = await resTtd.json();
+        if (dataTtd.success && Array.isArray(dataTtd.data)) {
+          dataTtd.data.forEach(t => {
+            targetItem.ttd_map[t.role_penanda] = t;
+          });
+        }
+      } catch (e) {
+        console.error('Gagal fetch TTD on-demand:', e);
+      }
+    }
+  }
+
   const existingTtd = (targetItem && targetItem.ttd_map)
     ? (targetItem.ttd_map.purchase || targetItem.ttd_map.admin)
     : null;
