@@ -429,25 +429,42 @@ function updateItemStatusInMemoryAndDOM(detailId, pengajuanId, statusLunas) {
 
     const card = document.getElementById(`menu-card-${targetPengajuan.id}`);
     if (card) {
-      const badges = card.querySelectorAll('.menu-card-subinfo .menu-stat-badge');
-      if (badges.length >= 2) {
-        badges[0].className = `menu-stat-badge ${unpaidCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-        badges[0].innerHTML = `
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 21 16z"></path>
-          </svg>
-          Item Belum Dibayar: <strong>${unpaidCount} item</strong>`;
-
-        badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-        badges[1].innerHTML = `
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          Total Belum Dibayar: <strong>${formatRupiah(totalUnpaid)}</strong>`;
-      }
+      updateMenuCardStatBadge(card, unpaidCount, totalUnpaid, detailItems.length);
     }
+  }
+}
+
+function getMenuStatusBadgeHtml(unpaidCount, totalUnpaid, totalItemsCount) {
+  if (totalItemsCount === 0) {
+    return `<span class="menu-stat-badge menu-stat-empty" title="Belum ada rincian barang">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      Belum ada barang
+    </span>`;
+  }
+  if (unpaidCount > 0) {
+    return `<span class="menu-stat-badge menu-stat-unpaid" title="${unpaidCount} item belum dibayar (Total: ${formatRupiah(totalUnpaid)})">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <strong>${unpaidCount} belum bayar</strong> (${formatRupiah(totalUnpaid)})
+    </span>`;
+  } else {
+    return `<span class="menu-stat-badge menu-stat-paid" title="Semua item telah dibayar lunas">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      Semua Lunas
+    </span>`;
+  }
+}
+
+function updateMenuCardStatBadge(card, unpaidCount, totalUnpaid, totalItemsCount) {
+  if (!card) return;
+  const subinfoEl = card.querySelector('.menu-card-subinfo');
+  if (subinfoEl) {
+    subinfoEl.innerHTML = getMenuStatusBadgeHtml(unpaidCount, totalUnpaid, totalItemsCount);
   }
 }
 
@@ -863,11 +880,6 @@ function renderTable() {
               </svg>
               ${formatDateFull(tanggal)}
             </div>
-            <div class="date-group-total">
-              <span>Total Hari:</span>
-              <strong>${formatRupiah(totalHari)}</strong>
-              <span class="date-group-count">(${items.length} menu)</span>
-            </div>
           </div>
           <div class="menu-group-list">
             ${items.map(item => {
@@ -890,7 +902,7 @@ function renderTable() {
                       <line x1="12" y1="1" x2="12" y2="23"/>
                       <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
                     </svg>
-                    ${uangMasuk > 0 ? 'Edit Uang Masuk' : '+ Uang Masuk'}
+                    ${uangMasuk > 0 ? 'Edit Saldo' : '+ Saldo'}
                   </button>
         ` : '';
 
@@ -943,58 +955,57 @@ function renderTable() {
                 <div class="menu-card ${isExpanded ? 'is-expanded' : ''}" id="menu-card-${item.id}">
                   <!-- Header menu: nama menu, porsi, status, tombol -->
                   <div class="menu-card-header" onclick="toggleMenuAccordion(event, ${item.id})">
-                    <div class="menu-card-meta">
-                      <div class="menu-card-title">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path d="M3 5h10l-1.2 7H4.2L3 5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-                          <path d="M6 5V4a2 2 0 0 1 4 0v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                        </svg>
-                        <strong>${escHtml(item.nama_menu)}</strong>
-                      </div>
-                      <div class="menu-card-info">
-                        <span class="menu-porsi">
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <circle cx="7" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
-                            <path d="M2 12c0-2.5 2.2-4 5-4s5 1.5 5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    <!-- Baris Atas: Nama Menu & Porsi di Kiri, Total & Toggle di Kanan -->
+                    <div class="menu-card-top-row">
+                      <div class="menu-card-heading">
+                        <div class="menu-card-title">
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M3 5h10l-1.2 7H4.2L3 5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                            <path d="M6 5V4a2 2 0 0 1 4 0v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
                           </svg>
-                          ${escHtml(item.jumlah_porsi || '-')} porsi
-                        </span>
-                        ${item.keterangan ? `
-                        <span class="menu-keterangan" style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info" style="vertical-align: middle;">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="16" x2="12" y2="12"></line>
-                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                          </svg>
-                          ${escHtml(item.keterangan)}
-                        </span>
-                        ` : ''}
-                      </div>
-
-                      <!-- Subinfo: Total Item Belum Dibayar & Total Uang Belum Dibayar -->
-                      <div class="menu-card-subinfo">
-                        <span class="menu-stat-badge ${unpaidItemsCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}" title="Jumlah item barang yang belum dibayar">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                          </svg>
-                          Item Belum Dibayar: <strong>${unpaidItemsCount} item</strong>
-                        </span>
-                        <span class="menu-stat-badge ${totalBelumDibayar > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}" title="Total nominal item yang belum dibayar">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="12" y1="8" x2="12" y2="12"></line>
-                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                          </svg>
-                          Total Belum Dibayar: <strong>${formatRupiah(totalBelumDibayar)}</strong>
-                        </span>
+                          <strong>${escHtml(item.nama_menu)}</strong>
+                        </div>
+                        <div class="menu-card-meta-chips">
+                          <span class="menu-porsi">
+                            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                              <circle cx="7" cy="5" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+                              <path d="M2 12c0-2.5 2.2-4 5-4s5 1.5 5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                            </svg>
+                            ${escHtml(item.jumlah_porsi || '-')} porsi
+                          </span>
+                          ${item.keterangan ? `
+                          <span class="menu-keterangan" title="${escHtml(item.keterangan)}">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-info">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="12" y1="16" x2="12" y2="12"></line>
+                              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            ${escHtml(item.keterangan)}
+                          </span>
+                          ` : ''}
+                        </div>
                       </div>
 
-                      ${(() => {
+                      <div class="menu-total-wrapper">
+                        <div class="menu-total">${formatRupiah(totalItem)}</div>
+                        <div class="accordion-toggle-btn" title="${isExpanded ? 'Tutup Detail' : 'Buka Detail'}">
+                          <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Baris Bawah: Status Lunas & Info Keuangan di Kiri, Tombol Aksi di Kanan -->
+                    <div class="menu-card-bottom-row">
+                      <div class="menu-card-status-wrap">
+                        <div class="menu-card-subinfo">
+                          ${getMenuStatusBadgeHtml(unpaidItemsCount, totalBelumDibayar, detailItems.length)}
+                        </div>
+                        ${(() => {
             const uangMasuk = parseFloat(item.uang_masuk) || 0;
             const biayaAdmin = parseFloat(item.biaya_admin) || 0;
 
-            // ✅ FIX: bukti_transfer sekarang bisa berisi LEBIH DARI 1 file
-            // (disimpan sebagai JSON array, sama seperti nota_urls).
             const buktiTFRaw = item.bukti_transfer || null;
             let buktiTFUrls = [];
             if (buktiTFRaw) {
@@ -1011,8 +1022,7 @@ function renderTable() {
             }
             buktiTFUrls = buktiTFUrls.filter(u => u);
 
-            // Baris 2: Saldo Masuk + Biaya Admin
-            let row2 = '';
+            let finHtml = '';
             if (uangMasuk) {
               const selisih = uangMasuk - totalItem;
               let selisihHtml = '';
@@ -1025,7 +1035,7 @@ function renderTable() {
               }
               const safeBuktiTFBadge = safeBtoa(item.bukti_transfer || '');
               if (USER_ROLE !== 'purchase_stok' && USER_ROLE !== 'purchase') {
-                row2 += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="event.stopPropagation(); openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Uang Masuk">
+                finHtml += `<span class="menu-saldo-masuk" style="cursor:pointer;" data-bukti="${safeBuktiTFBadge}" onclick="event.stopPropagation(); openInputSaldoModalFromBtn(this, ${item.id}, ${uangMasuk})" title="Klik untuk edit Saldo Masuk">
                                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                   <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
@@ -1033,7 +1043,7 @@ function renderTable() {
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:3px; opacity:0.75;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
                               </span>${selisihHtml}`;
               } else {
-                row2 += `<span class="menu-saldo-masuk">
+                finHtml += `<span class="menu-saldo-masuk">
                                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                   <path d="M6.5 1v11M3 4.5l3.5-3.5L10 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
@@ -1042,7 +1052,7 @@ function renderTable() {
               }
             }
             if (biayaAdmin) {
-              row2 += `<span class="menu-biaya-admin">
+              finHtml += `<span class="menu-biaya-admin">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1.5" y="3" width="10" height="7.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
                                 <path d="M1.5 5.5h10" stroke="currentColor" stroke-width="1.3"/>
@@ -1050,12 +1060,9 @@ function renderTable() {
                               Biaya Admin: <strong>${formatRupiah(biayaAdmin)}</strong>
                             </span>`;
             }
-
-            // Baris 3: Bukti TF
-            let row3 = '';
             if (buktiTFUrls.length > 0 && !isPurchase) {
               const safeBuktiTF = safeBtoa(buktiTFUrls);
-              row3 = `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="event.stopPropagation(); openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
+              finHtml += `<button class="btn-bukti-tf" data-bukti-tf="${safeBuktiTF}" onclick="event.stopPropagation(); openBuktiTFFromBtn(this)" title="Lihat ${buktiTFUrls.length} Bukti Transfer">
                               <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                                 <rect x="1" y="2" width="11" height="9" rx="1.2" stroke="currentColor" stroke-width="1.3"/>
                                 <path d="M1 9.5l3-3 2 2 1.5-1.5L12 9.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1064,21 +1071,8 @@ function renderTable() {
                               Bukti TF${buktiTFUrls.length > 1 ? ` (${buktiTFUrls.length})` : ''}
                             </button>`;
             }
-
-            let result = '';
-            if (row2) result += `<div class="menu-card-info menu-card-info-row2">${row2}</div>`;
-            if (row3) result += `<div class="menu-card-info menu-card-info-row3">${row3}</div>`;
-            return result;
+            return finHtml;
           })()}
-                    </div>
-                    <div class="menu-card-right">
-                      <div class="menu-total-wrapper">
-                        <div class="menu-total">${formatRupiah(totalItem)}</div>
-                        <div class="accordion-toggle-btn" title="${isExpanded ? 'Tutup Detail' : 'Buka Detail'}">
-                          <svg class="chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                          </svg>
-                        </div>
                       </div>
                       ${menuActionsHtml ? `<div class="menu-actions" onclick="event.stopPropagation()">${menuActionsHtml}</div>` : ''}
                     </div>
@@ -1275,24 +1269,7 @@ async function confirmLunas(detailId, statusLunas) {
 
         const card = document.getElementById(`menu-card-${targetPengajuan.id}`);
         if (card) {
-          const badges = card.querySelectorAll('.menu-card-subinfo .menu-stat-badge');
-          if (badges.length >= 2) {
-            badges[0].className = `menu-stat-badge ${unpaidCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-            badges[0].innerHTML = `
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-              </svg>
-              Item Belum Dibayar: <strong>${unpaidCount} item</strong>`;
-
-            badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-            badges[1].innerHTML = `
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              Total Belum Dibayar: <strong>${formatRupiah(totalUnpaid)}</strong>`;
-          }
+          updateMenuCardStatBadge(card, unpaidCount, totalUnpaid, detailItems.length);
         }
       }
 
@@ -2120,15 +2097,7 @@ async function saveSingleItem() {
             const totalUnpaid = unpaidItems.reduce((sum, b) =>
               sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
 
-            const badges = card.querySelectorAll('.menu-card-subinfo .menu-stat-badge');
-            if (badges.length >= 2) {
-              badges[0].className = `menu-stat-badge ${unpaidCount > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-              const str1 = badges[0].querySelector('strong');
-              if (str1) str1.textContent = `${unpaidCount} item`;
-              badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-              const str2 = badges[1].querySelector('strong');
-              if (str2) str2.textContent = formatRupiah(totalUnpaid);
-            }
+            updateMenuCardStatBadge(card, unpaidCount, totalUnpaid, dItems.length);
 
             const selisihEl = card.querySelector('.menu-selisih');
             const uangMasuk = parseFloat(menuObj.uang_masuk) || 0;
@@ -2257,25 +2226,7 @@ async function deleteSingleItem(detailId, pengajuanId) {
             const unpaid = dItems.filter(b => b.status_lunas !== 'lunas');
             const totalUnpaid = unpaid.reduce((sum, b) =>
               sum + (((b.qty || b.quantity || 0) * (b.harga || b.harga_satuan || 0)) + (parseFloat(b.biaya_admin) || 0)), 0);
-            const badges = card.querySelectorAll('.menu-stat-badge');
-            if (badges.length >= 2) {
-              badges[0].className = `menu-stat-badge ${unpaid.length > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-              badges[0].innerHTML = `
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <path d="M16 10a4 4 0 0 1-8 0"></path>
-                </svg>
-                Item Belum Dibayar: <strong>${unpaid.length} item</strong>`;
-              badges[1].className = `menu-stat-badge ${totalUnpaid > 0 ? 'menu-stat-unpaid' : 'menu-stat-paid'}`;
-              badges[1].innerHTML = `
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="8" x2="12" y2="12"></line>
-                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                Total Belum Dibayar: <strong>${formatRupiah(totalUnpaid)}</strong>`;
-            }
+            updateMenuCardStatBadge(card, unpaid.length, totalUnpaid, dItems.length);
 
             // Jika item habis
             if (dItems.length === 0) {
