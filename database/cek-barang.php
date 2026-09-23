@@ -58,7 +58,7 @@ if ($query && mysqli_num_rows($query) > 0) {
         // ✅ BARU: dipakai script.js untuk autofill & preview stok eceran
         'satuan'                 => $data['satuan'],
         'satuan_eceran'          => $data['satuan_eceran'],
-        'isi_per_satuan'         => $data['isi_per_satuan'],
+        'isi_per_satuan'         => ($data['isi_per_satuan'] !== null && (float)$data['isi_per_satuan'] > 0) ? (float)$data['isi_per_satuan'] : null,
         'tanggal_terupdate_baru' => $data['tanggal_terupdate_baru']
     ]);
 } else {

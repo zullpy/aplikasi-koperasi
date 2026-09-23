@@ -33,18 +33,18 @@ PARSER KETERANGAN → ambil jumlah isi kemasan
 function extractJumlahIsi(keterangan) {
     if (!keterangan) return 0;
     const lower = keterangan.toLowerCase().trim();
-    let match = lower.match(/isi\s(\d+)/);
-    if (match) return parseInt(match[1]) || 0;
-    match = lower.match(/(\d+)\s*(?:pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i);
-    if (match) return parseInt(match[1]) || 0;
+    let match = lower.match(/isi\s*[:=]?\s*([\d.,]+)/);
+    if (match) return parseFloat(match[1].replace(',', '.')) || 0;
+    match = lower.match(/([\d.,]+)\s*(?:pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus|kg|liter|ltr|sak|ball)/i);
+    if (match) return parseFloat(match[1].replace(',', '.')) || 0;
     return 0;
 }
 
-// ✅ BARU: deteksi satuan eceran (mis. "PCS", "BOTOL") dari teks kolom "Isi"
+// ✅ BARU: deteksi satuan eceran (mis. "PCS", "BOTOL", "KG") dari teks kolom "Isi"
 function extractSatuanEceran(keterangan) {
     if (!keterangan) return '';
     const lower = keterangan.toLowerCase().trim();
-    const match = lower.match(/\d+\s*(pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i);
+    const match = lower.match(/[\d.,]+\s*(pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus|kg|liter|ltr|sak|ball)/i);
     return match ? match[1].toUpperCase() : '';
 }
 
@@ -77,8 +77,8 @@ function hitungHargaEceran(idx) {
     if (!eceranInput) return;
 
     let jumlahIsi = ketInput ? extractJumlahIsi(ketInput.value) : 0;
-    if (jumlahIsi <= 0 && isiHiddenInput && parseInt(isiHiddenInput.value) > 0) {
-        jumlahIsi = parseInt(isiHiddenInput.value);
+    if (jumlahIsi <= 0 && isiHiddenInput && parseFloat(isiHiddenInput.value) > 0) {
+        jumlahIsi = parseFloat(isiHiddenInput.value);
     }
     const harga = parseInt(hargaRaw) || 0;
 
@@ -385,7 +385,7 @@ function pilihBarangInline(nama, idx) {
                 // ✅ BARU: autofill satuan eceran & isi per satuan (hidden) dari data barang yang sudah ada
                 const isiPerSatuanInputPilih = row.querySelector('.item-isi-per-satuan-input');
                 if (isiPerSatuanInputPilih && data.isi_per_satuan) {
-                    isiPerSatuanInputPilih.value = data.isi_per_satuan;
+                    isiPerSatuanInputPilih.value = parseFloat(data.isi_per_satuan) || '';
                 }
                 const satuanEceranInputPilih = row.querySelector('.item-satuan-eceran-input');
                 if (satuanEceranInputPilih && data.satuan_eceran && satuanEceranInputPilih.dataset.userEdited !== '1') {
@@ -394,10 +394,11 @@ function pilihBarangInline(nama, idx) {
 
                 // ✅ Auto-fill keterangan "Isi" jika belum terisi
                 const ketInput = row.querySelector('.item-ket-input');
-                if (ketInput && !ketInput.value && parseInt(data.isi_per_satuan) > 0) {
+                const isiNumeric = parseFloat(data.isi_per_satuan);
+                if (ketInput && !ketInput.value && isiNumeric > 0) {
                     const satEceran = data.satuan_eceran || 'PCS';
                     const satDus = data.satuan || 'DUS';
-                    ketInput.value = `ISI ${data.isi_per_satuan} ${satEceran} PER ${satDus}`;
+                    ketInput.value = `ISI ${isiNumeric} ${satEceran} PER ${satDus}`;
                 }
 
                 hitungHargaEceran(idx);

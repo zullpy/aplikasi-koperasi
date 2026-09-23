@@ -207,17 +207,20 @@ foreach ($nama_barang as $i => $barang_nama) {
     // ✅ Hitung harga jual per dus di server (deteksi otomatis dari kolom "Isi")
     $jumlah_isi = 0;
     $satuan_eceran_terdeteksi = null;
-    if (preg_match('/isi\s*(\d+)/i', $keterangan_item, $matches)) {
-        $jumlah_isi = (int) $matches[1];
-    } elseif (preg_match('/(\d+)\s*(pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus)/i', $keterangan_item, $matches)) {
-        $jumlah_isi = (int) $matches[1];
+    if (preg_match('/isi\s*[:=]?\s*([0-9.,]+)/i', $keterangan_item, $matches)) {
+        $jumlah_isi = (float) str_replace(',', '.', $matches[1]);
+    } elseif (preg_match('/([0-9.,]+)\s*(pcs|bungkus|pack|botol|sachet|batang|lembar|butir|biji|kotak|dus|kg|liter|ltr|sak|ball)/i', $keterangan_item, $matches)) {
+        $jumlah_isi = (float) str_replace(',', '.', $matches[1]);
         $satuan_eceran_terdeteksi = strtoupper($matches[2]);
     }
 
     // ✅ isi per satuan & satuan eceran — input manual diprioritaskan,
     // kalau kosong fallback ke hasil deteksi otomatis dari kolom "Isi".
-    $isi_manual_raw = preg_replace('/[^0-9]/', '', $isi_per_satuan_manual[$i] ?? '');
-    $isi_manual_item = ($isi_manual_raw === '') ? 0 : (int) $isi_manual_raw;
+    $raw_isi_manual = trim($isi_per_satuan_manual[$i] ?? '');
+    $raw_isi_manual = str_replace(',', '.', $raw_isi_manual);
+    // Pertahankan angka dan satu titik desimal, jangan hilangkan tanda titik
+    $raw_isi_manual = preg_replace('/[^0-9.]/', '', $raw_isi_manual);
+    $isi_manual_item = (is_numeric($raw_isi_manual) && (float)$raw_isi_manual > 0) ? (float) $raw_isi_manual : 0;
 
     // Jika kolom keterangan/Isi secara eksplisit diisi, gunakan nilainya; jika kosong, fallback 0
     $jumlah_isi_final = $isi_manual_item > 0 ? $isi_manual_item : $jumlah_isi;
@@ -250,7 +253,7 @@ foreach ($nama_barang as $i => $barang_nama) {
     $biaya_admin_esc       = (int) $biaya_admin_item;
 
     // Konversi grosir->eceran (jika diisi, gunakan angka; jika kosong, NULL untuk barang baru / pertahankan untuk barang lama)
-    $isi_per_satuan_sql = $jumlah_isi_final > 0 ? (int) $jumlah_isi_final : null;
+    $isi_per_satuan_sql = $jumlah_isi_final > 0 ? (float) $jumlah_isi_final : null;
     $satuan_eceran_esc  = ($satuan_eceran_final !== null && $satuan_eceran_final !== '')
         ? mysqli_real_escape_string($koneksi, $satuan_eceran_final)
         : null;
