@@ -24,6 +24,7 @@ require_once '../database/auth.php';
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="../manifest.json">
     <meta name="theme-color" content="#1e3a5f">
+    <script src="../assets/session-guard.js"></script>
 </head>
 
 <body>

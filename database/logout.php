@@ -26,5 +26,12 @@ if (ini_get("session.use_cookies")) {
 }
 session_destroy();
 
-header("Location: ../");
+if (isset($_GET['sync'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'logged_out']);
+    exit;
+}
+
+$reason = isset($_GET['reason']) ? '?reason=' . urlencode($_GET['reason']) : '';
+header("Location: ../index.php" . $reason);
 exit;

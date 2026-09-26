@@ -13,6 +13,7 @@ $isBendaharaOrKetua = in_array($userRole, ['bendahara', 'ketua']);
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="manifest" href="../manifest.json">
     <meta name="theme-color" content="#1e3a5f">
+    <script src="../assets/session-guard.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {

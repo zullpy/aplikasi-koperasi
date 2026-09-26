@@ -1,3 +1,8 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -47,7 +52,7 @@
     <div class="right">
         <img src="assets/logo.png" alt="Logo" class="mobile-logo">
         <h2>Login</h2>
-        <form action="database/process-login.php" method="post">
+        <form action="database/process-login.php" method="post" id="loginForm" onsubmit="sessionStorage.setItem('kopdes_session_active', '1'); sessionStorage.setItem('kopdes_last_activity', Date.now().toString());">
             <label>Username</label>
             <input type="text" name="username" id="input-identifier" required>
             <label>Password</label>
@@ -65,12 +70,40 @@
     </div>
 
 <script src="script.js"></script>
+<script>
+// =======================================================
+// AUTO LOGOUT & SESSION SYNC
+// =======================================================
+const urlParams = new URLSearchParams(window.location.search);
+
+// Tampilkan notifikasi jika sesi kedaluwarsa karena tidak ada aktivitas 30 menit
+if (urlParams.get('reason') === 'idle_timeout' || urlParams.get('error') === 'expired') {
+    Swal.fire({
+        icon: 'warning',
+        title: 'Sesi Berakhir',
+        text: 'Sesi Anda telah berakhir otomatis karena tidak ada aktivitas selama 30 menit. Silakan login kembali.',
+        customClass: { popup: 'myswal' },
+        confirmButtonColor: '#1e3a5f'
+    });
+}
+
+// Bersihkan sessionStorage saat berada di halaman login jika logout/reason ada
+if (urlParams.get('logout') !== null || urlParams.get('reason') !== null) {
+    sessionStorage.removeItem('kopdes_session_active');
+    sessionStorage.removeItem('kopdes_last_activity');
+}
+
+// Jika tab baru dibuka tanpa sessionStorage tetapi server masih punya sesi lama,
+// bersihkan sesi server secara diam-diam agar sinkron dengan status tab
+const hasServerSession = <?= isset($_SESSION['id']) ? 'true' : 'false' ?>;
+if (!sessionStorage.getItem('kopdes_session_active') && hasServerSession) {
+    fetch('database/logout.php?sync=1');
+}
+</script>
 </body>
 </html>
 
 <?php
-session_start();
-
 if(isset($_SESSION['error'])) {
 ?>
 <script>

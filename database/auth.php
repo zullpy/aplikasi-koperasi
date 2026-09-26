@@ -34,6 +34,30 @@ if (!isset($_SESSION['id'])) {
     exit;
 }
 
+// Timeout server: 30 menit (1800 detik) tanpa aktivitas
+$inactivityLimit = 1800;
+if (isset($_SESSION['last_activity_time']) && (time() - $_SESSION['last_activity_time'] > $inactivityLimit)) {
+    if (!isset($koneksi) || !($koneksi instanceof mysqli)) {
+        @require_once __DIR__ . '/koneksi.php';
+    }
+    if (isset($koneksi) && $koneksi instanceof mysqli && !$koneksi->connect_error) {
+        $userId = (int)$_SESSION['id'];
+        @$koneksi->query("UPDATE akun SET is_online = 0, last_activity = NOW() WHERE id = $userId");
+    }
+    $_SESSION = [];
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+    session_destroy();
+    header("Location: ../index.php?error=expired");
+    exit;
+}
+$_SESSION['last_activity_time'] = time();
+
 // Track waktu aktivitas terakhir akun (dithrottle tiap 20 detik agar performa tetap kencang)
 $currentTime = time();
 if (!isset($_SESSION['last_activity_update']) || ($currentTime - $_SESSION['last_activity_update']) >= 20) {
