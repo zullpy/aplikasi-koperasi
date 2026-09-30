@@ -79,10 +79,12 @@ if ($result) {
                     <i class="ph ph-magnifying-glass"></i>
                 </div>
             </div>
-            <!-- <button class="add-btn" onclick="openAddModal()">
+            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+            <button class="add-btn" onclick="openAddModal()">
                 <i class="ph ph-plus-circle"></i>
                 Tambah Barang Baru
-            </button> -->
+            </button>
+            <?php endif; ?>
         </div>
         <div class="table-wrapper">
             <table class="modern-table">
@@ -96,36 +98,38 @@ if ($result) {
                         <th>Harga Jual</th>
                         <th>Satuan</th>
                         <th>Nama Toko</th>
-                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                         <th>Aksi</th>
                         <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($barang_list as $row) :
-                        $keuntungan = (int)$row['harga_jual'] - (int)$row['harga_beli'];
+                        $harga_beli_val = (int)$row['harga_beli'];
+                        $harga_jual_val = (int)$row['harga_jual'] > 0 ? (int)$row['harga_jual'] : $harga_beli_val;
+                        $keuntungan = max(0, $harga_jual_val - $harga_beli_val);
                     ?>
                         <tr>
                             <td class="nama-barang"><?= !empty($row['nama_barang']) ? htmlspecialchars($row['nama_barang']) : '-' ?></td>
-                            <td><?= htmlspecialchars($row['kategori']) ?></td>
+                            <td><?= !empty($row['kategori']) ? htmlspecialchars($row['kategori']) : '-' ?></td>
                             <td>
-                                <div class="badge">Rp <?= number_format($row['harga_beli'], 0, ',', '.'); ?></div>
+                                <div class="badge">Rp <?= number_format($harga_beli_val, 0, ',', '.'); ?></div>
                                 <?php if ($row['harga_min'] != $row['harga_max']) : ?>
                                     <small style="display:block;color:#666;">
                                         Rp <?= number_format($row['harga_min'], 0, ',', '.') ?> - Rp <?= number_format($row['harga_max'], 0, ',', '.') ?>
                                     </small>
                                 <?php endif; ?>
                             </td>
-                            <td><span><?= date('d-m-Y', strtotime($row['tanggal_terupdate_baru'])); ?></span></td>
+                            <td><span><?= !empty($row['tanggal_terupdate_baru']) ? date('d-m-Y', strtotime($row['tanggal_terupdate_baru'])) : '-' ?></span></td>
                             <td>
                                 <span class="badge badge-keuntungan">
                                     + Rp <?= number_format($keuntungan, 0, ',', '.'); ?>
                                 </span>
                             </td>
-                            <td><span class="badge badge-jual">Rp <?= number_format($row['harga_jual'], 0, ',', '.'); ?></span></td>
+                            <td><span class="badge badge-jual">Rp <?= number_format($harga_jual_val, 0, ',', '.'); ?></span></td>
                             <td class="satuan"><?= !empty($row['satuan']) ? htmlspecialchars($row['satuan']) : '-' ?></td>
                             <td class="suplier"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></td>
-                            <?php if ($_SESSION['role'] === 'admin'): ?>
+                            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                             <td>
                                 <div class="action-buttons">
                                     <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
@@ -141,7 +145,9 @@ if ($result) {
         </div>
         <div class="mobile-card">
             <?php foreach ($barang_list as $row) :
-                $keuntungan = (int)$row['harga_jual'] - (int)$row['harga_beli'];
+                $harga_beli_val = (int)$row['harga_beli'];
+                $harga_jual_val = (int)$row['harga_jual'] > 0 ? (int)$row['harga_jual'] : $harga_beli_val;
+                $keuntungan = max(0, $harga_jual_val - $harga_beli_val);
             ?>
                 <details class="barang-card">
                     <summary>
@@ -158,7 +164,7 @@ if ($result) {
                                 </div>
                             </div>
                             <div class="barang-price-section">
-                                <span class="barang-price">Rp <?= number_format($row['harga_jual'], 0, ',', '.'); ?></span>
+                                <span class="barang-price">Rp <?= number_format($harga_jual_val, 0, ',', '.'); ?></span>
                                 <span class="barang-price-label">Harga Jual</span>
                             </div>
                         </div>
@@ -167,7 +173,7 @@ if ($result) {
                     <div class="barang-card-details">
                         <div class="detail-row">
                             <span class="detail-row-label">Harga Beli</span>
-                            <span class="detail-row-value price-buy">Rp <?= number_format($row['harga_beli'], 0, ',', '.'); ?></span>
+                            <span class="detail-row-value price-buy">Rp <?= number_format($harga_beli_val, 0, ',', '.'); ?></span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-row-label">Keuntungan</span>
@@ -179,13 +185,13 @@ if ($result) {
                         </div>
                         <div class="detail-row">
                             <span class="detail-row-label">Tanggal Terupdate</span>
-                            <span class="detail-row-value"><?= date('d-m-Y', strtotime($row['tanggal_terupdate_baru'])); ?></span>
+                            <span class="detail-row-value"><?= !empty($row['tanggal_terupdate_baru']) ? date('d-m-Y', strtotime($row['tanggal_terupdate_baru'])) : '-' ?></span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-row-label">Nama Toko</span>
                             <span class="detail-row-value"><?= !empty($row['suplier']) ? htmlspecialchars($row['suplier']) : '-' ?></span>
                         </div>
-                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                         <div class="mobile-actions">
                             <button class="edit-btn" data-id="<?= $row['id_barang'] ?>">
                                 <i class="ph ph-pencil-simple"></i> Edit

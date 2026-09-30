@@ -48,6 +48,9 @@ if (isset($_POST['id_barang'])) {
         WHERE id_barang = '$id_barang'";
 
     if (mysqli_query($koneksi, $query)) {
+        require_once __DIR__ . '/sync-barang-helper.php';
+        syncBarangFromDaftarHarga($koneksi, $id_barang, $nama_barang, $harga_beli, $satuan, $tanggal);
+
         $_SESSION['alert'] = [
             'icon'  => 'success',
             'title' => 'Berhasil',

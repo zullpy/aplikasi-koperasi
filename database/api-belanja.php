@@ -28,6 +28,7 @@ if (!isset($_SESSION['id'])) {
 }
 
 require_once 'koneksi.php';
+require_once __DIR__ . '/sync-barang-helper.php';
 
 $action = $_REQUEST['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -298,10 +299,17 @@ try {
             echo json_encode(['success' => true, 'data' => array_values($pengajuanRows)]);
             exit;
 
-            // ─── LIST BARANG: Ambil estimasi harga ────────────────────────────
+        // ─── LIST BARANG: Ambil master barang (terintegrasi Daftar Harga Barang) ──
         case 'list_barang':
-            // Pastikan index idx_nama_barang ada secara aman (tanpa pernah membuat list_barang error)
+            // Pastikan index idx_nama_barang ada secara aman
             if (empty($_SESSION['db_idx_checked'])) {
+                try {
+                    $chkB = $koneksi->query("SHOW INDEX FROM barang WHERE Key_name = 'idx_nama_barang'");
+                    if ($chkB && $chkB->num_rows === 0) {
+                        $koneksi->query("ALTER TABLE barang ADD INDEX idx_nama_barang (nama_barang)");
+                    }
+                } catch (Throwable $t) {}
+
                 try {
                     $chkE = $koneksi->query("SHOW INDEX FROM estimasi_harga WHERE Key_name = 'idx_nama_barang'");
                     if ($chkE && $chkE->num_rows === 0) {
@@ -309,50 +317,18 @@ try {
                     }
                 } catch (Throwable $t) {}
 
-                try {
-                    $chkB = $koneksi->query("SHOW INDEX FROM barang WHERE Key_name = 'idx_nama_barang'");
-                    if ($chkB && $chkB->num_rows === 0) {
-                        // nama_barang di tabel barang adalah varchar(41), jangan pakai prefix > 41
-                        $koneksi->query("ALTER TABLE barang ADD INDEX idx_nama_barang (nama_barang)");
-                    }
-                } catch (Throwable $t) {}
-
                 $_SESSION['db_idx_checked'] = true;
             }
 
-            // ✅ Auto-sync cepat: Hanya jalankan jika ada barang baru di `barang` yang belum ada di `estimasi_harga`
-            try {
-                $checkNew = $koneksi->query("
-                    SELECT b.id_barang 
-                    FROM barang b 
-                    WHERE b.nama_barang IS NOT NULL 
-                      AND TRIM(b.nama_barang) != '' 
-                      AND NOT EXISTS (
-                          SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
-                      )
-                    LIMIT 1
-                ");
-                if ($checkNew && $checkNew->num_rows > 0) {
-                    $koneksi->query("
-                        INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate)
-                        SELECT 
-                            TRIM(b.nama_barang),
-                            b.harga_beli,
-                            COALESCE(NULLIF(TRIM(b.satuan), ''), 'Pcs'),
-                            COALESCE(b.tanggal_terupdate_baru, CURDATE())
-                        FROM barang b
-                        WHERE b.nama_barang IS NOT NULL 
-                          AND TRIM(b.nama_barang) != '' 
-                          AND NOT EXISTS (
-                              SELECT 1 FROM estimasi_harga e WHERE e.nama_barang = TRIM(b.nama_barang)
-                          )
-                    ");
-                }
-            } catch (Throwable $t) {}
-
             $res = $koneksi->query("
-                SELECT id AS id_barang, nama_barang, harga_beli, satuan, tanggal_terupdate
-                FROM estimasi_harga
+                SELECT 
+                    id_barang, 
+                    nama_barang, 
+                    harga_beli, 
+                    satuan, 
+                    COALESCE(tanggal_terupdate_baru, CURDATE()) AS tanggal_terupdate
+                FROM barang
+                WHERE nama_barang IS NOT NULL AND TRIM(nama_barang) != ''
                 ORDER BY nama_barang ASC
             ");
             $data = [];
@@ -521,11 +497,14 @@ try {
                     $qty = floatval($it['qty'] ?? 0);
                     $biayaAdminItem = floatval($it['biaya_admin'] ?? 0);
                     $subtotal = (floatval($it['harga']) * $qty) + $biayaAdminItem;
-                    $idBarang = !empty($it['id_barang']) ? intval($it['id_barang']) : null;
-                    $namaBarang = $it['nama_barang'] ?? '';
-                    $satuan = $it['satuan'] ?? '';
+                    $namaBarang = trim($it['nama_barang'] ?? '');
+                    $satuan = trim($it['satuan'] ?? '');
                     $harga = floatval($it['harga'] ?? 0);
                     $idDetail = !empty($it['id_detail']) ? intval($it['id_detail']) : null;
+
+                    // Sinkronkan ke Daftar Harga Barang (tabel barang, riwayat_harga, estimasi_harga)
+                    $realIdBarang = syncBarangDompetHarian($koneksi, $namaBarang, $harga, $satuan, $tanggal);
+                    $idBarang = $realIdBarang ?: (!empty($it['id_barang']) ? intval($it['id_barang']) : null);
 
                     if ($idDetail && $idPengajuan) {
                         // Baris lama → UPDATE di tempat (id tetap sama, link nota tetap utuh)
@@ -589,46 +568,6 @@ try {
                 }
 
                 $koneksi->commit();
-
-                // ─── Sync estimasi_harga ──────────────────────────────────────
-                foreach ($items as $it) {
-                    $namaBarang = trim($it['nama_barang'] ?? '');
-                    $hargaBeli  = floatval($it['harga'] ?? 0);
-                    $satuan     = trim($it['satuan'] ?? '');
-                    if (!$namaBarang || !$hargaBeli) continue;
-
-                    $stmtCek = $koneksi->prepare(
-                        "SELECT id FROM estimasi_harga WHERE LOWER(TRIM(nama_barang)) = LOWER(TRIM(?)) LIMIT 1"
-                    );
-                    if ($stmtCek) {
-                        $stmtCek->bind_param('s', $namaBarang);
-                        $stmtCek->execute();
-                        $resCek = $stmtCek->get_result();
-                        $rowCek = $resCek->fetch_assoc();
-                        $stmtCek->close();
-
-                        if ($rowCek) {
-                            $stmtUpd = $koneksi->prepare(
-                                "UPDATE estimasi_harga SET harga_beli = ?, satuan = ?, tanggal_terupdate = CURDATE() WHERE id = ?"
-                            );
-                            if ($stmtUpd) {
-                                $stmtUpd->bind_param('dsi', $hargaBeli, $satuan, $rowCek['id']);
-                                $stmtUpd->execute();
-                                $stmtUpd->close();
-                            }
-                        } else {
-                            $stmtIns = $koneksi->prepare(
-                                "INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate) VALUES (?, ?, ?, CURDATE())"
-                            );
-                            if ($stmtIns) {
-                                $stmtIns->bind_param('sds', $namaBarang, $hargaBeli, $satuan);
-                                $stmtIns->execute();
-                                $stmtIns->close();
-                            }
-                        }
-                    }
-                }
-                // ─────────────────────────────────────────────────────────────
 
                 echo json_encode([
                     'success' => true,
@@ -720,6 +659,16 @@ try {
                 throw new Exception('Pengajuan ID dan nama barang wajib diisi');
             }
 
+            $resTgl = $koneksi->query("SELECT tanggal FROM pengajuan_belanja WHERE id = " . intval($idPengajuan));
+            $rowTgl = $resTgl ? $resTgl->fetch_assoc() : null;
+            $tglPengajuan = $rowTgl ? $rowTgl['tanggal'] : date('Y-m-d');
+
+            // Sinkronkan ke Daftar Harga Barang
+            $realIdBarang = syncBarangDompetHarian($koneksi, $namaBarang, $harga, $satuan, $tglPengajuan);
+            if ($realIdBarang) {
+                $idBarang = $realIdBarang;
+            }
+
             $subtotal = ($harga * $qty) + $biayaAdminItem;
 
             $koneksi->begin_transaction();
@@ -750,43 +699,6 @@ try {
                     if (!$stmt->execute()) throw new Exception('Execute INSERT detail error: ' . $stmt->error);
                     $targetDetailId = $koneksi->insert_id;
                     $stmt->close();
-                }
-
-                if (!empty($namaBarang)) {
-                    if ($idBarang) {
-                        $stmtUp = $koneksi->prepare("UPDATE estimasi_harga SET harga_beli = ?, satuan = ?, tanggal_terupdate = NOW() WHERE id = ?");
-                        if ($stmtUp) {
-                            $stmtUp->bind_param('dsi', $harga, $satuan, $idBarang);
-                            $stmtUp->execute();
-                            $stmtUp->close();
-                        }
-                    } else {
-                        $chkE = $koneksi->prepare("SELECT id FROM estimasi_harga WHERE nama_barang = ? LIMIT 1");
-                        if ($chkE) {
-                            $chkE->bind_param('s', $namaBarang);
-                            $chkE->execute();
-                            $resE = $chkE->get_result();
-                            if ($resE && $resE->num_rows > 0) {
-                                $eRow = $resE->fetch_assoc();
-                                $eId = intval($eRow['id']);
-                                $chkE->close();
-                                $stmtUp = $koneksi->prepare("UPDATE estimasi_harga SET harga_beli = ?, satuan = ?, tanggal_terupdate = NOW() WHERE id = ?");
-                                if ($stmtUp) {
-                                    $stmtUp->bind_param('dsi', $harga, $satuan, $eId);
-                                    $stmtUp->execute();
-                                    $stmtUp->close();
-                                }
-                            } else {
-                                $chkE->close();
-                                $stmtIns = $koneksi->prepare("INSERT INTO estimasi_harga (nama_barang, harga_beli, satuan, tanggal_terupdate) VALUES (?, ?, ?, NOW())");
-                                if ($stmtIns) {
-                                    $stmtIns->bind_param('sds', $namaBarang, $harga, $satuan);
-                                    $stmtIns->execute();
-                                    $stmtIns->close();
-                                }
-                            }
-                        }
-                    }
                 }
 
                 $resSums = $koneksi->query("SELECT COALESCE(SUM((qty * harga) + biaya_admin), 0) AS total_belanja, COALESCE(SUM(biaya_admin), 0) AS biaya_admin FROM detail_item_belanja WHERE pengajuan_id = $idPengajuan");
@@ -1089,18 +1001,14 @@ try {
                             $stmtMutasi->execute();
                             $stmtMutasi->close();
                         } else {
-                            $insertBarangQuery = "
-                                INSERT INTO barang (
-                                    nama_barang, stok_akhir, harga_beli, satuan, tanggal_terupdate_baru
-                                ) VALUES (
-                                    ?, ?, ?, ?, ?
-                                )
-                            ";
-                            $stmtInsBarang = $koneksi->prepare($insertBarangQuery);
-                            $stmtInsBarang->bind_param("sddss", $namaBarang, $qty, $harga, $satuan, $tanggal);
-                            $stmtInsBarang->execute();
-                            $idBarang = $stmtInsBarang->insert_id;
-                            $stmtInsBarang->close();
+                            $realId = syncBarangDompetHarian($koneksi, $namaBarang, $harga, $satuan, $tanggal);
+                            $idBarang = $realId;
+                            if ($idBarang) {
+                                $stmtUpdStok = $koneksi->prepare("UPDATE barang SET stok_akhir = ? WHERE id_barang = ?");
+                                $stmtUpdStok->bind_param("di", $qty, $idBarang);
+                                $stmtUpdStok->execute();
+                                $stmtUpdStok->close();
+                            }
 
                             $ket_mutasi = 'Belanja Harian (Barang Baru)';
                             $stmtMutasi = $koneksi->prepare("

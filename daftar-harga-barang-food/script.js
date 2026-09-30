@@ -124,15 +124,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
 
                             // Keuntungan = harga_jual - harga_beli
-                            const keuntungan = (parseInt(data.harga_jual) || 0) - (parseInt(data.harga_beli) || 0);
+                            const hb = parseInt(data.harga_beli) || 0;
+                            const hj = parseInt(data.harga_jual) > 0 ? parseInt(data.harga_jual) : hb;
+                            const keuntungan = Math.max(0, hj - hb);
                             if (keuntungan > 0) {
                                 document.getElementById('keuntungan').value = formatNumber(keuntungan);
                             } else {
                                 document.getElementById('keuntungan').value = '';
                             }
 
-                            if (data.harga_jual) {
-                                document.getElementById('harga_jual').value = formatNumber(data.harga_jual);
+                            if (hj > 0) {
+                                document.getElementById('harga_jual').value = formatNumber(hj);
                             } else {
                                 document.getElementById('harga_jual').value = '';
                             }
